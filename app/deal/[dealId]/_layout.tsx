@@ -1,0 +1,21 @@
+import { Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+
+import { useColorScheme } from '@/components/useColorScheme';
+import { palette } from '@/constants/tokens';
+import { stackHeaderOptions } from '@/src/lib/navigation-theme';
+
+export default function DealStackLayout() {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  return (
+    <Stack screenOptions={stackHeaderOptions(theme, t)}>
+      <Stack.Screen name="index" options={{ title: t('stacks.deal') }} />
+      <Stack.Screen name="packet" options={{ title: t('stacks.packet') }} />
+      <Stack.Screen name="delivery" options={{ title: t('stacks.delivery') }} />
+      <Stack.Screen name="verification" options={{ title: t('stacks.verification') }} />
+    </Stack>
+  );
+}

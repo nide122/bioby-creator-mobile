@@ -1,0 +1,25 @@
+import en from '@/src/i18n/locales/en.json';
+import zh from '@/src/i18n/locales/zh.json';
+
+function flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
+  return Object.entries(obj).flatMap(([key, value]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return flattenKeys(value as Record<string, unknown>, path);
+    }
+    return [path];
+  });
+}
+
+describe('i18n locales', () => {
+  it('keeps en and zh translation keys in sync', () => {
+    const enKeys = new Set(flattenKeys(en as Record<string, unknown>));
+    const zhKeys = new Set(flattenKeys(zh as Record<string, unknown>));
+
+    const missingInZh = [...enKeys].filter((k) => !zhKeys.has(k));
+    const missingInEn = [...zhKeys].filter((k) => !enKeys.has(k));
+
+    expect(missingInZh).toEqual([]);
+    expect(missingInEn).toEqual([]);
+  });
+});
