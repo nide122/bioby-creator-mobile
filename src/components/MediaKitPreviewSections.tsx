@@ -8,7 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { Badge, HubListRow, HubMetric, HubMetrics, SectionCard } from '@/components/product';
-import { PlatformIcon } from '@/components/PlatformIcon';
+import { PlatformIcon } from '@/src/components/PlatformIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { platformFromServiceLabel } from '@/src/lib/platform-icon-key';

@@ -31,7 +31,7 @@ import {
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
-import { PlatformIcon } from '@/components/PlatformIcon';
+import { PlatformIcon } from '@/src/components/PlatformIcon';
 import {
   CONTENT_FORMAT_KEYS,
   createPlatformRateId,
