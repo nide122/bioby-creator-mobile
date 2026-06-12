@@ -200,7 +200,7 @@ export default function ProfileSettingsScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => assetsNav.openMediaKit()}
+          onPress={() => assetsNav.openMediaKitPublic()}
           android_ripple={{ color: `${theme.primary}18` }}
           style={({ pressed }) => [
             styles.secondaryLink,

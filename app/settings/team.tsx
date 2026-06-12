@@ -16,11 +16,16 @@ import {
   useTeamMembers,
   useTeamRoles,
 } from '@/src/hooks/use-account-settings';
-import type { InvitableTeamRole, TeamMember } from '@/src/types/domain';
+import type { InvitableTeamRole, TeamMember, TeamRoleCard, TeamRoleId } from '@/src/types/domain';
 import { alertAction } from '@/src/lib/app-dialog';
+import { localizeMemberRole, localizeTeamRoles } from '@/src/lib/team-role-i18n';
 import { useSessionStore } from '@/src/stores/session-store';
 
 const INVITABLE_ROLES: InvitableTeamRole[] = ['AGENT', 'FINANCE', 'VIEWER'];
+
+function invitableRoleId(role: InvitableTeamRole): TeamRoleId {
+  return role.toLowerCase() as TeamRoleId;
+}
 
 export default function SettingsTeamScreen() {
   const { t } = useTranslation();
@@ -70,6 +75,8 @@ export default function SettingsTeamScreen() {
   }
 
   const memberList = members.data ?? [];
+  const localizedTeamRoles = useMemo(() => localizeTeamRoles(team.data, t), [team.data, t]);
+  const selectedRoleCard = localizedTeamRoles.find((role) => role.id === invitableRoleId(inviteRole));
 
   const onInvite = () => {
     if (!canManageMembers) return;
@@ -128,7 +135,10 @@ export default function SettingsTeamScreen() {
                     {member.displayName || member.email}
                   </Text>
                   <Text style={[styles.lead, { color: theme.mutedForeground }]}>
-                    {t('teamSettingsScreen.memberMeta', { email: member.email, role: member.role })}
+                    {t('teamSettingsScreen.memberMeta', {
+                      email: member.email,
+                      role: localizeMemberRole(member.role, t),
+                    })}
                   </Text>
                 </View>
                 {member.status === 'INVITED' ? (
@@ -197,6 +207,11 @@ export default function SettingsTeamScreen() {
               );
             })}
           </View>
+          {selectedRoleCard ? (
+            <View style={styles.rolePreview}>
+              <RoleDescriptionCard role={selectedRoleCard} />
+            </View>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             disabled={!inviteEmail.trim() || inviteMutation.isPending}
@@ -218,19 +233,13 @@ export default function SettingsTeamScreen() {
         </SectionCard>
       ) : null}
 
-      {team.data.map((role) => (
-        <SectionCard key={role.id} title={role.title}>
-          <Text style={[styles.summary, { color: theme.foreground }]}>{role.summary}</Text>
-          <View style={styles.roleBadges}>
-            <Badge tone="mint" label={t('teamSettingsScreen.allowedCount', { count: role.allowed.length })} />
-            <Badge tone="warning" label={t('teamSettingsScreen.deniedCount', { count: role.denied.length })} />
-          </View>
-          <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-            <PermissionList label={t('teamSettingsScreen.permissionAllowed')} values={role.allowed} tone="mint" />
-            <PermissionList label={t('teamSettingsScreen.permissionDenied')} values={role.denied} tone="warning" />
-          </View>
-        </SectionCard>
-      ))}
+      {!canManageMembers
+        ? localizedTeamRoles.map((role) => (
+            <SectionCard key={role.id} title={role.title}>
+              <RoleDescriptionCard role={role} />
+            </SectionCard>
+          ))
+        : null}
 
       <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('teamSettingsScreen.footnote')}</Text>
     </HubScreen>
@@ -258,6 +267,26 @@ function inviteErrorMessage(err: unknown, t: (key: string) => string): string {
     return t('teamSettingsScreen.inviteAlreadyMember');
   }
   return t('teamSettingsScreen.inviteFailedFallback');
+}
+
+function RoleDescriptionCard({ role }: { role: TeamRoleCard }) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  return (
+    <>
+      <Text style={[styles.summary, { color: theme.foreground }]}>{role.summary}</Text>
+      <View style={styles.roleBadges}>
+        <Badge tone="mint" label={t('teamSettingsScreen.allowedCount', { count: role.allowed.length })} />
+        <Badge tone="warning" label={t('teamSettingsScreen.deniedCount', { count: role.denied.length })} />
+      </View>
+      <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+        <PermissionList label={t('teamSettingsScreen.permissionAllowed')} values={role.allowed} tone="mint" />
+        <PermissionList label={t('teamSettingsScreen.permissionDenied')} values={role.denied} tone="warning" />
+      </View>
+    </>
+  );
 }
 
 function PermissionList({
@@ -317,6 +346,7 @@ const styles = StyleSheet.create({
   assignmentTitle: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
   memberActions: { gap: spacing.sm, alignItems: 'flex-end' },
   fieldLabel: { fontSize: fontSize.caption, marginTop: spacing.md, marginBottom: spacing.xs },
+  rolePreview: { marginTop: spacing.sm },
   roleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   roleChip: {
     borderWidth: 1,

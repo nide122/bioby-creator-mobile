@@ -1,4 +1,4 @@
-import { buildMediaKitPreview, mediaKitRatesSyncedFromPackages, mergeMediaKitCases, slugifyDisplayName } from '@/src/lib/media-kit-preview';
+import { buildMediaKitPreview, mediaKitRatesSyncedFromPackages, mergeMediaKitCases, normalizeStartingPrice, slugifyDisplayName } from '@/src/lib/media-kit-preview';
 import { trustMetricToPublicProofItem } from '@/src/lib/public-proof';
 import type { BattleReportSummary, MediaKitDocument, TrustMetricCard } from '@/src/types/domain';
 
@@ -125,6 +125,27 @@ describe('media-kit-preview', () => {
         inviteCta: 'Email with brief and budget.',
         platformRates: [
           { id: 'r1', platform: 'Instagram', formatKey: 'reel', priceLabel: '$2,500' },
+        ],
+      },
+      t,
+    });
+
+    expect(preview.rateSummaries?.[0].startingPrice).toBe('$2,500起');
+  });
+
+  it('normalizes legacy Chinese prefix prices from backend', () => {
+    expect(normalizeStartingPrice('起 $2,500')).toBe('$2,500起');
+    expect(normalizeStartingPrice('$2,500起')).toBe('$2,500起');
+  });
+
+  it('reformats stored rate summaries that already include legacy prefix', () => {
+    const t = ((key: string) => (key === 'mediaKitShare.quoteOnRequest' ? '面议' : key)) as never;
+    const preview = buildMediaKitPreview({
+      document: {
+        contactEmail: 'partnerships@example.com',
+        inviteCta: 'Email with brief and budget.',
+        rateSummaries: [
+          { id: 'r1', title: 'Reel', startingPrice: '起 $2,500', description: 'Includes usage' },
         ],
       },
       t,

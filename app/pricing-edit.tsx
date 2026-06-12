@@ -11,15 +11,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import {
+  Badge,
   getTextInputProps,
   getTextInputStyle,
   HubScreen,
   QueryRetryCard,
-  SectionCard,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -91,6 +92,7 @@ export default function PricingEditScreen() {
   const rateCardQuery = useRateCardPackages();
   const saveMutation = useUpsertRateCardPackages();
   const [packages, setPackages] = useState<RateCardPackage[]>([]);
+  const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
@@ -172,109 +174,34 @@ export default function PricingEditScreen() {
           scrollBottomInset={scrollBottomInset}>
           <View style={{ gap: spacing.md }}>
             {packages.map((pkg, index) => (
-              <SectionCard
+              <PackageEditCard
                 key={pkg.id}
-                title={pkg.name.trim() || t('pricingEditScreen.packageFallbackTitle', { index: index + 1 })}
-                subtitle={pkg.priceLabel.trim() || t('pricingEditScreen.packageFallbackSubtitle')}>
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelName')} />
-                <TextInput
-                  value={pkg.name}
-                  onChangeText={(value) => updatePackage(index, { name: value })}
-                  placeholder={t('pricingEditScreen.placeholderName')}
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelTagline')} />
-                <TextInput
-                  value={pkg.tagline}
-                  onChangeText={(value) => updatePackage(index, { tagline: value })}
-                  placeholder={t('pricingEditScreen.placeholderTagline')}
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelPrice')} />
-                <TextInput
-                  value={pkg.priceLabel}
-                  onChangeText={(value) => updatePackage(index, { priceLabel: value })}
-                  placeholder={t('pricingEditScreen.placeholderPrice')}
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelDeliverables')} />
-                <TextInput
-                  value={deliverablesToText(pkg.deliverables)}
-                  onChangeText={(value) => updatePackage(index, { deliverables: textToDeliverables(value) })}
-                  placeholder={t('pricingEditScreen.placeholderDeliverables')}
-                  multiline
-                  {...getTextInputProps(theme)}
-                  style={[getTextInputStyle(theme), styles.multiline]}
-                />
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelRevisionRounds')} />
-                <TextInput
-                  value={pkg.revisionRounds}
-                  onChangeText={(value) => updatePackage(index, { revisionRounds: value })}
-                  placeholder={t('pricingEditScreen.placeholderRevisionRounds')}
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelUsageRights')} />
-                <TextInput
-                  value={pkg.usageRights}
-                  onChangeText={(value) => updatePackage(index, { usageRights: value })}
-                  placeholder={t('pricingEditScreen.placeholderUsageRights')}
-                  multiline
-                  {...getTextInputProps(theme)}
-                  style={[getTextInputStyle(theme), styles.multiline]}
-                />
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelPrepay')} />
-                <TextInput
-                  value={pkg.prepayLabel}
-                  onChangeText={(value) => updatePackage(index, { prepayLabel: value })}
-                  placeholder={t('pricingEditScreen.placeholderPrepay')}
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <FieldLabel theme={theme} label={t('pricingEditScreen.labelAddOnHint')} />
-                <TextInput
-                  value={pkg.addOnHint}
-                  onChangeText={(value) => updatePackage(index, { addOnHint: value })}
-                  placeholder={t('pricingEditScreen.placeholderAddOnHint')}
-                  multiline
-                  {...getTextInputProps(theme)}
-                  style={[getTextInputStyle(theme), styles.multiline]}
-                />
-                <View style={styles.toggleRow}>
-                  <View style={{ flex: 1, gap: spacing.xs }}>
-                    <Text style={[styles.toggleLabel, { color: theme.foreground }]}>
-                      {t('pricingEditScreen.labelRecommended')}
-                    </Text>
-                    <Text style={[styles.toggleHint, { color: theme.mutedForeground }]}>
-                      {t('pricingEditScreen.recommendedHint')}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={pkg.recommended === true}
-                    onValueChange={(value) => setRecommended(index, value)}
-                    trackColor={{ true: theme.primary }}
-                  />
-                </View>
-                {packages.length > 1 ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setPackages(packages.filter((_, rowIndex) => rowIndex !== index))}
-                    style={styles.removeRow}>
-                    <Text style={{ color: theme.mutedForeground, fontSize: fontSize.caption }}>
-                      {t('pricingEditScreen.removePackage')}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </SectionCard>
+                index={index}
+                pkg={pkg}
+                expanded={expandedPackageId === pkg.id}
+                canRemove={packages.length > 1}
+                theme={theme}
+                onToggle={() =>
+                  setExpandedPackageId((current) => (current === pkg.id ? null : pkg.id))
+                }
+                onUpdate={(patch) => updatePackage(index, patch)}
+                onSetRecommended={(enabled) => setRecommended(index, enabled)}
+                onRemove={() => {
+                  setPackages(packages.filter((_, rowIndex) => rowIndex !== index));
+                  setExpandedPackageId((current) => (current === pkg.id ? null : current));
+                }}
+                t={t}
+              />
             ))}
           </View>
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => setPackages([...packages, createEmptyPackage()])}
+            onPress={() => {
+              const nextPackage = createEmptyPackage();
+              setPackages([...packages, nextPackage]);
+              setExpandedPackageId(nextPackage.id);
+            }}
             style={[styles.addButton, { borderColor: theme.border }]}>
             <Text style={[styles.addLabel, { color: theme.foreground }]}>{t('pricingEditScreen.addPackage')}</Text>
           </Pressable>
@@ -310,9 +237,280 @@ function FieldLabel({ label, theme }: { label: string; theme: (typeof palette)['
   return <Text style={[styles.label, { color: theme.foregroundEyebrow }]}>{label}</Text>;
 }
 
+type PackageEditCardProps = {
+  index: number;
+  pkg: RateCardPackage;
+  expanded: boolean;
+  canRemove: boolean;
+  theme: (typeof palette)['light'];
+  onToggle: () => void;
+  onUpdate: (patch: Partial<RateCardPackage>) => void;
+  onSetRecommended: (enabled: boolean) => void;
+  onRemove: () => void;
+  t: ReturnType<typeof useTranslation>['t'];
+};
+
+function PackageEditCard({
+  index,
+  pkg,
+  expanded,
+  canRemove,
+  theme,
+  onToggle,
+  onUpdate,
+  onSetRecommended,
+  onRemove,
+  t,
+}: PackageEditCardProps) {
+  const title = pkg.name.trim() || t('pricingEditScreen.packageFallbackTitle', { index: index + 1 });
+  const priceLabel = pkg.priceLabel.trim();
+  const tagline = pkg.tagline.trim();
+  const priceLine = [priceLabel, tagline].filter(Boolean).join(' · ');
+  const headerSubtitle =
+    expanded || !priceLine
+      ? priceLabel || t('pricingEditScreen.packageFallbackSubtitle')
+      : priceLine;
+
+  return (
+    <View
+      style={[
+        styles.packageCard,
+        {
+          backgroundColor: pkg.recommended ? theme.secondary : theme.card,
+          borderColor: theme.border,
+        },
+      ]}>
+      {pkg.recommended ? <View style={[styles.packageAccent, { backgroundColor: theme.primary }]} /> : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={
+          expanded
+            ? t('pricingEditScreen.collapsePackageA11y', { name: title })
+            : t('pricingEditScreen.expandPackageA11y', { name: title })
+        }
+        onPress={onToggle}
+        style={({ pressed }) => [styles.packageHeader, pressed && { opacity: 0.85 }]}>
+        <View style={styles.packageHeaderText}>
+          <Text style={[styles.packageTitle, { color: theme.foreground }]}>{title}</Text>
+          <Text style={[styles.packageSubtitle, { color: theme.mutedForeground }]}>{headerSubtitle}</Text>
+          {!expanded && pkg.recommended ? (
+            <Badge tone="mint" label={t('pricingEditScreen.badgeRecommended')} />
+          ) : null}
+        </View>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={theme.foregroundEyebrow}
+        />
+      </Pressable>
+
+      {!expanded ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('pricingEditScreen.expandPackageA11y', { name: title })}
+          onPress={onToggle}
+          style={({ pressed }) => [styles.collapsedPreview, pressed && { opacity: 0.85 }]}>
+          <PackageCollapsedPreview pkg={pkg} theme={theme} t={t} />
+        </Pressable>
+      ) : null}
+
+      {expanded ? (
+        <View style={styles.packageBody}>
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelName')} />
+          <TextInput
+            value={pkg.name}
+            onChangeText={(value) => onUpdate({ name: value })}
+            placeholder={t('pricingEditScreen.placeholderName')}
+            {...getTextInputProps(theme)}
+            style={getTextInputStyle(theme)}
+          />
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelTagline')} />
+          <TextInput
+            value={pkg.tagline}
+            onChangeText={(value) => onUpdate({ tagline: value })}
+            placeholder={t('pricingEditScreen.placeholderTagline')}
+            {...getTextInputProps(theme)}
+            style={getTextInputStyle(theme)}
+          />
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelPrice')} />
+          <TextInput
+            value={pkg.priceLabel}
+            onChangeText={(value) => onUpdate({ priceLabel: value })}
+            placeholder={t('pricingEditScreen.placeholderPrice')}
+            {...getTextInputProps(theme)}
+            style={getTextInputStyle(theme)}
+          />
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelDeliverables')} />
+          <TextInput
+            value={deliverablesToText(pkg.deliverables)}
+            onChangeText={(value) => onUpdate({ deliverables: textToDeliverables(value) })}
+            placeholder={t('pricingEditScreen.placeholderDeliverables')}
+            multiline
+            {...getTextInputProps(theme)}
+            style={[getTextInputStyle(theme), styles.multiline]}
+          />
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelRevisionRounds')} />
+          <TextInput
+            value={pkg.revisionRounds}
+            onChangeText={(value) => onUpdate({ revisionRounds: value })}
+            placeholder={t('pricingEditScreen.placeholderRevisionRounds')}
+            {...getTextInputProps(theme)}
+            style={getTextInputStyle(theme)}
+          />
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelUsageRights')} />
+          <TextInput
+            value={pkg.usageRights}
+            onChangeText={(value) => onUpdate({ usageRights: value })}
+            placeholder={t('pricingEditScreen.placeholderUsageRights')}
+            multiline
+            {...getTextInputProps(theme)}
+            style={[getTextInputStyle(theme), styles.multiline]}
+          />
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelPrepay')} />
+          <TextInput
+            value={pkg.prepayLabel}
+            onChangeText={(value) => onUpdate({ prepayLabel: value })}
+            placeholder={t('pricingEditScreen.placeholderPrepay')}
+            {...getTextInputProps(theme)}
+            style={getTextInputStyle(theme)}
+          />
+          <FieldLabel theme={theme} label={t('pricingEditScreen.labelAddOnHint')} />
+          <TextInput
+            value={pkg.addOnHint}
+            onChangeText={(value) => onUpdate({ addOnHint: value })}
+            placeholder={t('pricingEditScreen.placeholderAddOnHint')}
+            multiline
+            {...getTextInputProps(theme)}
+            style={[getTextInputStyle(theme), styles.multiline]}
+          />
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text style={[styles.toggleLabel, { color: theme.foreground }]}>
+                {t('pricingEditScreen.labelRecommended')}
+              </Text>
+              <Text style={[styles.toggleHint, { color: theme.mutedForeground }]}>
+                {t('pricingEditScreen.recommendedHint')}
+              </Text>
+            </View>
+            <Switch
+              value={pkg.recommended === true}
+              onValueChange={onSetRecommended}
+              trackColor={{ true: theme.primary }}
+            />
+          </View>
+          {canRemove ? (
+            <Pressable accessibilityRole="button" onPress={onRemove} style={styles.removeRow}>
+              <Text style={{ color: theme.mutedForeground, fontSize: fontSize.caption }}>
+                {t('pricingEditScreen.removePackage')}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function PackageCollapsedPreview({
+  pkg,
+  theme,
+  t,
+}: {
+  pkg: RateCardPackage;
+  theme: (typeof palette)['light'];
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const revisionRounds = pkg.revisionRounds.trim();
+  const usageRights = pkg.usageRights.trim();
+  const addOnHint = pkg.addOnHint.trim();
+  const prepayLabel = pkg.prepayLabel.trim();
+  const hasBoundary = usageRights.length > 0 || addOnHint.length > 0 || prepayLabel.length > 0;
+
+  return (
+    <View style={styles.collapsedContent}>
+      {revisionRounds.length > 0 ? (
+        <View style={styles.collapsedBadgeRow}>
+          <Badge tone="neutral" label={revisionRounds} />
+        </View>
+      ) : null}
+
+      {pkg.deliverables.length > 0 ? (
+        <View style={styles.collapsedList}>
+          {pkg.deliverables.map((item) => (
+            <Text key={item} style={[styles.collapsedHint, { color: theme.foreground }]}>
+              {item}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
+      {hasBoundary ? (
+        <View style={[styles.collapsedBoundary, { borderColor: theme.border, backgroundColor: theme.card }]}>
+          {usageRights.length > 0 ? (
+            <>
+              <Badge tone="warning" label={t('pricingScreen.badgeRightsBoundary')} />
+              <Text style={[styles.collapsedBoundaryTitle, { color: theme.foreground }]}>{usageRights}</Text>
+            </>
+          ) : null}
+          {addOnHint.length > 0 ? (
+            <Text style={[styles.collapsedHint, { color: theme.mutedForeground }]}>{addOnHint}</Text>
+          ) : null}
+          {prepayLabel.length > 0 ? (
+            <Text style={[styles.collapsedHint, { color: theme.foregroundSubtitle }]}>{prepayLabel}</Text>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   screen: { flex: 1 },
+  packageCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+    overflow: 'hidden',
+  },
+  packageAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    opacity: 0.65,
+  },
+  packageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  packageHeaderText: { flex: 1, gap: spacing.xs },
+  packageTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+    letterSpacing: -0.15,
+  },
+  packageSubtitle: {
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.body,
+  },
+  packageBody: { gap: spacing.sm, marginTop: spacing.xs },
+  collapsedPreview: { marginTop: -spacing.xs },
+  collapsedContent: { gap: spacing.sm },
+  collapsedBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' },
+  collapsedList: { gap: spacing.xs },
+  collapsedHint: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
+  collapsedBoundary: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  collapsedBoundaryTitle: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
   multiline: { minHeight: 88, textAlignVertical: 'top' },
   label: { fontSize: fontSize.caption, fontWeight: '600', marginTop: spacing.sm, marginBottom: spacing.xs },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },

@@ -8,8 +8,10 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { Badge, HubListRow, HubMetric, HubMetrics, SectionCard } from '@/components/product';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import { platformFromServiceLabel } from '@/src/lib/platform-icon-key';
 import { isMediaKitSectionVisible } from '@/src/lib/media-kit-sections';
 import type { CreatorProfileBasics } from '@/src/stores/session-store';
 import type { MediaKitPreview, MediaKitSectionId } from '@/src/types/domain';
@@ -169,7 +171,10 @@ export function MediaKitPreviewSections({
                 <View
                   key={rate.id}
                   style={[styles.rateCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-                  <Text style={[styles.ratePrice, { color: theme.primary }]}>{rate.startingPrice}</Text>
+                  <View style={styles.rateCardTop}>
+                    <PlatformIcon platform={rate.title} size={16} />
+                    <Text style={[styles.ratePrice, { color: theme.primary }]}>{rate.startingPrice}</Text>
+                  </View>
                   <Text style={[styles.rateTitle, { color: theme.foreground }]}>{rate.title}</Text>
                   <Text style={[styles.rateDesc, { color: theme.mutedForeground }]}>{rate.description}</Text>
                 </View>
@@ -197,9 +202,10 @@ export function MediaKitPreviewSections({
                     { borderTopColor: theme.border },
                     index % 2 === 1 ? { backgroundColor: theme.secondary } : null,
                   ]}>
-                  <Text style={[styles.tableCell, styles.tableServiceCol, { color: theme.foreground }]}>
-                    {row.service}
-                  </Text>
+                  <View style={[styles.tableCell, styles.tableServiceCol, styles.tableServiceContent]}>
+                    <PlatformIcon platform={platformFromServiceLabel(row.service)} size={16} />
+                    <Text style={[styles.tableServiceText, { color: theme.foreground }]}>{row.service}</Text>
+                  </View>
                   <Text style={[styles.tableCell, styles.tableFeeCol, { color: theme.primary, fontWeight: '700' }]}>
                     {row.fee}
                   </Text>
@@ -352,6 +358,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.xs,
   },
+  rateCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   ratePrice: { fontSize: fontSize.cardTitle, fontWeight: '800' },
   rateTitle: { fontSize: fontSize.body, fontWeight: '700' },
   rateDesc: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
@@ -361,6 +368,8 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   tableCell: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   tableServiceCol: { flex: 2 },
+  tableServiceContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  tableServiceText: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   tableFeeCol: { flex: 1, textAlign: 'right' },
   caseCard: {
     borderWidth: StyleSheet.hairlineWidth,

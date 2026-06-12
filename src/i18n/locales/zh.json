@@ -884,9 +884,64 @@
     "inviteAlreadyMember": "该用户已是成员。",
     "ownerOnlyLead": "仅工作区 Owner 可邀请或撤销成员。",
     "roles": {
-      "agent": "Agent",
-      "finance": "Finance",
-      "viewer": "Viewer"
+      "agent": "经办",
+      "finance": "财务",
+      "viewer": "只读"
+    },
+    "memberRoles": {
+      "OWNER": "所有者",
+      "AGENT": "经办",
+      "FINANCE": "财务",
+      "VIEWER": "只读"
+    },
+    "roleCards": {
+      "owner": {
+        "title": "所有者",
+        "summary": "对收件箱接入、团队角色及敏感商务条款拥有最终审批权。",
+        "allowed": {
+          "connectInbox": "连接或断开收件箱",
+          "manageMembers": "邀请或移除成员",
+          "viewDealsPayments": "查看全部商单与付款",
+          "approveHighRiskSends": "审批高风险发送"
+        },
+        "denied": {
+          "signBrandContracts": "无法在 Bioby 内签署品牌方合同。"
+        }
+      },
+      "agent": {
+        "title": "经办",
+        "summary": "负责商机筛选、草稿撰写及交付进度推进。",
+        "allowed": {
+          "processInboxLeads": "处理收件箱线索",
+          "generateEditDrafts": "生成与编辑草稿",
+          "moveDeliveryForward": "推进交付与验收"
+        },
+        "denied": {
+          "removeInboxAccess": "移除收件箱接入",
+          "changePayoutAccount": "修改收款账户"
+        }
+      },
+      "finance": {
+        "title": "财务",
+        "summary": "审阅账单、发票与结算节奏。",
+        "allowed": {
+          "viewPaymentsEscrow": "查看付款与托管摘要",
+          "exportBillingRecords": "导出账单记录"
+        },
+        "denied": {
+          "changeAcceptanceTerms": "修改接单条款"
+        }
+      },
+      "viewer": {
+        "title": "只读",
+        "summary": "供编辑、助理或培训使用的只读席位。",
+        "allowed": {
+          "readDealsDraftsTrust": "查看商单、草稿与信任凭证"
+        },
+        "denied": {
+          "sendMessagesApproveDrafts": "发送消息或审批草稿"
+        }
+      }
     },
     "badgePending": "待处理",
     "allowedCount": "{{count}} 项允许",
@@ -966,6 +1021,9 @@
     "description": "套餐价格会同步到提案与 Media Kit（开启同步时）。",
     "packageFallbackTitle": "套餐 {{index}}",
     "packageFallbackSubtitle": "待填写价格",
+    "expandPackageA11y": "展开编辑 {{name}}",
+    "collapsePackageA11y": "收起 {{name}}",
+    "badgeRecommended": "推荐用于提案",
     "labelName": "套餐名称",
     "placeholderName": "Launch bundle",
     "labelTagline": "一句话说明",
@@ -1157,6 +1215,27 @@
     "description": "品牌看到的一页式资料——对齐真实网红 PDF 结构。",
     "platformRatesTitle": "平台 × 内容类型报价",
     "platformRatesSubtitle": "优先设置各平台图文/短视频/长视频等起步价",
+    "rateRowFallbackTitle": "报价行 {{index}}",
+    "rateRowFallbackSubtitle": "待填写价格",
+    "expandRateRowA11y": "展开编辑 {{name}}",
+    "collapseRateRowA11y": "收起 {{name}}",
+    "expandSectionA11y": "展开 {{name}}",
+    "collapseSectionA11y": "收起 {{name}}",
+    "sectionEmptySummary": "点击编辑",
+    "platformRatesSummary": "{{count}} 行 · {{platforms}}",
+    "channelsSummary": "{{count}} 个频道",
+    "casesSummary": "{{count}} 个案例",
+    "trustProofSummary": "已启用 {{enabled}} / {{total}}",
+    "toggleOn": "开",
+    "toggleOff": "关",
+    "channelFallbackTitle": "频道 {{index}}",
+    "channelFallbackSubtitle": "待填写",
+    "expandChannelA11y": "展开编辑 {{name}}",
+    "collapseChannelA11y": "收起 {{name}}",
+    "caseFallbackTitle": "案例 {{index}}",
+    "caseFallbackSubtitle": "待填写",
+    "expandCaseA11y": "展开编辑 {{name}}",
+    "collapseCaseA11y": "收起 {{name}}",
     "labelContentFormat": "内容类型",
     "labelPrice": "价格",
     "addRateRow": "添加一行报价",
@@ -1491,6 +1570,11 @@
     "profileTitle": "资料未同步到服务器",
     "consentTitle": "AI 设置未同步",
     "mailboxTitle": "收件箱未同步",
+    "mailboxWorking": "正在同步邮箱...",
+    "mailboxBackendBypassed": "后端 API 未启用，因此跳过了同步。",
+    "mailboxUpToDate": "邮箱已是最新。",
+    "mailboxSyncDoneEmpty": "已保存连接，但没有找到新邮件。",
+    "mailboxSyncDone": "同步完成，找到 {{totalNew}} 封新邮件（收件箱 {{inboxNewCount}} 封，已发送/其他 {{nonInboxNewCount}} 封）。",
     "completeTitle": "入驻状态未同步到服务器",
     "completeFallback": "无法标记入驻完成"
   },
@@ -1545,6 +1629,7 @@
     "labelAppPassword": "授权码 / 应用专用密码",
     "appPasswordPlaceholder": "授权码或应用专用密码",
     "qqAuthHint": "请填写 QQ 邮箱授权码（在 mail.qq.com 设置中生成），不是 QQ 登录密码。",
+    "ctaConnectingInbox": "正在连接...",
     "ctaConnectInbox": "连接收件箱",
     "ctaSkip": "暂时跳过"
   },

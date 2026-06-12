@@ -45,6 +45,12 @@ describe('public-proof', () => {
     const catalog: PublicProofItem[] = [
       trustMetricToPublicProofItem(METRIC),
       {
+        id: 'proof-tm-disclosure',
+        trustMetricId: 'tm-disclosure',
+        label: 'Disclosure pass rate',
+        value: '93%',
+      },
+      {
         id: 'proof-tm-response',
         trustMetricId: 'tm-response',
         label: 'Avg response time',
@@ -53,7 +59,8 @@ describe('public-proof', () => {
     ];
 
     expect(resolveMediaKitPublicProofs(catalog, ['proof-tm-punctual'])).toHaveLength(1);
-    expect(resolveMediaKitPublicProofs(catalog, undefined)).toHaveLength(0);
+    expect(resolveMediaKitPublicProofs(catalog, undefined)).toHaveLength(2);
+    expect(resolveMediaKitPublicProofs(catalog, [])).toHaveLength(0);
 
     const duplicate = trustMetricToPublicProofItem(METRIC);
     const dupCatalog: PublicProofItem[] = [

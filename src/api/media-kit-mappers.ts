@@ -15,6 +15,7 @@ import type {
   PublicProofItem,
 } from '@/src/types/domain';
 
+import { normalizeStartingPrice } from '@/src/lib/media-kit-preview';
 import { resolveMediaKitContactUrl } from '@/src/lib/media-kit-contact-url';
 
 type JsonObject = Record<string, unknown>;
@@ -96,7 +97,7 @@ function mapRateSummaries(raw: unknown): MediaKitRateSummary[] {
       return {
         id,
         title,
-        startingPrice,
+        startingPrice: normalizeStartingPrice(startingPrice),
         description: asString(row.description) ?? '',
       };
     })
@@ -243,7 +244,7 @@ export function mapMediaKitDocument(dto: unknown): MediaKitDocument {
     syncBattleReports: root.syncBattleReports == null ? true : Boolean(root.syncBattleReports),
     enabledPublicProofIds: Array.isArray(root.enabledPublicProofIds)
       ? root.enabledPublicProofIds.map((id) => String(id)).filter(Boolean)
-      : [],
+      : undefined,
     sectionOrder: mapSectionOrder(root.sectionOrder),
   };
 }

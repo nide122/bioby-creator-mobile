@@ -2,6 +2,9 @@ import type { TFunction } from 'i18next';
 
 import type { MediaKitDocument, MediaKitPreview, PublicProofItem, TrustMetricCard } from '@/src/types/domain';
 
+/** Shown on brand preview when the creator has not configured proof toggles yet. */
+export const DEFAULT_ENABLED_PUBLIC_PROOF_IDS = ['proof-tm-punctual', 'proof-tm-disclosure'] as const;
+
 export function trustMetricToPublicProofItem(metric: TrustMetricCard): PublicProofItem {
   return {
     id: `proof-${metric.id}`,
@@ -65,8 +68,11 @@ export function resolveMediaKitPublicProofs(
   catalog: PublicProofItem[] | undefined,
   enabledIds: string[] | undefined
 ): PublicProofItem[] {
-  if (!catalog?.length || !enabledIds?.length) return [];
-  const enabled = new Set(enabledIds);
+  if (!catalog?.length) return [];
+  const effectiveEnabledIds =
+    enabledIds === undefined ? [...DEFAULT_ENABLED_PUBLIC_PROOF_IDS] : enabledIds;
+  if (!effectiveEnabledIds.length) return [];
+  const enabled = new Set(effectiveEnabledIds);
   const seen = new Set<string>();
   return dedupePublicProofCatalog(catalog).filter((item) => {
     if (!isPublicProofEnabled(item, enabled)) return false;

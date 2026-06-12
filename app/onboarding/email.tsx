@@ -85,6 +85,8 @@ export default function EmailOnboardingScreen() {
   const [smtpPort, setSmtpPort] = useState<string>(MAILBOX_PRESETS.gmail.smtpPort);
   const [appPassword, setAppPassword] = useState('');
   const [senderName, setSenderName] = useState(profileBasics?.displayName ?? '');
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (mailboxConnection?.email) {
@@ -142,21 +144,53 @@ export default function EmailOnboardingScreen() {
     goNext();
   };
 
+  const mailboxSyncSummary = (result: { newCount?: number; inboxNewCount?: number; upToDate?: boolean } | null) => {
+    if (!result) return t('onboardingSync.mailboxBackendBypassed');
+    if (result.upToDate) return t('onboardingSync.mailboxUpToDate');
+    const inboxNewCount = result.inboxNewCount ?? 0;
+    const totalNew = result.newCount ?? 0;
+    if (totalNew <= 0) return t('onboardingSync.mailboxSyncDoneEmpty');
+    return t('onboardingSync.mailboxSyncDone', {
+      totalNew,
+      inboxNewCount,
+      nonInboxNewCount: Math.max(totalNew - inboxNewCount, 0),
+    });
+  };
+
+  const showSyncError = async (titleKey: string, result: { error: string; code?: string; status?: number }) => {
+    const details = result.code ? `${result.code}: ${result.error}` : result.error;
+    setSyncState('error');
+    setSyncMessage(details);
+    await alertAction(t(titleKey), details);
+  };
+
   const onGmailOAuthTokens = async (tokens: { accessToken: string; refreshToken?: string | null }) => {
+    setSyncState('syncing');
+    setSyncMessage(null);
     const result = await syncMailboxOAuthToBackend({ provider: 'google', ...tokens });
     if (!result.ok) {
-      void alertAction(t('onboardingSync.mailboxTitle'), result.error);
+      await showSyncError('onboardingSync.mailboxTitle', result);
+      return;
     }
+    setSyncState('success');
+    setSyncMessage(mailboxSyncSummary(result.data));
+    await alertAction(t('onboardingSync.mailboxTitle'), mailboxSyncSummary(result.data));
   };
 
   const onMicrosoftMailboxTokens = async (accessToken: string, refreshToken?: string | null) => {
+    setSyncState('syncing');
+    setSyncMessage(null);
     const result = await syncMailboxOAuthToBackend({ provider: 'microsoft', accessToken, refreshToken });
     if (!result.ok) {
-      void alertAction(t('onboardingSync.mailboxTitle'), result.error);
+      await showSyncError('onboardingSync.mailboxTitle', result);
+      return;
     }
+    setSyncState('success');
+    setSyncMessage(mailboxSyncSummary(result.data));
+    await alertAction(t('onboardingSync.mailboxTitle'), mailboxSyncSummary(result.data));
   };
 
-  const onConnected = () => {
+  const onConnected = async () => {
     if (!isAuthenticated) {
       router.replace('/welcome' as Href);
       return;
@@ -170,22 +204,27 @@ export default function EmailOnboardingScreen() {
       return;
     }
     if (!canConnect) return;
+    setSyncState('syncing');
+    setSyncMessage(null);
+    const result = await syncMailboxToBackend({
+      emailAddress: mailbox.trim(),
+      password: appPassword.trim(),
+      preset:
+        preset === 'gmail' ? 'gmail' : preset === 'outlook' ? 'outlook' : preset === 'qq' ? 'qq' : undefined,
+      imapHost: preset === 'custom' ? imapHost.trim() : undefined,
+      imapPort: preset === 'custom' ? Number(imapPort) : undefined,
+      smtpHost: preset === 'custom' ? smtpHost.trim() : undefined,
+      smtpPort: preset === 'custom' ? Number(smtpPort) : undefined,
+    });
+    if (!result.ok) {
+      await showSyncError('onboardingSync.mailboxTitle', result);
+      return;
+    }
+    const summary = mailboxSyncSummary(result.data);
+    setSyncState('success');
+    setSyncMessage(summary);
     completeEmailWizard(mailbox.trim());
-    void (async () => {
-      const result = await syncMailboxToBackend({
-        emailAddress: mailbox.trim(),
-        password: appPassword.trim(),
-        preset:
-          preset === 'gmail' ? 'gmail' : preset === 'outlook' ? 'outlook' : preset === 'qq' ? 'qq' : undefined,
-        imapHost: preset === 'custom' ? imapHost.trim() : undefined,
-        imapPort: preset === 'custom' ? Number(imapPort) : undefined,
-        smtpHost: preset === 'custom' ? smtpHost.trim() : undefined,
-        smtpPort: preset === 'custom' ? Number(smtpPort) : undefined,
-      });
-      if (!result.ok) {
-        void alertAction(t('onboardingSync.mailboxTitle'), result.error);
-      }
-    })();
+    await alertAction(t('onboardingSync.mailboxTitle'), summary);
     goNext();
   };
 
@@ -228,6 +267,32 @@ export default function EmailOnboardingScreen() {
         <Text style={[styles.note, { color: theme.foregroundEyebrow }]}>
           {t('onboardingEmailScreen.noteFromAccount')}
         </Text>
+      ) : null}
+
+      {syncState !== 'idle' ? (
+        <View
+          style={[
+            styles.syncBanner,
+            {
+              borderColor:
+                syncState === 'error'
+                  ? '#EF4444'
+                  : syncState === 'success'
+                    ? '#34D399'
+                    : theme.border,
+              backgroundColor:
+                syncState === 'error'
+                  ? 'rgba(239,68,68,0.14)'
+                  : syncState === 'success'
+                    ? 'rgba(52,211,153,0.14)'
+                    : theme.card,
+            },
+          ]}>
+          {syncState === 'syncing' ? <ActivityIndicator color={theme.primary} /> : null}
+          <Text style={[styles.syncBannerText, { color: theme.foreground }]}>
+            {syncMessage ?? t('onboardingSync.mailboxWorking')}
+          </Text>
+        </View>
       ) : null}
 
       <SectionCard title={t('onboardingEmailScreen.aiImportsTitle')} subtitle={t('onboardingEmailScreen.aiImportsSubtitle')} emphasis>
@@ -392,15 +457,23 @@ export default function EmailOnboardingScreen() {
 
       <Pressable
         accessibilityRole="button"
-        disabled={!canConnect}
+        disabled={!canConnect || syncState === 'syncing'}
         onPress={onConnected}
-        style={[styles.primary, { backgroundColor: canConnect ? theme.primary : theme.secondary }]}>
+        style={[
+          styles.primary,
+          {
+            backgroundColor: canConnect && syncState !== 'syncing' ? theme.primary : theme.secondary,
+            opacity: syncState === 'syncing' ? 0.75 : 1,
+          },
+        ]}>
         <Text
           style={[
             styles.primaryLabel,
-            { color: canConnect ? theme.primaryForeground : theme.foregroundEyebrow },
+            { color: canConnect && syncState !== 'syncing' ? theme.primaryForeground : theme.foregroundEyebrow },
           ]}>
-          {t('onboardingEmailScreen.ctaConnectInbox')}
+          {syncState === 'syncing'
+            ? t('onboardingEmailScreen.ctaConnectingInbox')
+            : t('onboardingEmailScreen.ctaConnectInbox')}
         </Text>
       </Pressable>
 
@@ -471,4 +544,14 @@ const styles = StyleSheet.create({
   },
   secondaryLabel: { fontWeight: '600', fontSize: fontSize.body },
   note: { fontSize: fontSize.caption, lineHeight: 18 },
+  syncBanner: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  syncBannerText: { flex: 1, fontSize: fontSize.caption, fontWeight: '700', lineHeight: 18 },
 });

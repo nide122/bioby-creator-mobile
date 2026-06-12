@@ -23,6 +23,17 @@ const QUOTE_ON_REQUEST_EN = 'Quote on request';
 
 export { slugifyDisplayName } from '@/src/lib/media-kit-contact-url';
 
+/** Normalize legacy "起 $2,500" to "$2,500起". */
+export function normalizeStartingPrice(price: string): string {
+  const trimmed = price.trim();
+  const legacyPrefix = trimmed.match(/^起\s*(.+)$/u);
+  if (legacyPrefix) {
+    const amount = legacyPrefix[1].trim();
+    return amount.endsWith('起') ? amount : `${amount}起`;
+  }
+  return trimmed;
+}
+
 function headlineNiche(
   profile: CreatorProfileBasics | null | undefined,
   document: MediaKitDocument
@@ -40,19 +51,18 @@ function fromPrice(price: string | undefined, t?: TFunction): string {
   if (!price?.trim()) {
     return t?.('mediaKitShare.quoteOnRequest') ?? QUOTE_ON_REQUEST_EN;
   }
-  const trimmed = price.trim();
+  const normalized = normalizeStartingPrice(price);
   if (
-    trimmed.startsWith('from') ||
-    trimmed.startsWith('+') ||
-    trimmed.startsWith('从') ||
-    trimmed.startsWith('起') ||
-    trimmed.endsWith('起')
+    normalized.startsWith('from') ||
+    normalized.startsWith('+') ||
+    normalized.startsWith('从') ||
+    normalized.endsWith('起')
   ) {
-    return trimmed;
+    return normalized;
   }
   const quoteOnRequest = t?.('mediaKitShare.quoteOnRequest');
   const isZh = quoteOnRequest === '面议';
-  return isZh ? `${trimmed}起` : `from ${trimmed}`;
+  return isZh ? `${normalized}起` : `from ${normalized}`;
 }
 
 function formatLabel(formatKey: ContentFormatKey, t?: TFunction): string {
@@ -165,7 +175,10 @@ export function buildMediaKitPreview(input: {
     preview.rateSummaries = rateSummariesFromPackages(rateCardPackages, t);
     preview.servicesTable = servicesTableFromPackages(rateCardPackages, t);
   } else {
-    preview.rateSummaries = document.rateSummaries;
+    preview.rateSummaries = document.rateSummaries?.map((row) => ({
+      ...row,
+      startingPrice: fromPrice(row.startingPrice, t),
+    }));
     preview.servicesTable = document.servicesTable;
   }
 

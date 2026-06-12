@@ -888,6 +888,61 @@
       "finance": "Finance",
       "viewer": "Viewer"
     },
+    "memberRoles": {
+      "OWNER": "Owner",
+      "AGENT": "Agent",
+      "FINANCE": "Finance",
+      "VIEWER": "Viewer"
+    },
+    "roleCards": {
+      "owner": {
+        "title": "Owner",
+        "summary": "Final approval for inbox access, team roles, and sensitive commercial terms.",
+        "allowed": {
+          "connectInbox": "Connect or disconnect inbox",
+          "manageMembers": "Invite or remove members",
+          "viewDealsPayments": "View all deals and payments",
+          "approveHighRiskSends": "Approve high-risk sends"
+        },
+        "denied": {
+          "signBrandContracts": "Cannot sign brand-side contracts inside Bioby."
+        }
+      },
+      "agent": {
+        "title": "Agent",
+        "summary": "Handles pitch triage, drafts, and delivery progress.",
+        "allowed": {
+          "processInboxLeads": "Process inbox leads",
+          "generateEditDrafts": "Generate and edit drafts",
+          "moveDeliveryForward": "Move delivery and verification forward"
+        },
+        "denied": {
+          "removeInboxAccess": "Remove inbox access",
+          "changePayoutAccount": "Change payout account"
+        }
+      },
+      "finance": {
+        "title": "Finance",
+        "summary": "Reviews billing, invoices, and settlement timing.",
+        "allowed": {
+          "viewPaymentsEscrow": "View payments and escrow summary",
+          "exportBillingRecords": "Export billing records"
+        },
+        "denied": {
+          "changeAcceptanceTerms": "Change acceptance terms"
+        }
+      },
+      "viewer": {
+        "title": "Viewer",
+        "summary": "Read-only seat for editors, assistants, or training.",
+        "allowed": {
+          "readDealsDraftsTrust": "Read deals, drafts, and trust proof"
+        },
+        "denied": {
+          "sendMessagesApproveDrafts": "Send messages or approve drafts"
+        }
+      }
+    },
     "badgePending": "Pending",
     "allowedCount": "{{count}} allowed",
     "deniedCount": "{{count}} restricted",
@@ -966,6 +1021,9 @@
     "description": "Package prices sync into proposals and Media Kit when sync is on.",
     "packageFallbackTitle": "Package {{index}}",
     "packageFallbackSubtitle": "Price pending",
+    "expandPackageA11y": "Expand {{name}} for editing",
+    "collapsePackageA11y": "Collapse {{name}}",
+    "badgeRecommended": "Recommended for proposals",
     "labelName": "Package name",
     "placeholderName": "Launch bundle",
     "labelTagline": "One-line summary",
@@ -1157,6 +1215,27 @@
     "description": "One-page brand-facing kit—aligned with real creator PDFs.",
     "platformRatesTitle": "Platform × format rates",
     "platformRatesSubtitle": "Set starting prices per platform and content type first",
+    "rateRowFallbackTitle": "Rate row {{index}}",
+    "rateRowFallbackSubtitle": "Price pending",
+    "expandRateRowA11y": "Expand {{name}} for editing",
+    "collapseRateRowA11y": "Collapse {{name}}",
+    "expandSectionA11y": "Expand {{name}}",
+    "collapseSectionA11y": "Collapse {{name}}",
+    "sectionEmptySummary": "Tap to edit",
+    "platformRatesSummary": "{{count}} rows · {{platforms}}",
+    "channelsSummary": "{{count}} channels",
+    "casesSummary": "{{count}} cases",
+    "trustProofSummary": "{{enabled}} / {{total}} enabled",
+    "toggleOn": "On",
+    "toggleOff": "Off",
+    "channelFallbackTitle": "Channel {{index}}",
+    "channelFallbackSubtitle": "Pending",
+    "expandChannelA11y": "Expand {{name}} for editing",
+    "collapseChannelA11y": "Collapse {{name}}",
+    "caseFallbackTitle": "Case {{index}}",
+    "caseFallbackSubtitle": "Pending",
+    "expandCaseA11y": "Expand {{name}} for editing",
+    "collapseCaseA11y": "Collapse {{name}}",
     "labelContentFormat": "Content format",
     "labelPrice": "Price",
     "addRateRow": "Add rate row",
@@ -1494,6 +1573,11 @@
     "profileTitle": "Profile not saved to server",
     "consentTitle": "AI settings not saved",
     "mailboxTitle": "Inbox not synced",
+    "mailboxWorking": "Syncing mailbox...",
+    "mailboxBackendBypassed": "Backend API is off, so sync was skipped.",
+    "mailboxUpToDate": "Mailbox is already up to date.",
+    "mailboxSyncDoneEmpty": "Connection saved, but no new messages were found.",
+    "mailboxSyncDone": "Sync complete. {{totalNew}} new message(s) found ({{inboxNewCount}} inbox, {{nonInboxNewCount}} sent/other).",
     "completeTitle": "Setup not saved to server",
     "completeFallback": "Could not mark onboarding complete"
   },
@@ -1548,6 +1632,7 @@
     "labelAppPassword": "App password / auth code",
     "appPasswordPlaceholder": "App password or auth code",
     "qqAuthHint": "Use your QQ Mail authorization code from mail.qq.com settings — not your QQ login password.",
+    "ctaConnectingInbox": "Connecting...",
     "ctaConnectInbox": "Connect inbox",
     "ctaSkip": "Skip for now"
   },
