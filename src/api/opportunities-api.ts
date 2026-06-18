@@ -3,22 +3,26 @@ import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import type { DraftListItemDto } from '@/src/api/draft-mappers';
 import { mapOpportunityToDetail, mapOpportunityToThread } from '@/src/api/opportunity-mappers';
 import type {
+  BriefView,
   OpportunityDetail,
   OpportunityListItem,
   OpportunityListPage,
   OpportunityTimeline,
 } from '@/src/api/opportunity-types';
 import { fetchMockInboxThreadDetail, fetchMockInboxThreads } from '@/src/api/mock-inbox';
+import { isOpportunityNeedsAction } from '@/src/lib/opportunity-needs-action';
+import { resolvePriorityLeadValueBand } from '@/src/lib/priority-lead-value-band';
 import type { InboxEmailCategory, InboxThread, InboxThreadDetail } from '@/src/types/domain';
 
 export type OpportunityTimeRange = 'ALL' | 'ONE_WEEK' | 'ONE_MONTH' | 'THREE_MONTHS';
-export type OpportunitySortBy = 'TIME' | 'MESSAGE_COUNT';
+export type OpportunitySortBy = 'TIME' | 'MESSAGE_COUNT' | 'CLASSIFICATION_SCORE';
 export type OpportunitySortDirection = 'ASC' | 'DESC';
 
 export type OpportunityListFilters = {
   actionTier?: string;
   emailCategory?: string;
   leadStage?: string;
+  leadValueBand?: string;
   needsAction?: boolean;
   timeRange?: OpportunityTimeRange;
   sortBy?: OpportunitySortBy;
@@ -36,6 +40,7 @@ export type OpportunityThreadPage = {
   size: number;
   hasMore: boolean;
   categoryCounts: Record<InboxEmailCategory, number>;
+  valueBandCounts?: Record<string, number>;
 };
 
 const EMPTY_CATEGORY_COUNTS: Record<InboxEmailCategory, number> = {
@@ -43,7 +48,14 @@ const EMPTY_CATEGORY_COUNTS: Record<InboxEmailCategory, number> = {
   pr_sample: 0,
   media: 0,
   personal: 0,
+  spam: 0,
   other: 0,
+};
+
+const EMPTY_VALUE_BAND_COUNTS: Record<string, number> = {
+  high_value: 0,
+  needs_negotiation: 0,
+  archived: 0,
 };
 
 function categoryCountsFromThreads(items: InboxThread[]): Record<InboxEmailCategory, number> {
@@ -60,18 +72,43 @@ function normalizeCategoryCounts(raw?: Record<string, number>): Record<InboxEmai
     pr_sample: raw?.pr_sample ?? 0,
     media: raw?.media ?? 0,
     personal: raw?.personal ?? 0,
+    spam: raw?.spam ?? 0,
     other: raw?.other ?? 0,
   };
+}
+
+function normalizeValueBandCounts(raw?: Record<string, number>): Record<string, number> {
+  return {
+    high_value: raw?.high_value ?? 0,
+    needs_negotiation: raw?.needs_negotiation ?? 0,
+    archived: raw?.archived ?? 0,
+  };
+}
+
+function valueBandCountsFromThreads(items: InboxThread[]): Record<string, number> {
+  const counts = { ...EMPTY_VALUE_BAND_COUNTS };
+  for (const item of items) {
+    const band = resolvePriorityLeadValueBand(item) ?? item.leadValueBand;
+    if (band) {
+      counts[band] = (counts[band] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+function matchesNeedsAction(item: InboxThread): boolean {
+  return isOpportunityNeedsAction(item);
 }
 
 function applyFilters(items: InboxThread[], filters?: OpportunityListFilters): InboxThread[] {
   if (!filters) return items;
   const timeSince = timeRangeSince(filters.timeRange);
   return items.filter((item) => {
-    if (filters.needsAction && !['DECIDE_NOW', 'DEVELOP'].includes(item.actionTier ?? '')) return false;
+    if (filters.needsAction && !matchesNeedsAction(item)) return false;
     if (filters.actionTier && item.actionTier !== filters.actionTier) return false;
     if (filters.emailCategory && item.category !== filters.emailCategory) return false;
     if (filters.leadStage && item.leadStage !== filters.leadStage) return false;
+    if (filters.leadValueBand && item.leadValueBand !== filters.leadValueBand) return false;
     if (timeSince && new Date(item.updatedAtISO).getTime() < timeSince) return false;
     return true;
   });
@@ -102,6 +139,10 @@ function applySort(
       const countDelta = (a.messageCount ?? 1) - (b.messageCount ?? 1);
       if (countDelta !== 0) return countDelta * direction;
     }
+    if (sortBy === 'CLASSIFICATION_SCORE') {
+      const scoreDelta = (a.classificationSortScore ?? 0) - (b.classificationSortScore ?? 0);
+      if (scoreDelta !== 0) return scoreDelta * direction;
+    }
     const timeDelta = new Date(a.updatedAtISO).getTime() - new Date(b.updatedAtISO).getTime();
     if (timeDelta !== 0) return timeDelta * direction;
     return a.id.localeCompare(b.id) * direction;
@@ -114,12 +155,26 @@ function applyFiltersForCategoryCounts(items: InboxThread[], filters?: Opportuni
   return applyFilters(items, countFilters);
 }
 
+function applyFiltersForValueBandCounts(items: InboxThread[], filters?: OpportunityListFilters): InboxThread[] {
+  if (!filters) return items;
+  const {
+    emailCategory: _emailCategory,
+    needsAction: _needsAction,
+    leadValueBand: _leadValueBand,
+    actionTier: _actionTier,
+    leadStage: _leadStage,
+    ...countFilters
+  } = filters;
+  return applyFilters(items, countFilters);
+}
+
 function opportunityListPath(filters?: OpportunityListFilters, pageOptions?: OpportunityPageOptions): string {
   const base = pageOptions ? '/api/v1/opportunities/page' : '/api/v1/opportunities';
   const params = new URLSearchParams();
   if (filters?.actionTier) params.set('actionTier', filters.actionTier);
   if (filters?.emailCategory) params.set('emailCategory', filters.emailCategory);
   if (filters?.leadStage) params.set('leadStage', filters.leadStage);
+  if (filters?.leadValueBand) params.set('leadValueBand', filters.leadValueBand);
   if (filters?.needsAction) params.set('needsAction', 'true');
   if (filters?.timeRange) params.set('timeRange', filters.timeRange);
   if (filters?.sortBy) params.set('sortBy', filters.sortBy);
@@ -150,12 +205,14 @@ export async function fetchOpportunityThreadPage(
     const allItems = await fetchMockInboxThreads();
     const items = applySort(applyFilters(allItems, filters), filters?.sortBy, filters?.sortDirection);
     const start = page * size;
+    const countSource = applyFiltersForCategoryCounts(allItems, filters);
     return {
       items: items.slice(start, start + size),
       page,
       size,
       hasMore: start + size < items.length,
-      categoryCounts: categoryCountsFromThreads(applyFiltersForCategoryCounts(allItems, filters)),
+      categoryCounts: categoryCountsFromThreads(countSource),
+      valueBandCounts: valueBandCountsFromThreads(applyFiltersForValueBandCounts(allItems, filters)),
     };
   }
   const result = await apiRequest<OpportunityListPage>(opportunityListPath(filters, { page, size }));
@@ -163,6 +220,7 @@ export async function fetchOpportunityThreadPage(
     ...result,
     items: result.items.map(mapOpportunityToThread),
     categoryCounts: normalizeCategoryCounts(result.categoryCounts),
+    valueBandCounts: normalizeValueBandCounts(result.valueBandCounts),
   };
 }
 
@@ -236,4 +294,24 @@ export async function restoreOpportunityClassification(threadId: string): Promis
 export async function archiveOpportunity(threadId: string): Promise<void> {
   if (!shouldUseBackendApi()) return;
   await apiRequest(`/api/v1/opportunities/${threadId}/archive`, { method: 'POST' });
+}
+
+export async function confirmOpportunityBrief(threadId: string): Promise<BriefView> {
+  if (!shouldUseBackendApi()) {
+    throw new Error('confirm_brief_requires_backend');
+  }
+  return apiRequest<BriefView>(`/api/v1/opportunities/${threadId}/brief/confirm`, { method: 'POST' });
+}
+
+export async function acknowledgeOpportunityBriefRisks(
+  threadId: string,
+  riskIds: string[]
+): Promise<BriefView> {
+  if (!shouldUseBackendApi()) {
+    throw new Error('ack_brief_risks_requires_backend');
+  }
+  return apiRequest<BriefView>(`/api/v1/opportunities/${threadId}/brief/risk-ack`, {
+    method: 'POST',
+    body: { riskIds },
+  });
 }

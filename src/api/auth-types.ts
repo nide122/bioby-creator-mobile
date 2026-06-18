@@ -26,4 +26,5 @@ export type AuthSession = {
 export type ApiErrorBody = {
   code?: string;
   message?: string;
+  retryAfterSeconds?: number;
 };

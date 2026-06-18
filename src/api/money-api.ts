@@ -38,3 +38,15 @@ export async function fetchDisputes(): Promise<DisputeCase[]> {
   const items = await apiRequest<DisputeCaseDto[]>('/api/v1/disputes');
   return items.map(mapDisputeCase);
 }
+
+export async function resolveDispute(disputeId: string, resolutionNote?: string): Promise<DisputeCase> {
+  if (!shouldUseBackendApi()) {
+    const items = await fetchMockDisputes();
+    return items.find((d) => d.id === disputeId) ?? items[0];
+  }
+  const item = await apiRequest<DisputeCaseDto>(`/api/v1/disputes/${disputeId}/resolve`, {
+    method: 'POST',
+    body: resolutionNote ? { resolutionNote } : {},
+  });
+  return mapDisputeCase(item);
+}

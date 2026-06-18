@@ -102,6 +102,11 @@ function parseVerification(raw: unknown): DealPacketContent['verification'] {
     checklist,
     payoutHint: node.payoutHint != null ? String(node.payoutHint) : undefined,
     submittedAt: node.submittedAt != null ? String(node.submittedAt) : undefined,
+    brandReviewStatus:
+      node.brandReviewStatus === 'pending' || node.brandReviewStatus === 'approved'
+        ? node.brandReviewStatus
+        : undefined,
+    brandApprovedAt: node.brandApprovedAt != null ? String(node.brandApprovedAt) : undefined,
   };
 }
 

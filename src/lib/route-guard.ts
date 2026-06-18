@@ -14,7 +14,13 @@ function isWelcomePath(pathname: string): boolean {
 }
 
 function isAuthFormPath(pathname: string): boolean {
-  return pathname.startsWith('/register') || pathname.startsWith('/login');
+  return (
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/verify-email-pending')
+  );
 }
 
 function isAuthPath(pathname: string): boolean {
@@ -31,6 +37,18 @@ function isOAuthCallbackPath(pathname: string): boolean {
 
 function isPublicMediaKitPath(pathname: string): boolean {
   return pathname.startsWith('/c/');
+}
+
+function isTeamInviteAcceptPath(pathname: string): boolean {
+  return pathname.startsWith('/team/accept');
+}
+
+function isPasswordResetPath(pathname: string): boolean {
+  return pathname.startsWith('/reset-password');
+}
+
+function isEmailVerificationPendingPath(pathname: string): boolean {
+  return pathname.startsWith('/verify-email-pending');
 }
 
 /** Web OAuth popup lands with tokens/code in the URL before the opener receives the result. */
@@ -58,17 +76,20 @@ export function getRouteGuardRedirect({
   const inOnboardingFlow = isOnboardingPath(pathname);
 
   if (!isAuthenticated) {
-    if (inAuthFlow || isOAuthCallbackPath(pathname) || webOAuthCallbackInProgress) {
+    if (inAuthFlow || isOAuthCallbackPath(pathname) || isTeamInviteAcceptPath(pathname) || webOAuthCallbackInProgress) {
       return null;
     }
     return '/welcome';
   }
 
   if (!onboardingComplete) {
+    if (isTeamInviteAcceptPath(pathname) || isPasswordResetPath(pathname) || isEmailVerificationPendingPath(pathname)) {
+      return null;
+    }
     return inOnboardingFlow ? null : '/onboarding';
   }
 
-  if (isAuthFormPath(pathname)) {
+  if (isAuthFormPath(pathname) && !isPasswordResetPath(pathname) && !isEmailVerificationPendingPath(pathname)) {
     return '/inbox';
   }
 

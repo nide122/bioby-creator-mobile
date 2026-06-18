@@ -3,15 +3,17 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { GoogleIcon } from '@/components/oauth/GoogleIcon';
+import { OAuthUnconfiguredButton } from '@/components/oauth/OAuthUnconfiguredButton';
+import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, palette, radii } from '@/constants/tokens';
 import {
   getGoogleAuthRequestConfig,
   getGoogleOAuthRedirectUri,
+  normalizeOAuthRedirectUri,
   type GoogleAuthCodePayload,
 } from '@/src/auth/google-oauth';
-import { OAuthUnconfiguredButton } from '@/components/oauth/OAuthUnconfiguredButton';
+import { GOOGLE_MAILBOX_SCOPES } from '@/src/auth/google-mailbox-scopes';
 import {
   googleAndroidClientId,
   googleIosClientId,
@@ -22,25 +24,31 @@ import { fetchGooglePrimaryEmail } from '@/src/auth/oauth-user-profile';
 
 type Props = {
   label?: string;
-  /** 登录仅需基础 OIDC；邮箱连接申请 Gmail 只读 scope（受限 scope，需后续 Google 审核）。 */
+  /** Login only needs OIDC; Gmail connect asks for read + compose (sync + native drafts/send). */
   variant: 'login' | 'gmail';
   onSuccess: (email: string) => void;
   onError: (message: string) => void;
-  /** API 模式下用 id_token 走后端 OAuth 登录（native / 已有 token） */
+  /** Native / token flow for backend OAuth login. */
   onGoogleIdToken?: (idToken: string) => Promise<void>;
-  /** API 模式下 Web 授权码由后端换取 id_token（需配置 GOOGLE_OAUTH_CLIENT_SECRET） */
+  /** Web auth-code flow exchanged on the backend with GOOGLE_OAUTH_CLIENT_SECRET. */
   onGoogleAuthCode?: (payload: GoogleAuthCodePayload) => Promise<void>;
-  /** API 模式下将 Gmail OAuth tokens 提交后端绑定邮箱（仅 variant=gmail） */
-  onGmailOAuthTokens?: (tokens: { accessToken: string; refreshToken?: string | null }) => Promise<void>;
+  /** Gmail mailbox token flow for backend mailbox binding. */
+  onGmailOAuthTokens?: (tokens: {
+    accessToken: string;
+    refreshToken?: string | null;
+    clientId?: string;
+  }) => Promise<void>;
 };
 
 const LOGIN_SCOPES = ['openid', 'profile', 'email'];
-const MAILBOX_SCOPES = [
-  'openid',
-  'profile',
-  'email',
-  'https://www.googleapis.com/auth/gmail.readonly',
-];
+const MAILBOX_SCOPES = [...GOOGLE_MAILBOX_SCOPES];
+
+function getGoogleRuntimeClientId(): string | undefined {
+  if (Platform.OS === 'web') return googleWebClientId;
+  if (Platform.OS === 'ios') return googleIosClientId ?? googleWebClientId;
+  if (Platform.OS === 'android') return googleAndroidClientId ?? googleWebClientId;
+  return googleWebClientId;
+}
 
 export function GoogleOAuthButton(props: Props) {
   const { t } = useTranslation();
@@ -77,8 +85,7 @@ function GoogleOAuthButtonImpl({
   );
 
   const oauthUiLanguage = i18n.language.startsWith('zh') ? 'zh-CN' : 'en';
-
-  const redirectUri = useMemo(() => getGoogleOAuthRedirectUri(), []);
+  const redirectUri = useMemo(() => normalizeOAuthRedirectUri(getGoogleOAuthRedirectUri()), []);
 
   const config = useMemo(
     () =>
@@ -89,14 +96,20 @@ function GoogleOAuthButtonImpl({
         scopes,
         language: oauthUiLanguage,
         redirectUri,
-        // App logout does not clear Google cookies — always show account picker on sign-in.
+        extraParams:
+          variant === 'gmail'
+            ? {
+                access_type: 'offline',
+                prompt: 'consent',
+              }
+            : undefined,
+        // App logout does not clear Google cookies, so always show account picker on sign-in.
         selectAccount: variant === 'login',
       }),
     [oauthUiLanguage, redirectUri, scopes, variant],
   );
 
   const [request, , promptAsync] = Google.useAuthRequest(config);
-
   const [busy, setBusy] = useState(false);
 
   const handlePress = useCallback(async () => {
@@ -109,6 +122,27 @@ function GoogleOAuthButtonImpl({
         return;
       }
 
+      const clientId = getGoogleRuntimeClientId();
+
+      if (variant === 'gmail' && Platform.OS === 'web' && result.params.code) {
+        if (!onGoogleAuthCode) {
+          onError('google_missing_auth_code_handler');
+          return;
+        }
+        const codeVerifier = request.codeVerifier;
+        if (!codeVerifier) {
+          onError('google_missing_code_verifier');
+          return;
+        }
+        await onGoogleAuthCode({
+          code: result.params.code,
+          redirectUri,
+          codeVerifier,
+          clientId,
+        });
+        return;
+      }
+
       if (variant === 'gmail' && onGmailOAuthTokens) {
         const accessToken = result.authentication?.accessToken ?? result.params.access_token;
         const refreshToken = result.authentication?.refreshToken ?? result.params.refresh_token;
@@ -116,7 +150,7 @@ function GoogleOAuthButtonImpl({
           onError('google_missing_access_token');
           return;
         }
-        await onGmailOAuthTokens({ accessToken, refreshToken });
+        await onGmailOAuthTokens({ accessToken, refreshToken, clientId });
         const email = await fetchGooglePrimaryEmail(accessToken);
         onSuccess(email);
         return;
@@ -136,6 +170,7 @@ function GoogleOAuthButtonImpl({
           code: result.params.code,
           redirectUri,
           codeVerifier,
+          clientId,
         });
         return;
       }

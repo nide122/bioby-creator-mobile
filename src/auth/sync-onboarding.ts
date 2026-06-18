@@ -1,5 +1,6 @@
 import {
   connectMailboxFromOnboarding,
+  connectMailboxGoogleOAuthCode,
   connectMailboxGoogleOAuth,
   connectMailboxMicrosoftOAuth,
   updateAgentSendMode,
@@ -10,9 +11,13 @@ import { triggerMailboxSync } from '@/src/api/opportunities-api';
 import type { MailSyncResult } from '@/src/api/opportunities-api';
 import type { CreatorProfileBasics, AgentSendMode } from '@/src/stores/session-store';
 
+import { normalizeOAuthRedirectUri } from '@/src/auth/google-oauth';
+
 export type SyncResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string; code?: string; status?: number };
+
+const inFlightGoogleCodeExchanges = new Set<string>();
 
 function syncError(err: unknown, fallback: string): SyncResult<never> {
   if (err instanceof ApiError) {
@@ -43,12 +48,14 @@ export async function syncMailboxOAuthToBackend(input: {
   provider: 'google' | 'microsoft';
   accessToken: string;
   refreshToken?: string | null;
+  clientId?: string;
 }): Promise<SyncResult<MailSyncResult | null>> {
   try {
     if (input.provider === 'google') {
       await connectMailboxGoogleOAuth({
         accessToken: input.accessToken,
         refreshToken: input.refreshToken,
+        clientId: input.clientId,
       });
     } else {
       await connectMailboxMicrosoftOAuth({
@@ -60,6 +67,36 @@ export async function syncMailboxOAuthToBackend(input: {
     return { ok: true, data: syncResult };
   } catch (err) {
     return syncError(err, 'Mailbox OAuth sync failed');
+  }
+}
+
+export async function syncMailboxGoogleOAuthCodeToBackend(input: {
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+  clientId?: string;
+}): Promise<SyncResult<{ emailAddress?: string | null; syncResult: MailSyncResult | null }>> {
+  const normalizedRedirectUri = normalizeOAuthRedirectUri(input.redirectUri);
+  const dedupeKey = `${input.code}:${normalizedRedirectUri}`;
+  if (inFlightGoogleCodeExchanges.has(dedupeKey)) {
+    return {
+      ok: false,
+      error: 'Gmail authorization is already being processed. Please wait.',
+      code: 'GOOGLE_AUTH_CODE_IN_FLIGHT',
+    };
+  }
+  inFlightGoogleCodeExchanges.add(dedupeKey);
+  try {
+    const connection = await connectMailboxGoogleOAuthCode({
+      ...input,
+      redirectUri: normalizedRedirectUri,
+    });
+    const syncResult = await triggerMailboxSync();
+    return { ok: true, data: { emailAddress: connection?.emailAddress, syncResult } };
+  } catch (err) {
+    return syncError(err, 'Gmail mailbox OAuth code sync failed');
+  } finally {
+    inFlightGoogleCodeExchanges.delete(dedupeKey);
   }
 }
 

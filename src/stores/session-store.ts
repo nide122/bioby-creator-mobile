@@ -6,6 +6,7 @@ import type { AuthSession } from '@/src/api/auth-types';
 import { isApiConfigured } from '@/src/api/api-config';
 import { mapAuthSessionToStore } from '@/src/auth/apply-auth-session';
 import type { SocialPlatformKey } from '@/src/api/mock-creator-profile';
+import type { CreatorPlatformProfile, PresetPlatformKey } from '@/src/types/creator-profile';
 import { useDraftApprovalStore } from '@/src/stores/draft-approval-store';
 
 /** Onboarding creator profile basics. */
@@ -15,6 +16,8 @@ export type CreatorProfileBasics = {
   niche: string;
   /** Main collaboration platforms. */
   platforms: string[];
+  /** Per-platform profile slots (YouTube / TikTok / Instagram). */
+  platformProfiles?: Record<PresetPlatformKey, CreatorPlatformProfile>;
   /** User-entered social profile URL. */
   profileUrl?: string;
   /** Resolved platform. */
@@ -35,6 +38,7 @@ export type MailboxConnection = {
 
 export type AgentSendMode = 'agent_assist' | 'review_only';
 export type CreatorFocusMode = 'quiet' | 'work';
+export type ClassificationStrictness = 'relaxed' | 'standard' | 'strict';
 
 type SessionState = {
   /** Demo auth state before real access tokens. */
@@ -49,6 +53,12 @@ type SessionState = {
   agentSendMode: AgentSendMode | null;
   /** Notification/work posture: quiet pushes vs focused work session. */
   creatorFocusMode: CreatorFocusMode;
+  /** Inbox filter preset for classification strictness. */
+  classificationStrictness: ClassificationStrictness;
+  /** True while strictness change triggers server-side inbox reclassification. */
+  inboxReclassificationActive: boolean;
+  /** User completed inbox filter onboarding step. */
+  inboxFilterStepFinished: boolean;
   /** Inbox setup completed or skipped. */
   emailWizardFinished: boolean;
   /** User skipped inbox setup. */
@@ -100,6 +110,9 @@ type SessionState = {
 
   setAgentSendMode: (mode: AgentSendMode) => void;
   setCreatorFocusMode: (mode: CreatorFocusMode) => void;
+  setClassificationStrictness: (strictness: ClassificationStrictness) => void;
+  setInboxReclassificationActive: (active: boolean) => void;
+  completeInboxFilterStep: (strictness: ClassificationStrictness) => void;
   setAuthBootstrapReady: (ready: boolean) => void;
 
   /** Keep auth state while replaying onboarding. */
@@ -120,6 +133,9 @@ const initialSession = {
   complianceAcceptedAt: null as string | null,
   agentSendMode: null as AgentSendMode | null,
   creatorFocusMode: 'quiet' as CreatorFocusMode,
+  classificationStrictness: 'standard' as ClassificationStrictness,
+  inboxReclassificationActive: false,
+  inboxFilterStepFinished: false,
   emailWizardFinished: false,
   emailSkipped: false,
   mailboxConnection: null as MailboxConnection | null,
@@ -165,7 +181,7 @@ const sessionStateCreator: (
       profileBasics: {
         displayName: 'Mia Skin Notes',
         niche: 'Skincare reviews / Sensitive skin',
-        platforms: ['TikTok'],
+        platforms: ['YouTube', 'TikTok', 'Instagram'],
         profileUrl: 'https://www.tiktok.com/@skin.notes',
         platform: 'tiktok',
         platformLabel: 'TikTok',
@@ -174,10 +190,38 @@ const sessionStateCreator: (
         nicheTags: ['Skincare reviews', 'Sensitive skin'],
         followerCountLabel: '128k followers',
         confidence: 'high',
+        platformProfiles: {
+          youtube: {
+            platform: 'youtube',
+            status: 'linked',
+            profileUrl: 'https://www.youtube.com/@MiaSkinNotes',
+            handle: 'MiaSkinNotes',
+            followerCountLabel: '72k subscribers',
+            confidence: 'high',
+          },
+          tiktok: {
+            platform: 'tiktok',
+            status: 'linked',
+            profileUrl: 'https://www.tiktok.com/@skin.notes',
+            handle: 'skin.notes',
+            followerCountLabel: '128k followers',
+            confidence: 'high',
+          },
+          instagram: {
+            platform: 'instagram',
+            status: 'linked',
+            profileUrl: 'https://www.instagram.com/miaskinnotes',
+            handle: 'miaskinnotes',
+            followerCountLabel: '145k followers',
+            confidence: 'high',
+          },
+        },
       },
       complianceAcceptedAt: new Date().toISOString(),
       agentSendMode: 'agent_assist',
       creatorFocusMode: 'quiet',
+      classificationStrictness: 'standard',
+      inboxFilterStepFinished: true,
       emailWizardFinished: true,
       emailSkipped: false,
       mailboxConnection: {
@@ -216,7 +260,7 @@ const sessionStateCreator: (
 
   finalizeOnboarding: () => {
     const s = get();
-    if (!s.profileBasics || !s.complianceAcceptedAt || !s.emailWizardFinished) {
+    if (!s.profileBasics || !s.complianceAcceptedAt || !s.inboxFilterStepFinished || !s.emailWizardFinished) {
       return;
     }
     set({ onboardingComplete: true, planAcknowledged: true });
@@ -226,6 +270,10 @@ const sessionStateCreator: (
 
   setAgentSendMode: (mode) => set({ agentSendMode: mode }),
   setCreatorFocusMode: (mode) => set({ creatorFocusMode: mode }),
+  setClassificationStrictness: (strictness) => set({ classificationStrictness: strictness }),
+  setInboxReclassificationActive: (active) => set({ inboxReclassificationActive: active }),
+  completeInboxFilterStep: (strictness) =>
+    set({ classificationStrictness: strictness, inboxFilterStepFinished: true }),
   setAuthBootstrapReady: (ready) => set({ authBootstrapReady: ready }),
 
   replayOnboardingDemo: () =>
@@ -234,6 +282,8 @@ const sessionStateCreator: (
       profileBasics: null,
       complianceAcceptedAt: null,
       agentSendMode: null,
+      classificationStrictness: 'standard',
+      inboxFilterStepFinished: false,
       emailWizardFinished: false,
       emailSkipped: false,
       mailboxConnection: null,
@@ -267,6 +317,8 @@ export const useSessionStore = persistSessionOnWeb
           complianceAcceptedAt: s.complianceAcceptedAt,
           agentSendMode: s.agentSendMode,
           creatorFocusMode: s.creatorFocusMode,
+          classificationStrictness: s.classificationStrictness,
+          inboxFilterStepFinished: s.inboxFilterStepFinished,
           emailWizardFinished: s.emailWizardFinished,
           emailSkipped: s.emailSkipped,
           mailboxConnection: s.mailboxConnection,

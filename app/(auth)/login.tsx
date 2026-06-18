@@ -1,4 +1,4 @@
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,7 +21,7 @@ import { Badge, getTextInputProps, getTextInputStyle, SectionCard } from '@/comp
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, palette, radii, spacing } from '@/constants/tokens';
 import { isApiConfigured } from '@/src/api/api-config';
-import { getPostAuthRoute } from '@/src/auth/post-auth-navigation';
+import { resolvePostAuthRoute } from '@/src/auth/post-auth-navigation';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
 import { isGoogleOAuthConfigured, isMicrosoftOAuthConfigured } from '@/src/auth/oauth-env';
 import { useSessionStore } from '@/src/stores/session-store';
@@ -32,6 +32,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string | string[] }>();
   const { login, loginGoogle, loginGoogleWithAuthCode, loginMicrosoft, loading, apiMode } = useAuthActions();
   const signInDemo = useSessionStore((s) => s.signInDemo);
   const colorScheme = useColorScheme() ?? 'light';
@@ -51,12 +52,12 @@ export default function LoginScreen() {
       void alertAction(t('auth.login.errors.submit'), result.message);
       return;
     }
-    router.replace(getPostAuthRoute() as Href);
+    router.replace(resolvePostAuthRoute(redirect) as Href);
   };
 
   const finishOAuthLogin = (account: string) => {
     signInDemo(account);
-    router.replace(getPostAuthRoute() as Href);
+    router.replace(resolvePostAuthRoute(redirect) as Href);
   };
 
   const backToWelcome = () => {
@@ -157,7 +158,7 @@ export default function LoginScreen() {
                         if (!result.ok) {
                           throw new Error(result.message);
                         }
-                        router.replace(getPostAuthRoute() as Href);
+                        router.replace(resolvePostAuthRoute(redirect) as Href);
                       }
                     : undefined
                 }
@@ -168,7 +169,7 @@ export default function LoginScreen() {
                         if (!result.ok) {
                           throw new Error(result.message);
                         }
-                        router.replace(getPostAuthRoute() as Href);
+                        router.replace(resolvePostAuthRoute(redirect) as Href);
                       }
                     : undefined
                 }
@@ -187,7 +188,7 @@ export default function LoginScreen() {
                         if (!result.ok) {
                           throw new Error(result.message);
                         }
-                        router.replace(getPostAuthRoute() as Href);
+                        router.replace(resolvePostAuthRoute(redirect) as Href);
                       }
                     : undefined
                 }
@@ -210,6 +211,12 @@ export default function LoginScreen() {
           </SectionCard>
 
           <View style={styles.footer}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/forgot-password' as Href)}
+              style={styles.link}>
+              <Text style={{ color: theme.mutedForeground }}>{t('auth.login.forgotPassword')}</Text>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push('/register' as Href)}

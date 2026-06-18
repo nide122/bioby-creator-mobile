@@ -1,4 +1,4 @@
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,7 +21,7 @@ import { Badge, getTextInputProps, getTextInputStyle, SectionCard } from '@/comp
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, palette, radii, spacing } from '@/constants/tokens';
 import { isApiConfigured } from '@/src/api/api-config';
-import { getPostAuthRoute } from '@/src/auth/post-auth-navigation';
+import { resolvePostAuthRoute } from '@/src/auth/post-auth-navigation';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
 import { isGoogleOAuthConfigured, isMicrosoftOAuthConfigured } from '@/src/auth/oauth-env';
 import { useSessionStore } from '@/src/stores/session-store';
@@ -118,7 +118,7 @@ function EmailRegisterFields({
               styles.primaryLabel,
               { color: canSubmit ? theme.primaryForeground : theme.foregroundEyebrow },
             ]}>
-            {t('auth.register.createAccount')}
+            {t(isApiConfigured() ? 'auth.register.sendCode' : 'auth.register.createAccount')}
           </Text>
         )}
       </Pressable>
@@ -131,6 +131,7 @@ function EmailRegisterFields({
 export default function RegisterScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string | string[] }>();
   const { register, loginGoogle, loginGoogleWithAuthCode, loginMicrosoft, loading, apiMode } =
     useAuthActions();
   const signInDemo = useSessionStore((s) => s.signInDemo);
@@ -150,7 +151,7 @@ export default function RegisterScreen() {
 
   const finishOAuthRegister = (account: string) => {
     signInDemo(account.trim(), { displayNameHint: displayName.trim() });
-    router.replace(getPostAuthRoute() as Href);
+    router.replace(resolvePostAuthRoute(redirect) as Href);
   };
 
   const onContinue = async () => {
@@ -164,7 +165,17 @@ export default function RegisterScreen() {
       void alertAction(t('auth.register.errors.submit'), result.message);
       return;
     }
-    router.replace(getPostAuthRoute() as Href);
+    if (result.requiresVerification) {
+      const query = new URLSearchParams({ email: result.email });
+      if (typeof redirect === 'string' && redirect.trim()) {
+        query.set('redirect', redirect.trim());
+      } else if (Array.isArray(redirect) && redirect[0]?.trim()) {
+        query.set('redirect', redirect[0].trim());
+      }
+      router.replace(`/verify-email-pending?${query.toString()}` as Href);
+      return;
+    }
+    router.replace(resolvePostAuthRoute(redirect) as Href);
   };
 
   const backToWelcome = () => {
@@ -239,7 +250,7 @@ export default function RegisterScreen() {
                       if (!result.ok) {
                         throw new Error(result.message);
                       }
-                      router.replace(getPostAuthRoute() as Href);
+                      router.replace(resolvePostAuthRoute(redirect) as Href);
                     }
                   : undefined
               }
@@ -250,7 +261,7 @@ export default function RegisterScreen() {
                       if (!result.ok) {
                         throw new Error(result.message);
                       }
-                      router.replace(getPostAuthRoute() as Href);
+                      router.replace(resolvePostAuthRoute(redirect) as Href);
                     }
                   : undefined
               }
@@ -269,7 +280,7 @@ export default function RegisterScreen() {
                       if (!result.ok) {
                         throw new Error(result.message);
                       }
-                      router.replace(getPostAuthRoute() as Href);
+                      router.replace(resolvePostAuthRoute(redirect) as Href);
                     }
                   : undefined
               }

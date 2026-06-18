@@ -23,6 +23,7 @@ import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/token
 import type { EscrowLifecyclePhase } from '@/src/types/domain';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { usePayments, usePaymentsOverview } from '@/src/hooks/use-money';
+import { invalidateMoneyQueries } from '@/src/lib/invalidate-money-queries';
 import { formatMinorUnits } from '@/src/lib/format-money';
 
 export default function PaymentsScreen() {
@@ -67,7 +68,7 @@ export default function PaymentsScreen() {
     const msg = payments.error?.message ?? overview.error?.message ?? t('paymentsScreen.unknownError');
     return (
       <PlaceholderScreen title={t('paymentsScreen.errorTitle')} description={t('paymentsScreen.errorDesc')}>
-        <QueryRetryCard message={msg} onRetry={() => queryClient.invalidateQueries({ queryKey: ['payments'] })} />
+        <QueryRetryCard message={msg} onRetry={() => invalidateMoneyQueries(queryClient)} />
       </PlaceholderScreen>
     );
   }

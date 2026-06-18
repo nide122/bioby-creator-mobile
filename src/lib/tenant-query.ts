@@ -22,7 +22,9 @@ export function useTenantQueryKey(...segments: unknown[]): unknown[] {
 /** Gate tenant-scoped API queries until JWT workspace is known. */
 export function useTenantApiQueryEnabled(): boolean {
   const tenantPublicId = useSessionStore((s) => s.tenantPublicId);
-  return shouldUseBackendApi() && !!tenantPublicId;
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const authBootstrapReady = useSessionStore((s) => s.authBootstrapReady);
+  return shouldUseBackendApi() && !!tenantPublicId && isAuthenticated && authBootstrapReady;
 }
 
 /** Allow demo/mock queries without JWT; require tenant id when hitting the API. */

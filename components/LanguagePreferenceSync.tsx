@@ -4,6 +4,8 @@ import { AppState } from 'react-native';
 
 import i18n from '@/src/i18n';
 import { resolveLanguagePreference, useLocaleStore } from '@/src/stores/locale-store';
+import { syncTenantPreferredLocale } from '@/src/lib/sync-tenant-locale';
+import { useSessionStore } from '@/src/stores/session-store';
 
 /**
  * When preference is "system", refresh i18n after returning from background
@@ -15,10 +17,17 @@ export function LanguagePreferenceSync() {
   useEffect(() => {
     const onLanguageChanged = () => {
       void queryClient.invalidateQueries({ queryKey: ['growth'] });
+      void syncTenantPreferredLocale();
     };
     i18n.on('languageChanged', onLanguageChanged);
     return () => i18n.off('languageChanged', onLanguageChanged);
   }, [queryClient]);
+
+  useEffect(() => {
+    if (useSessionStore.getState().isAuthenticated) {
+      void syncTenantPreferredLocale();
+    }
+  }, []);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {

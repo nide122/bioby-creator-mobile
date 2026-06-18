@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +12,10 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
 import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
 import { useDeals } from '@/src/hooks/use-deals';
-import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
+import { useDealListFocusRefresh, useDealListRefresh } from '@/src/hooks/use-deal-refresh';
+import { invalidateDealListQueries } from '@/src/lib/invalidate-deal-queries';
+import { isEmailLikeLabel } from '@/src/lib/cooperation-display-name';
+import { localizeDealSummaryCopy } from '@/src/lib/deal-copy-i18n';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -23,13 +25,19 @@ function dealRowAccent(phase: EscrowLifecyclePhase): boolean {
 }
 
 function DealHubRow({ item, recommended }: { item: DealSummary; recommended?: boolean }) {
+  const { t } = useTranslation();
   const { escrowLifecycleLabel } = useDomainLabels();
   const router = useRouter();
+  const dealCopy = localizeDealSummaryCopy(item, t);
 
-  const subtitleParts = [item.brandPlaceholder];
-  if (item.outcomeSummary) subtitleParts.push(item.outcomeSummary);
-  else if (item.nextMilestone) subtitleParts.push(item.nextMilestone);
-  if (recommended && item.recommendReasons?.[0]) subtitleParts.push(item.recommendReasons[0]);
+  const subtitleParts: string[] = [];
+  const brandLine = item.brandPlaceholder?.trim();
+  if (brandLine && brandLine !== item.title && !isEmailLikeLabel(brandLine)) {
+    subtitleParts.push(brandLine);
+  }
+  if (dealCopy.outcomeSummary) subtitleParts.push(dealCopy.outcomeSummary);
+  else if (dealCopy.nextMilestone) subtitleParts.push(dealCopy.nextMilestone);
+  if (recommended && dealCopy.recommendReasons?.[0]) subtitleParts.push(dealCopy.recommendReasons[0]);
 
   const icon: IconName = recommended ? 'sparkles' : 'briefcase-outline';
 
@@ -51,28 +59,32 @@ export default function DealsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const deals = useDeals();
-  const refreshDeals = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
-    [queryClient]
-  );
-  const { refreshing, onRefresh } = useTabRefresh(refreshDeals);
+  const { refreshing, onRefresh } = useDealListRefresh();
+  useDealListFocusRefresh();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
-  if (deals.isPending) {
+  if (deals.isPending && !deals.data) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <ActivityIndicator accessibilityLabel={t('dealsScreen.loadingA11y')} color={theme.primary} />
-      </View>
+      <HubScreen
+        testID="screen-deals"
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        eyebrow={t('tabs.deals')}
+        title={t('dealsScreen.title')}>
+        <View style={styles.centered}>
+          <ActivityIndicator accessibilityLabel={t('dealsScreen.loadingA11y')} color={theme.primary} />
+        </View>
+      </HubScreen>
     );
   }
 
-  if (deals.error) {
+  if (deals.error && !deals.data) {
     return (
       <PlaceholderScreen title={t('dealsScreen.errorTitle')} description={t('dealsScreen.errorDesc')}>
         <QueryRetryCard
           message={deals.error.message}
-          onRetry={() => queryClient.invalidateQueries({ queryKey: ['deals'] })}
+          onRetry={() => invalidateDealListQueries(queryClient)}
         />
       </PlaceholderScreen>
     );
@@ -85,7 +97,7 @@ export default function DealsScreen() {
   return (
     <HubScreen
       testID="screen-deals"
-      refreshing={refreshing || deals.isRefetching}
+      refreshing={refreshing}
       onRefresh={onRefresh}
       eyebrow={t('tabs.deals')}
       title={t('dealsScreen.title')}
@@ -119,5 +131,5 @@ export default function DealsScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 },
 });

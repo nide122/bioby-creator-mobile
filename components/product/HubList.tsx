@@ -85,7 +85,7 @@ export const hubListStyles = StyleSheet.create({
 type RowProps = {
   title: string;
   subtitle?: ReactNode;
-  detail?: string;
+  detail?: ReactNode;
   detailAccent?: boolean;
   detailFooter?: string;
   detailFooterAccent?: boolean;
@@ -95,6 +95,7 @@ type RowProps = {
 
 function HubRowBase({
   icon,
+  iconElement,
   title,
   subtitle,
   detail,
@@ -103,18 +104,19 @@ function HubRowBase({
   detailFooterAccent,
   onPress,
   testID,
-}: RowProps & { icon?: IconName }) {
+}: RowProps & { icon?: IconName; iconElement?: ReactNode }) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const tall = !!subtitle;
 
   const content = (
     <View style={[hubListStyles.row, tall && hubListStyles.rowTall]}>
-      {icon ? (
-        <View style={[hubListStyles.icon, { backgroundColor: theme.muted }]}>
-          <Ionicons name={icon} size={17} color={theme.primary} />
-        </View>
-      ) : null}
+      {iconElement ??
+        (icon ? (
+          <View style={[hubListStyles.icon, { backgroundColor: theme.muted }]}>
+            <Ionicons name={icon} size={17} color={theme.primary} />
+          </View>
+        ) : null)}
       <View style={hubListStyles.body}>
         <Text style={[hubListStyles.title, { color: theme.foreground }]} numberOfLines={2}>
           {title}
@@ -129,11 +131,15 @@ function HubRowBase({
         {detail || detailFooter ? (
           <View style={[hubListStyles.trailingTextBlock, tall && detailFooter && hubListStyles.trailingTextBlockTall]}>
             {detail ? (
-              <Text
-                style={[hubListStyles.detail, { color: detailAccent ? theme.primary : theme.mutedForeground }]}
-                numberOfLines={1}>
-                {detail}
-              </Text>
+              typeof detail === 'string' ? (
+                <Text
+                  style={[hubListStyles.detail, { color: detailAccent ? theme.primary : theme.mutedForeground }]}
+                  numberOfLines={1}>
+                  {detail}
+                </Text>
+              ) : (
+                detail
+              )
             ) : null}
             {detailFooter ? (
               <Text
@@ -169,7 +175,9 @@ function HubRowBase({
 }
 
 /** Primary navigable list row (inbox, deals, assets, settings links). */
-export function HubListRow(props: RowProps & { icon?: IconName; onPress: () => void }) {
+export function HubListRow(
+  props: RowProps & { icon?: IconName; iconElement?: ReactNode; onPress: () => void }
+) {
   return <HubRowBase {...props} />;
 }
 
@@ -179,6 +187,6 @@ export function HubNavRow(props: RowProps & { onPress: () => void }) {
 }
 
 /** Non-interactive row inside a group (labels, learning log). */
-export function HubStaticRow(props: Omit<RowProps, 'onPress'> & { icon?: IconName }) {
+export function HubStaticRow(props: Omit<RowProps, 'onPress'> & { icon?: IconName; iconElement?: ReactNode }) {
   return <HubRowBase {...props} />;
 }

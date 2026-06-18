@@ -19,6 +19,7 @@ export default function OnboardingIndexScreen() {
   const onboardingComplete = useSessionStore((s) => s.onboardingComplete);
   const profileBasics = useSessionStore((s) => s.profileBasics);
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
+  const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
 
   useEffect(() => {
@@ -39,6 +40,10 @@ export default function OnboardingIndexScreen() {
       router.replace('/onboarding/consent' as Href);
       return;
     }
+    if (!inboxFilterStepFinished) {
+      router.replace('/onboarding/inbox-filter' as Href);
+      return;
+    }
     if (!emailWizardFinished) {
       router.replace('/onboarding/email' as Href);
       return;
@@ -51,6 +56,7 @@ export default function OnboardingIndexScreen() {
     onboardingComplete,
     profileBasics,
     complianceAcceptedAt,
+    inboxFilterStepFinished,
     emailWizardFinished,
     router,
   ]);

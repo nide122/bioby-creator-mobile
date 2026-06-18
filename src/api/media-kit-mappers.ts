@@ -16,6 +16,7 @@ import type {
 } from '@/src/types/domain';
 
 import { normalizeStartingPrice } from '@/src/lib/media-kit-preview';
+import { filterVisibleMediaKitPlatforms } from '@/src/lib/platform-matrix-sync';
 import { resolveMediaKitContactUrl } from '@/src/lib/media-kit-contact-url';
 
 type JsonObject = Record<string, unknown>;
@@ -59,8 +60,13 @@ function mapPlatforms(raw: unknown): MediaKitPlatformRow[] {
     };
     const monthlyViews = asString(row.monthlyViews);
     const handle = asString(row.handle);
+    const profileSource = asString(row.profileSource);
     if (monthlyViews) platform.monthlyViews = monthlyViews;
     if (handle) platform.handle = handle;
+    if (profileSource === 'youtube' || profileSource === 'tiktok' || profileSource === 'instagram') {
+      platform.profileSource = profileSource;
+    }
+    if (row.visibleInPreview === false) platform.visibleInPreview = false;
     rows.push(platform);
   }
   return rows;
@@ -262,7 +268,7 @@ export function mapMediaKitDto(dto: unknown): MediaKitPreview {
     contactUrl: asString(root.contactUrl),
     heroStats: mapHeroStats(root.heroStats),
     audience: mapAudience(root.audience),
-    platforms: mapPlatforms(root.platforms),
+    platforms: filterVisibleMediaKitPlatforms(mapPlatforms(root.platforms)),
     rateSummaries: mapRateSummaries(root.rateSummaries),
     servicesTable: mapServicesTable(root.servicesTable),
     partnerships: Array.isArray(root.partnerships)

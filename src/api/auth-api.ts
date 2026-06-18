@@ -2,12 +2,17 @@ import { apiRequest } from '@/src/api/api-client';
 import type { AuthSession } from '@/src/api/auth-types';
 import { clearAuthTokens, getAccessToken, getRefreshToken, setAuthTokens } from '@/src/auth/token-storage';
 
+export type RegisterResponse = {
+  email: string;
+  message: string;
+};
+
 export async function registerAccount(input: {
   email: string;
   password: string;
   displayName?: string;
-}): Promise<AuthSession> {
-  const session = await apiRequest<AuthSession>('/api/v1/auth/register', {
+}): Promise<RegisterResponse> {
+  return apiRequest<RegisterResponse>('/api/v1/auth/register', {
     method: 'POST',
     body: {
       email: input.email,
@@ -16,8 +21,6 @@ export async function registerAccount(input: {
     },
     auth: false,
   });
-  await setAuthTokens(session.accessToken, session.refreshToken);
-  return session;
 }
 
 export async function loginAccount(input: { email: string; password: string }): Promise<AuthSession> {
@@ -63,6 +66,7 @@ export async function fetchMe(): Promise<AuthSession> {
     activeTenant: AuthSession['activeTenant'];
     membershipRole: string;
     agentSendMode: AuthSession['agentSendMode'];
+    creatorFocusMode: AuthSession['creatorFocusMode'];
   }>('/api/v1/auth/me');
 
   const access = await getAccessToken();
@@ -76,6 +80,7 @@ export async function fetchMe(): Promise<AuthSession> {
     activeTenant: me.activeTenant,
     membershipRole: me.membershipRole,
     agentSendMode: me.agentSendMode,
+    creatorFocusMode: me.creatorFocusMode,
   };
 }
 
@@ -93,6 +98,7 @@ export async function loginWithGoogleAuthCode(input: {
   code: string;
   redirectUri: string;
   codeVerifier: string;
+  clientId?: string;
 }): Promise<AuthSession> {
   const session = await apiRequest<AuthSession>('/api/v1/auth/oauth/google', {
     method: 'POST',
@@ -126,6 +132,71 @@ export async function loginWithMicrosoftAuthCode(input: {
   });
   await setAuthTokens(session.accessToken, session.refreshToken);
   return session;
+}
+
+export type ForgotPasswordOutcome =
+  | 'RESET_EMAIL_SENT'
+  | 'OAUTH_ONLY'
+  | 'EMAIL_NOT_FOUND'
+  | 'ACCOUNT_DISABLED'
+  | 'RATE_LIMITED';
+
+export type ForgotPasswordResponse = {
+  outcome: ForgotPasswordOutcome;
+  message: string;
+};
+
+export async function requestPasswordReset(email: string): Promise<ForgotPasswordResponse> {
+  return apiRequest<ForgotPasswordResponse>('/api/v1/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+    auth: false,
+  });
+}
+
+export async function validateResetToken(token: string): Promise<{ valid: boolean }> {
+  return apiRequest<{ valid: boolean }>('/api/v1/auth/validate-reset-token', {
+    method: 'POST',
+    body: { token },
+    auth: false,
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await apiRequest<{ message: string }>('/api/v1/auth/reset-password', {
+    method: 'POST',
+    body: { token, newPassword },
+    auth: false,
+  });
+}
+
+export type ResendRegistrationCodeOutcome =
+  | 'REGISTRATION_CODE_SENT'
+  | 'EMAIL_TAKEN'
+  | 'NO_PENDING_REGISTRATION'
+  | 'RATE_LIMITED';
+
+export type ResendRegistrationCodeResponse = {
+  outcome: ResendRegistrationCodeOutcome;
+  message: string;
+};
+
+export async function completeRegistration(email: string, code: string): Promise<AuthSession> {
+  const session = await apiRequest<AuthSession>('/api/v1/auth/register/complete', {
+    method: 'POST',
+    body: { email, code },
+    auth: false,
+  });
+  await setAuthTokens(session.accessToken, session.refreshToken);
+  return session;
+}
+
+export async function resendRegistrationCode(email: string): Promise<ResendRegistrationCodeResponse> {
+  return apiRequest<ResendRegistrationCodeResponse>('/api/v1/auth/register/resend-code', {
+    method: 'POST',
+    body: { email },
+    auth: false,
+  });
 }
 
 export async function logoutAccount(): Promise<void> {

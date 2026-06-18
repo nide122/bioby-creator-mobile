@@ -9,7 +9,6 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { layout, palette } from '@/constants/tokens';
 import { useDecisionQueue } from '@/src/hooks/use-decisions';
-import { useSessionStore } from '@/src/stores/session-store';
 
 function TabBarIcon(props: {
   focused: boolean;
@@ -33,11 +32,7 @@ export default function TabLayout() {
   const navColors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const queue = useDecisionQueue();
-  const creatorFocusMode = useSessionStore((s) => s.creatorFocusMode);
-  const visiblePendingCount =
-    creatorFocusMode === 'quiet'
-      ? queue.pending.filter((card) => card.category !== 'opportunity').length
-      : queue.pending.length;
+  const visiblePendingCount = queue.pending.length;
 
   /**
    * Android + edge-to-edge：`paddingTop` 过大会把整排 Tab 往下顶，标签容易落到系统导航键后面

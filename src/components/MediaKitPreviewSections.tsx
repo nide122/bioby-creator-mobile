@@ -13,7 +13,6 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { platformFromServiceLabel } from '@/src/lib/platform-icon-key';
 import { isMediaKitSectionVisible } from '@/src/lib/media-kit-sections';
-import type { CreatorProfileBasics } from '@/src/stores/session-store';
 import type { MediaKitPreview, MediaKitSectionId } from '@/src/types/domain';
 
 export type MediaKitPreviewSectionsProps = {
@@ -22,8 +21,6 @@ export type MediaKitPreviewSectionsProps = {
   bio: string;
   sectionOrder: MediaKitSectionId[];
   variant: 'owner' | 'public';
-  useProfileOverlay?: boolean;
-  profile?: CreatorProfileBasics | null;
   canCopyContactUrl?: boolean;
   onCopyContactUrl?: () => void;
   onEditCases?: () => void;
@@ -37,8 +34,6 @@ export function MediaKitPreviewSections({
   bio,
   sectionOrder,
   variant,
-  useProfileOverlay = false,
-  profile,
   canCopyContactUrl = false,
   onCopyContactUrl,
   onEditCases,
@@ -119,18 +114,6 @@ export function MediaKitPreviewSections({
         return (
           <SectionCard key={id} title={t('mediaKitScreen.channelsTitle')} subtitle={t('mediaKitScreen.channelsSubtitle')}>
             <View style={{ gap: spacing.md }}>
-              {useProfileOverlay && profile?.platformLabel ? (
-                <View
-                  style={[styles.platformCard, { borderColor: theme.primary, backgroundColor: theme.accentMintSoft }]}>
-                  <View style={styles.platformTop}>
-                    <Text style={[styles.platformName, { color: theme.foreground }]}>{profile.platformLabel}</Text>
-                    {profile.followerCountLabel ? <Badge tone="mint" label={profile.followerCountLabel} /> : null}
-                  </View>
-                  <Text style={[styles.platformNote, { color: theme.foregroundSubtitle }]}>
-                    {profile.handle ? `@${profile.handle}` : profile.profileUrl}
-                  </Text>
-                </View>
-              ) : null}
               {data.platforms.map((p) => (
                 <View
                   key={p.name}

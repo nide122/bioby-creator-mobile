@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { loginWithMicrosoftAuthCode } from '@/src/api/auth-api';
 import { connectMailboxMicrosoftOAuthCode } from '@/src/api/account-api';
 import { isApiConfigured } from '@/src/api/api-config';
-import { useSessionStore } from '@/src/stores/session-store';
+import { completeAuthSession } from '@/src/auth/complete-auth-session';
 
 const MICROSOFT_WEB_KEY = 'microsoft_oauth_web';
 
@@ -76,8 +76,7 @@ export async function handleMicrosoftWebCallback(code: string): Promise<
           redirectUri: saved.redirectUri,
           codeVerifier: saved.codeVerifier,
         });
-        // Apply the session to the zustand store so the app recognizes the user.
-        useSessionStore.getState().applyAuthSession(session);
+        await completeAuthSession(session);
       } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : 'microsoft_backend_error' };
       }

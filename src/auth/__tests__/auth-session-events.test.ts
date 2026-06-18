@@ -23,6 +23,7 @@ describe('isSessionExpiryApiError', () => {
     expect(isSessionExpiryApiError(new ApiError(401, 'TOKEN_EXPIRED', 'Access token expired'))).toBe(true);
     expect(isSessionExpiryApiError(new ApiError(401, 'UNAUTHORIZED', 'Authentication required'))).toBe(false);
     expect(isSessionExpiryApiError(new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password'))).toBe(false);
+    expect(isSessionExpiryApiError(new ApiError(401, 'MAILBOX_ACCESS_TOKEN_MISSING', 'Reconnect mailbox'))).toBe(false);
   });
 });
 

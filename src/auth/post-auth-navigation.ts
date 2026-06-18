@@ -15,3 +15,12 @@ export function getPostAuthRoute(): '/inbox' | Href {
   if (!isApiConfigured()) return '/onboarding';
   return useSessionStore.getState().onboardingComplete ? '/inbox' : getOnboardingResumeRoute();
 }
+
+/** Prefer a safe in-app redirect target when provided (e.g. team invite deep link). */
+export function resolvePostAuthRoute(redirect?: string | string[] | null): Href {
+  const raw = Array.isArray(redirect) ? redirect[0] : redirect;
+  if (raw && raw.startsWith('/') && !raw.startsWith('//')) {
+    return raw as Href;
+  }
+  return getPostAuthRoute();
+}

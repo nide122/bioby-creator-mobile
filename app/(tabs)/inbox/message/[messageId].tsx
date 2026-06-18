@@ -1,5 +1,5 @@
-import { createElement, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createElement, type CSSProperties, useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,7 @@ import { fetchEmailMessage } from '@/src/api/mailbox-api';
 import { fetchOpportunityThreadDetail } from '@/src/api/opportunities-api';
 import { invalidateTenantScopedQueries, useTenantQueryKey, useTenantScopedQueryEnabled } from '@/src/lib/tenant-query';
 import { calendarLocaleTagForLanguage } from '@/src/i18n';
+import { stripQuotedEmailContent, stripQuotedPlainText } from '@/src/lib/email-body';
 
 const UNSAFE_BLOCK_TAG_RE = /<\s*(script|style|head|title|iframe|object|embed|form|textarea|select|option|noscript)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi;
 const UNSAFE_VOID_TAG_RE = /<\s*(script|style|iframe|object|embed|form|input|button|meta|link|base)\b[^>]*\/?\s*>/gi;
@@ -363,6 +364,15 @@ export default function InboxMessageDetailScreen() {
     enabled: canFetchRemote && tenantQueryEnabled,
   });
 
+  const syncedReadRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!canFetchRemote || !remoteQuery.isSuccess || !remoteQuery.data || !messageId) return;
+    if (remoteQuery.data.direction === 'outbound') return;
+    if (syncedReadRef.current === messageId) return;
+    syncedReadRef.current = messageId;
+    void invalidateTenantScopedQueries(queryClient);
+  }, [canFetchRemote, messageId, queryClient, remoteQuery.data, remoteQuery.isSuccess]);
+
   const threadQuery = useQuery({
     queryKey: inboxThreadKey,
     queryFn: () => fetchOpportunityThreadDetail(threadId as string),
@@ -397,13 +407,18 @@ export default function InboxMessageDetailScreen() {
       );
     }
     const email = remoteQuery.data;
-    const htmlBody = email.bodyHtml?.trim();
+    const rawHtml = email.bodyHtml?.trim();
+    const stripped = stripQuotedEmailContent(email.bodyText, rawHtml);
+    const htmlBody = stripped.html ?? undefined;
     const body =
-      email.bodyText?.trim() ||
+      stripped.text ||
       htmlToText(htmlBody) ||
       email.snippet?.trim() ||
       t('inboxMessageDetail.emptyBody');
     const when = formatWhen(email.receivedAtISO ?? email.sentAtISO, dateLocale);
+    const senderLabel =
+      email.fromLabel ??
+      (email.direction === 'outbound' ? t('inboxThreadDetail.youLabel') : email.fromAddress);
     return (
       <ScrollView
         testID="screen-inbox-message-detail"
@@ -412,7 +427,7 @@ export default function InboxMessageDetailScreen() {
         <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
           <Text style={[styles.subject, { color: theme.foreground }]}>{email.subject || t('inboxMessageDetail.noSubject')}</Text>
           <Text style={[styles.meta, { color: theme.foregroundEyebrow }]}>
-            {email.fromAddress}
+            {senderLabel}
             {when ? ` · ${when}` : ''}
           </Text>
           {htmlBody ? (
@@ -450,9 +465,11 @@ export default function InboxMessageDetailScreen() {
           {fallback.subject || threadQuery.data?.subject || t('inboxMessageDetail.noSubject')}
         </Text>
         <Text style={[styles.meta, { color: theme.foregroundEyebrow }]}>
-          {fallback.fromLabel} · {formatWhen(fallback.sentAtISO, dateLocale)}
+          {(fallback.direction === 'outbound' ? t('inboxThreadDetail.youLabel') : fallback.fromLabel)} · {formatWhen(fallback.sentAtISO, dateLocale)}
         </Text>
-        <Text style={[styles.body, { color: theme.foreground }]}>{fallback.snippet}</Text>
+        <Text style={[styles.body, { color: theme.foreground }]}>
+          {stripQuotedPlainText(fallback.snippet) || fallback.snippet}
+        </Text>
       </View>
     </ScrollView>
   );

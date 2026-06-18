@@ -13,7 +13,14 @@ const EMPTY_CATEGORY_COUNTS: Record<InboxEmailCategory, number> = {
   pr_sample: 0,
   media: 0,
   personal: 0,
+  spam: 0,
   other: 0,
+};
+
+const EMPTY_VALUE_BAND_COUNTS: Record<string, number> = {
+  high_value: 0,
+  needs_negotiation: 0,
+  archived: 0,
 };
 
 export function useInboxThreads(options?: { empty?: boolean; filters?: OpportunityListFilters }) {
@@ -34,6 +41,7 @@ export function useInboxThreads(options?: { empty?: boolean; filters?: Opportuni
             size: INBOX_THREAD_PAGE_SIZE,
             hasMore: false,
             categoryCounts: EMPTY_CATEGORY_COUNTS,
+            valueBandCounts: EMPTY_VALUE_BAND_COUNTS,
           })
         : fetchOpportunityThreadPage(filters, { page: pageParam, size: INBOX_THREAD_PAGE_SIZE }),
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
@@ -43,9 +51,11 @@ export function useInboxThreads(options?: { empty?: boolean; filters?: Opportuni
 
   const threads = query.data?.pages.flatMap((page) => page.items) ?? [];
   const categoryCounts = query.data?.pages[0]?.categoryCounts ?? EMPTY_CATEGORY_COUNTS;
+  const valueBandCounts = query.data?.pages[0]?.valueBandCounts ?? EMPTY_VALUE_BAND_COUNTS;
   return {
     ...query,
     categoryCounts,
+    valueBandCounts,
     data: threads.map((thread) =>
       apiMode ? thread : applyInboxClassificationCorrection(thread, corrections)
     ),
@@ -55,14 +65,16 @@ export function useInboxThreads(options?: { empty?: boolean; filters?: Opportuni
 /** @deprecated use useInboxThreads */
 export const useMockInboxThreads = useInboxThreads;
 
-export function useAiDailySummary() {
+export function useAiDailySummary(options?: { mailboxProcessingActive?: boolean }) {
   const apiMode = shouldUseBackendApi();
   const queryKey = useTenantQueryKey('inbox', 'ai-daily-summary', { api: apiMode });
   const enabled = useTenantScopedQueryEnabled();
+  const mailboxProcessingActive = options?.mailboxProcessingActive ?? false;
   return useQuery({
     queryKey,
     queryFn: fetchInboxSummary,
     enabled,
-    staleTime: 5 * 60 * 1000,
+    staleTime: mailboxProcessingActive ? 0 : 5 * 60 * 1000,
+    refetchInterval: mailboxProcessingActive ? 2500 : false,
   });
 }

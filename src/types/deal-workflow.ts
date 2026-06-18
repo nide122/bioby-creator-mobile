@@ -29,6 +29,8 @@ export type DealVerificationWorkflow = {
   checklist: DealVerificationChecklistItem[];
   payoutHint?: string;
   submittedAt?: string;
+  brandReviewStatus?: 'pending' | 'approved';
+  brandApprovedAt?: string;
 };
 
 export type DealPacketContent = {

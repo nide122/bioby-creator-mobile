@@ -1,30 +1,8 @@
+import { MOCK_DEAL_PAYMENT_LINES } from '@/src/data/mock-deal-catalog';
 import type { DisputeCase, PaymentLineItem, PaymentsOverview } from '@/src/types/domain';
 import { mockDelay } from '@/src/lib/mock-delay';
 
-export const MOCK_PAYMENT_LINES: PaymentLineItem[] = [
-  {
-    id: 'pay-1',
-    dealId: 'mock-deal-alpha',
-    label: 'Brand prepay',
-    amountCents: 150_000,
-    currency: 'USD',
-    phase: 'escrowed',
-    dealTitle: '2 short videos | Claims review',
-    nextStepHint: 'Escrow is active. Move to verification after delivery milestone.',
-    expectedReleaseLabel: 'After rough cut approval',
-  },
-  {
-    id: 'pay-2',
-    dealId: 'mock-deal-beta',
-    label: 'Creator net payout',
-    amountCents: 420_000,
-    currency: 'USD',
-    phase: 'pending_verification',
-    dealTitle: 'Camping light unboxing + overlay',
-    nextStepHint: 'Remaining payout releases after verification.',
-    expectedReleaseLabel: 'After first-day metrics',
-  },
-];
+export const MOCK_PAYMENT_LINES: PaymentLineItem[] = MOCK_DEAL_PAYMENT_LINES;
 
 export async function fetchMockPayments(options?: { empty?: boolean }): Promise<PaymentLineItem[]> {
   await mockDelay(180);

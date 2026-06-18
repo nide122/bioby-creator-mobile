@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { DraftKind, EscrowLifecyclePhase, InboxEmailCategory, InboxLeadStage } from '@/src/types/domain';
+import type { DraftKind, EscrowLifecyclePhase, InboxEmailCategory, InboxLeadStage, LeadValueBand, OpportunityPipelinePhase } from '@/src/types/domain';
 
 export function useDomainLabels() {
   const { t } = useTranslation();
@@ -36,7 +36,17 @@ export function useDomainLabels() {
       pr_sample: t('labels.inboxCategory.pr_sample'),
       media: t('labels.inboxCategory.media'),
       personal: t('labels.inboxCategory.personal'),
+      spam: t('labels.inboxCategory.spam'),
       other: t('labels.inboxCategory.other'),
+    }),
+    [t]
+  );
+
+  const leadValueBandLabel = useMemo(
+    (): Record<LeadValueBand, string> => ({
+      high_value: t('labels.leadValueBand.high_value'),
+      needs_negotiation: t('labels.leadValueBand.needs_negotiation'),
+      archived: t('labels.leadValueBand.archived'),
     }),
     [t]
   );
@@ -46,9 +56,35 @@ export function useDomainLabels() {
       ai_reply: t('labels.draftKind.ai_reply'),
       quote: t('labels.draftKind.quote'),
       follow_up: t('labels.draftKind.follow_up'),
+      clarify_budget: t('labels.draftKind.clarify_budget'),
+      counter_offer: t('labels.draftKind.counter_offer'),
+      ack_and_schedule: t('labels.draftKind.ack_and_schedule'),
     }),
     [t]
   );
 
-  return { escrowLifecycleLabel, inboxLeadStageLabel, inboxCategoryLabel, draftKindLabel };
+  const opportunityPipelinePhaseLabel = useMemo(
+    (): Record<OpportunityPipelinePhase, string> => ({
+      INQUIRY: t('labels.pipelinePhase.INQUIRY'),
+      NEGOTIATION: t('labels.pipelinePhase.NEGOTIATION'),
+      CONTRACTED: t('labels.pipelinePhase.CONTRACTED'),
+      PRODUCTION: t('labels.pipelinePhase.PRODUCTION'),
+      BRAND_REVIEW: t('labels.pipelinePhase.BRAND_REVIEW'),
+      REVISION: t('labels.pipelinePhase.REVISION'),
+      SCHEDULED: t('labels.pipelinePhase.SCHEDULED'),
+      LIVE: t('labels.pipelinePhase.LIVE'),
+      INVOICING: t('labels.pipelinePhase.INVOICING'),
+      CLOSED: t('labels.pipelinePhase.CLOSED'),
+    }),
+    [t],
+  );
+
+  return {
+    escrowLifecycleLabel,
+    inboxLeadStageLabel,
+    inboxCategoryLabel,
+    leadValueBandLabel,
+    draftKindLabel,
+    opportunityPipelinePhaseLabel,
+  };
 }

@@ -5,7 +5,7 @@ import type { InboxEmailCategory } from '@/src/types/domain';
 export type InboxViewMode = 'priority' | 'all';
 export type InboxCategoryFilter = InboxEmailCategory | 'all';
 export type InboxTimeRangeFilter = 'ALL' | 'ONE_WEEK' | 'ONE_MONTH' | 'THREE_MONTHS';
-export type InboxSortBy = 'TIME' | 'MESSAGE_COUNT';
+export type InboxSortBy = 'TIME' | 'MESSAGE_COUNT' | 'CLASSIFICATION_SCORE';
 export type InboxSortOrder = 'DESC' | 'ASC';
 
 type InboxViewState = {
@@ -33,11 +33,7 @@ export const useInboxViewStore = create<InboxViewState>((set) => ({
   sortOrder: 'DESC',
   searchQuery: '',
   scrollY: 0,
-  setViewMode: (mode) =>
-    set((state) => ({
-      viewMode: mode,
-      scrollY: mode === state.viewMode ? state.scrollY : 0,
-    })),
+  setViewMode: (mode) => set({ viewMode: mode }),
   setCategoryFilter: (filter) =>
     set({ categoryFilter: filter }),
   setTimeRangeFilter: (filter) =>

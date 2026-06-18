@@ -57,6 +57,13 @@ export async function acceptTenantInvite(tenantPublicId: string): Promise<TeamMe
   });
 }
 
+export async function acceptTenantInviteByToken(token: string): Promise<TeamMember> {
+  return apiRequest<TeamMember>('/api/v1/tenants/members/accept-token', {
+    method: 'POST',
+    body: { token },
+  });
+}
+
 export async function revokeTeamInvite(memberId: number): Promise<void> {
   if (!shouldUseBackendApi()) {
     const { revokeMockTeamInvite } = await import('@/src/api/mock-account');

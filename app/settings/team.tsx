@@ -47,6 +47,10 @@ export default function SettingsTeamScreen() {
     () => (members.data ?? []).filter((m) => m.status === 'INVITED').length,
     [members.data],
   );
+  const localizedTeamRoles = useMemo(
+    () => (team.data ? localizeTeamRoles(team.data, t) : []),
+    [team.data, t],
+  );
 
   if (team.isPending || members.isPending) {
     return (
@@ -75,7 +79,6 @@ export default function SettingsTeamScreen() {
   }
 
   const memberList = members.data ?? [];
-  const localizedTeamRoles = useMemo(() => localizeTeamRoles(team.data, t), [team.data, t]);
   const selectedRoleCard = localizedTeamRoles.find((role) => role.id === invitableRoleId(inviteRole));
 
   const onInvite = () => {
@@ -85,8 +88,23 @@ export default function SettingsTeamScreen() {
     inviteMutation.mutate(
       { email, role: inviteRole },
       {
-        onSuccess: () => {
+        onSuccess: (member) => {
           setInviteEmail('');
+          if (member.inviteKind === 'EMAIL') {
+            void alertAction(
+              member.emailSent === false
+                ? t('teamSettingsScreen.inviteEmailFailedTitle')
+                : t('teamSettingsScreen.inviteEmailSuccessTitle'),
+              member.emailSent === false
+                ? t('teamSettingsScreen.inviteEmailFailedBody')
+                : t('teamSettingsScreen.inviteEmailSuccessBody'),
+            );
+            return;
+          }
+          void alertAction(
+            t('teamSettingsScreen.inviteInAppTitle'),
+            t('teamSettingsScreen.inviteInAppBody'),
+          );
         },
         onError: (err) => {
           void alertAction(
@@ -256,7 +274,6 @@ function revokeErrorMessage(err: unknown, t: (key: string) => string): string {
 
 function inviteErrorMessage(err: unknown, t: (key: string) => string): string {
   if (err instanceof ApiError) {
-    if (err.code === 'USER_NOT_FOUND') return t('teamSettingsScreen.inviteUserNotFound');
     if (err.code === 'FORBIDDEN') return t('teamSettingsScreen.ownerOnlyLead');
     return err.message;
   }

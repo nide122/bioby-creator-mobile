@@ -1,10 +1,12 @@
+import { MOCK_DEAL_OPPORTUNITY_THREADS } from '@/src/data/mock-deal-catalog';
 import type { InboxThread, InboxThreadDetail } from '@/src/types/domain';
 import { mockDelay } from '@/src/lib/mock-delay';
+import { isTodayIso } from '@/src/lib/is-today-iso';
+import { isOpportunityNeedsAction } from '@/src/lib/opportunity-needs-action';
 
 const now = new Date().toISOString();
 
-/** Single source of truth: list rows are derived from detail rows. */
-export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
+const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
   'thread-skincare': {
     id: 'thread-skincare',
     subject: '2 short videos | Claims need pre-review',
@@ -14,6 +16,9 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
     brandName: 'ClearSkin Lab',
     category: 'commercial',
     actionTier: 'DEVELOP',
+    leadValueBand: 'high_value',
+    classificationSortScore: 920,
+    pipelinePhase: 'INQUIRY',
     budgetLabel: '$2.8k – $4.5k',
     riskLabel: 'Medium risk · Claims review',
     ownerLabel: 'You',
@@ -45,6 +50,7 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
         id: 'm1',
         sentAtISO: now,
         fromLabel: 'ClearSkin Lab · Brief',
+        direction: 'inbound',
         snippet:
           'We are looking for two short videos around barrier repair. Budget is roughly $2.8k-$4.5k and #ad must appear in caption and pinned comment.',
       },
@@ -52,6 +58,7 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
         id: 'm2',
         sentAtISO: now,
         fromLabel: 'You · Follow-up',
+        direction: 'outbound',
         snippet: 'Thanks for the brief. Please confirm whether claims need legal review and how many script revision rounds are included.',
       },
     ],
@@ -65,11 +72,14 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
     brandName: 'TrailPeak Gear',
     category: 'commercial',
     actionTier: 'DECIDE_NOW',
+    leadValueBand: 'needs_negotiation',
+    classificationSortScore: 780,
     budgetLabel: 'Budget unclear',
     riskLabel: 'High risk · Broad usage',
     ownerLabel: 'You',
     nextActionLabel: 'Confirm prepay & usage',
     leadStage: 'negotiating',
+    pipelinePhase: 'NEGOTIATION',
     signals: ['Broad usage scope', 'Brand typically replies within 36h'],
     riskFlags: [
       {
@@ -116,6 +126,7 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
     brandName: 'Solara Beauty',
     category: 'pr_sample',
     actionTier: 'AUTO_HANDLED',
+    leadValueBand: 'archived',
     leadStage: 'new',
     nextActionLabel: 'Optional reply',
     signals: [],
@@ -139,6 +150,7 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
     brandName: 'CreatorDaily Mag',
     category: 'media',
     actionTier: 'AUTO_HANDLED',
+    leadValueBand: 'archived',
     leadStage: 'new',
     nextActionLabel: 'Reply if interested',
     signals: [],
@@ -154,6 +166,36 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
       },
     ],
   },
+  'thread-spam': {
+    id: 'thread-spam',
+    subject: 'Limited offer · Act now for 50% off',
+    preview: 'Bulk marketing blast with no brand fit or budget details.',
+    updatedAtISO: now,
+    brandName: 'PromoBlast Inc',
+    category: 'spam',
+    actionTier: 'AUTO_HANDLED',
+    leadValueBand: 'archived',
+    leadStage: 'new',
+    nextActionLabel: 'Ignore',
+    signals: [],
+    riskFlags: [],
+    recommendedActions: [],
+    suggestedDraftIds: { aiReply: 'draft-reply-01', quote: 'draft-quote-02' },
+    messages: [
+      {
+        id: 'm1',
+        sentAtISO: now,
+        fromLabel: 'PromoBlast · Marketing',
+        snippet: 'Exclusive influencer discount — click here to unlock your special rate before midnight!',
+      },
+    ],
+  },
+};
+
+/** Single source of truth: active inbox threads + contracted opportunities with deals. */
+export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
+  ...MOCK_INBOX_THREAD_DETAILS_BASE,
+  ...MOCK_DEAL_OPPORTUNITY_THREADS,
 };
 
 function threadSummaryFromDetail(detail: InboxThreadDetail): InboxThread {
@@ -191,13 +233,17 @@ export async function fetchMockAiDailySummary(): Promise<{
   archivedCount: number;
 }> {
   await mockDelay(100);
-  const threads = Object.values(MOCK_INBOX_THREAD_DETAILS);
+  const threads = Object.values(MOCK_INBOX_THREAD_DETAILS).filter((thread) =>
+    isTodayIso(thread.updatedAtISO),
+  );
+  const processedCount = threads.reduce(
+    (sum, thread) => sum + (thread.messageCount ?? thread.messages.length ?? 1),
+    0,
+  );
   return {
-    processedCount: threads.length,
+    processedCount,
     commercialCount: threads.filter((t) => t.category === 'commercial').length,
-    needsActionCount: threads.filter(
-      (t) => t.category === 'commercial' && ['negotiating', 'draft_ready', 'needs_reply'].includes(t.leadStage)
-    ).length,
-    archivedCount: threads.filter((t) => t.category !== 'commercial').length,
+    needsActionCount: threads.filter((t) => isOpportunityNeedsAction(t)).length,
+    archivedCount: threads.filter((t) => t.leadValueBand === 'archived').length,
   };
 }

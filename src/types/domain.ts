@@ -1,5 +1,7 @@
 /** 领域类型桩 — 对齐 PRD（Outcome-Based / Creator 端），后续可由 OpenAPI 生成替换 */
 
+import type { PresetPlatformKey } from '@/src/types/creator-profile';
+
 // ─── Decision Queue ────────────────────────────────────────────────────────
 
 /** 决策卡类型 — 对应创作者需要拍板的场景 */
@@ -39,6 +41,8 @@ export type DecisionCard = {
   sourceHint?: string;
   /** 点击来源跳转的路径 */
   sourceHref?: string;
+  /** 机会类决策卡对应的价值档 — 用于高价值/需谈判配色 */
+  leadValueBand?: LeadValueBand;
   actions: DecisionAction[];
 };
 
@@ -69,6 +73,19 @@ export type EscrowLifecyclePhase =
   | 'remediation'
   | 'disputed';
 
+/** Backend BrandOpportunity.pipelinePhase — deal lifecycle on the opportunity row. */
+export type OpportunityPipelinePhase =
+  | 'INQUIRY'
+  | 'NEGOTIATION'
+  | 'CONTRACTED'
+  | 'PRODUCTION'
+  | 'BRAND_REVIEW'
+  | 'REVISION'
+  | 'SCHEDULED'
+  | 'LIVE'
+  | 'INVOICING'
+  | 'CLOSED';
+
 /** AI Inbox 线索阶段（Negotiation / Proposal 之前序） */
 export type InboxLeadStage =
   | 'new'
@@ -83,7 +100,21 @@ export type InboxEmailCategory =
   | 'pr_sample'    // 寄样/试用，无付费
   | 'media'        // 媒体采访、内容合作
   | 'personal'     // 粉丝私信、个人邮件
+  | 'spam'         // 垃圾营销
   | 'other';       // 未能明确分类
+
+export type LeadValueBand = 'high_value' | 'needs_negotiation' | 'archived';
+
+export type InboxMessageStats = {
+  total: number;
+  received: number;
+  sent: number;
+  unread: number;
+  unreadReceived: number;
+  unreadSent: number;
+};
+
+export type AiProcessingSource = 'llm' | 'rules' | 'snapshot';
 
 export type InboxThread = {
   id: string;
@@ -95,6 +126,9 @@ export type InboxThread = {
   category: InboxEmailCategory;
   /** 行动档 — 对齐后端 ActionTier */
   actionTier?: 'DECIDE_NOW' | 'DEVELOP' | 'AUTO_HANDLED';
+  /** 价值档 — 对齐后端 LeadValueBand */
+  leadValueBand?: LeadValueBand;
+  classificationSortScore?: number;
   /** 可解释分类/分档理由 */
   actionReasons?: { code: string; message: string }[];
   /** 预算区间展示文案（摘录自信号，非成交价承诺） */
@@ -104,13 +138,25 @@ export type InboxThread = {
   nextActionLabel?: string;
   /** Number of source emails grouped into this opportunity/thread. */
   messageCount?: number;
+  messageStats?: InboxMessageStats;
   leadStage: InboxLeadStage;
   /** AI 抽取的结构化信号 · 仅占位 */
   signals?: string[];
+  /** 分类阶段摘要（LLM 或规则） */
+  classificationSummary?: string;
+  classificationSignals?: string[];
   /** Creator 已在服务端纠偏分类 */
   userCorrected?: boolean;
   classificationCorrectedAtISO?: string;
+  classificationSource?: AiProcessingSource;
+  briefExtractionSource?: AiProcessingSource;
+  budgetFloorRatio?: number;
+  exceptionalBudget?: boolean;
+  pipelinePhase?: OpportunityPipelinePhase;
+  dealEscrowPhase?: EscrowLifecyclePhase;
 };
+
+export type InboxMessageDirection = 'inbound' | 'outbound';
 
 export type InboxMessage = {
   id: string;
@@ -118,6 +164,8 @@ export type InboxMessage = {
   fromLabel: string;
   snippet: string;
   subject?: string;
+  direction?: InboxMessageDirection;
+  read?: boolean;
 };
 
 export type InboxRiskSeverity = 'info' | 'warning' | 'danger';
@@ -127,21 +175,34 @@ export type InboxRiskFlag = {
   label: string;
   severity: InboxRiskSeverity;
   hint?: string;
+  acknowledged?: boolean;
+};
+
+export type InboxDeliverablePackage = {
+  deliverable: string;
+  budgetLabel?: string | null;
+  currency?: string | null;
 };
 
 /** AI Inbox 线程详情（mock）；接入 API 后可独立类型或由服务端拼装 */
 export type InboxThreadDetail = InboxThread & {
+  briefStage?: string;
+  dealId?: string;
   messages: InboxMessage[];
   riskFlags: InboxRiskFlag[];
   recommendedActions: string[];
+  packages?: InboxDeliverablePackage[];
+  attentionCount?: number;
   /** Mock：一键打开对应草稿模板 ID */
   suggestedDraftIds: { aiReply: string; quote: string };
-  extractionStatus?: 'PENDING' | 'COMPLETE' | 'FAILED';
+  extractionStatus?: 'PENDING' | 'COMPLETE' | 'FAILED' | 'SKIPPED';
   extractionConfidence?: number;
   missingFields?: string[];
   deliverables?: string[];
   usageRights?: string[];
   postingSchedule?: string;
+  classificationSource?: AiProcessingSource;
+  briefExtractionSource?: AiProcessingSource;
 };
 
 export type DealSummary = {
@@ -165,7 +226,13 @@ export type DealSummary = {
   recommendRiskNote?: string;
 };
 
-export type DraftKind = 'ai_reply' | 'quote' | 'follow_up';
+export type DraftKind =
+  | 'ai_reply'
+  | 'quote'
+  | 'follow_up'
+  | 'clarify_budget'
+  | 'counter_offer'
+  | 'ack_and_schedule';
 
 export type DraftSummary = {
   id: string;
@@ -279,6 +346,10 @@ export type MediaKitPlatformRow = {
   nicheNote: string;
   monthlyViews?: string;
   handle?: string;
+  /** Preset profile slot when row is sourced from creator profile (not deletable). */
+  profileSource?: PresetPlatformKey;
+  /** When false, hidden from brand-facing preview. Defaults to true. */
+  visibleInPreview?: boolean;
 };
 
 export type MediaKitCaseCard = {
@@ -429,6 +500,10 @@ export type TeamMember = {
   role: string;
   status: TeamMemberStatus;
   createdAt: string;
+  /** MEMBER = registered user; EMAIL = unregistered email invite */
+  inviteKind?: 'MEMBER' | 'EMAIL' | null;
+  /** Only on invite response for EMAIL invites */
+  emailSent?: boolean | null;
 };
 
 /** 订阅 · 额度快照（mock） */

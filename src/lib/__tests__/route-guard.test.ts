@@ -37,6 +37,30 @@ describe('getRouteGuardRedirect', () => {
       ).toBeNull();
     });
 
+    it('allows forgot, reset password, and verify email pending routes while unauthenticated', () => {
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/forgot-password',
+          isAuthenticated: false,
+          onboardingComplete: false,
+        })
+      ).toBeNull();
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/reset-password',
+          isAuthenticated: false,
+          onboardingComplete: false,
+        })
+      ).toBeNull();
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/verify-email-pending',
+          isAuthenticated: false,
+          onboardingComplete: false,
+        })
+      ).toBeNull();
+    });
+
     it('redirects protected routes to welcome', () => {
       expect(
         getRouteGuardRedirect({

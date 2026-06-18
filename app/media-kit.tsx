@@ -15,7 +15,6 @@ import {
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
-import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { alertAction } from '@/src/lib/app-dialog';
 import { copyTextToClipboard } from '@/src/lib/copy-to-clipboard';
 import { isContactUrlCopyable } from '@/src/lib/media-kit-contact-url';
@@ -27,7 +26,6 @@ import {
   shareMediaKitPdf,
 } from '@/src/lib/media-kit-share';
 import { useMediaKitDocument, useMediaKitPreview } from '@/src/hooks/use-growth';
-import { useSessionStore } from '@/src/stores/session-store';
 
 export default function MediaKitScreen() {
   const { t } = useTranslation();
@@ -39,7 +37,6 @@ export default function MediaKitScreen() {
 
   const kit = useMediaKitPreview();
   const documentQuery = useMediaKitDocument();
-  const profile = useSessionStore((s) => s.profileBasics);
 
   if (kit.isPending || documentQuery.isPending) {
     return (
@@ -64,23 +61,17 @@ export default function MediaKitScreen() {
   }
 
   const data = kit.data;
-  const useProfileOverlay = !shouldUseBackendApi();
-  const headline =
-    useProfileOverlay && profile?.displayName
-      ? `${profile.displayName}｜${profile.nicheTags?.slice(0, 2).join(' · ') || profile.niche}`
-      : data.headline;
-  const bio = useProfileOverlay && profile?.bio ? profile.bio : data.bio;
-  const shareCopy = buildShareMessage(data, headline, bio, t('mediaKitScreen.signatureFooter'), t);
+  const shareCopy = buildShareMessage(data, data.headline, data.bio, t('mediaKitScreen.signatureFooter'), t);
   const sectionOrder = resolveSectionOrderFromDocument(documentQuery.data);
 
   const sharePublicProfile = async () => {
     if (sharingPdf) return;
     setSharingPdf(true);
     try {
-      const html = buildShareHtml(data, headline, bio, t('mediaKitScreen.signatureFooter'), sectionOrder, t);
+      const html = buildShareHtml(data, data.headline, data.bio, t('mediaKitScreen.signatureFooter'), sectionOrder, t);
       await shareMediaKitPdf({
         html,
-        filename: buildMediaKitPdfFilename(headline),
+        filename: buildMediaKitPdfFilename(data.headline),
         dialogTitle: t('mediaKitScreen.shareSheetTitle'),
       });
     } catch {

@@ -8,11 +8,13 @@ import type { AuthSession } from '@/src/api/auth-types';
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly retryAfterSeconds?: number;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, retryAfterSeconds?: number) {
     super(message);
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -22,6 +24,18 @@ const AUTH_ERROR_CODES = new Set([
   'TOKEN_REVOKED',
   'REFRESH_EXPIRED',
   'INVALID_REFRESH',
+]);
+
+/** 401 responses that must not clear the Creator JWT session (mailbox OAuth, login forms, etc.). */
+const NON_SESSION_401_CODES = new Set([
+  'MAILBOX_ACCESS_TOKEN_MISSING',
+  'INVALID_CREDENTIALS',
+  'INVALID_ACCESS_TOKEN',
+  'INVALID_ID_TOKEN',
+  'INVALID_MS_TOKEN',
+  'INVALID_AUDIENCE',
+  'GOOGLE_TOKEN_EXCHANGE_FAILED',
+  'MICROSOFT_TOKEN_EXCHANGE_FAILED',
 ]);
 
 export function isAuthApiError(error: unknown): error is ApiError {
@@ -34,9 +48,14 @@ export function isSessionExpiryApiError(error: unknown): error is ApiError {
   return AUTH_ERROR_CODES.has(error.code);
 }
 
+function shouldAttemptTokenRefresh(error: ApiError): boolean {
+  if (NON_SESSION_401_CODES.has(error.code)) return false;
+  return isSessionExpiryApiError(error) || error.code === 'UNAUTHORIZED';
+}
+
 function shouldExpireSession(error: ApiError, hadCredentials: boolean): boolean {
-  if (!hadCredentials) return false;
-  return isSessionExpiryApiError(error);
+  if (!hadCredentials || !shouldAttemptTokenRefresh(error)) return false;
+  return isSessionExpiryApiError(error) || error.code === 'UNAUTHORIZED';
 }
 
 type RequestOptions = {
@@ -44,6 +63,8 @@ type RequestOptions = {
   body?: unknown;
   auth?: boolean;
   retryOnUnauthorized?: boolean;
+  /** When true, a 401 after refresh failure will not clear JWT / notify session expiry. */
+  suppressSessionExpiry?: boolean;
 };
 
 let expireSessionPromise: Promise<void> | null = null;
@@ -73,8 +94,26 @@ function buildApiError(status: number, payload: ApiErrorBody): ApiError {
   return new ApiError(
     status,
     payload.code ?? 'REQUEST_FAILED',
-    payload.message ?? `Request failed (${status})`
+    payload.message ?? `Request failed (${status})`,
+    payload.retryAfterSeconds,
   );
+}
+
+function normalizeAccessToken(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/^Bearer\s+/i, '').trim() || null;
+}
+
+/** Use stored access token, or refresh once before the first authenticated request. */
+async function resolveAccessToken(): Promise<string | null> {
+  const existing = normalizeAccessToken(await getAccessToken());
+  if (existing) return existing;
+  if (!(await getRefreshToken())) return null;
+  const refreshed = await tryRefreshSession();
+  if (!refreshed) return null;
+  return normalizeAccessToken(await getAccessToken());
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -90,15 +129,23 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
+
+  const refreshBeforeRequest = options.auth !== false ? await getRefreshToken() : null;
   if (options.auth !== false) {
-    const token = await getAccessToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+    const token = await resolveAccessToken();
+    if (!token) {
+      if (refreshBeforeRequest) {
+        if (!options.suppressSessionExpiry) {
+          await expireSession();
+        }
+        throw new ApiError(401, 'TOKEN_EXPIRED', 'Session expired');
+      }
+      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
     }
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const hadAccessToken = Boolean(headers.Authorization);
-  const refreshBeforeRequest = options.auth !== false ? await getRefreshToken() : null;
   const hadCredentials = hadAccessToken || Boolean(refreshBeforeRequest);
 
   const response = await fetch(`${base}${path}`, {
@@ -108,24 +155,31 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   });
 
   if (response.status === 401 && options.retryOnUnauthorized !== false && options.auth !== false) {
-    const refreshed = await tryRefreshSession();
-    if (refreshed) {
-      return apiRequest<T>(path, { ...options, retryOnUnauthorized: false });
-    }
-    if (hadCredentials) {
-      await expireSession();
-    }
     const payload = await readErrorBody(response);
-    throw buildApiError(401, {
-      code: payload.code ?? 'TOKEN_EXPIRED',
-      message: payload.message ?? 'Session expired',
-    });
+    const authError = buildApiError(401, payload);
+
+    if (shouldAttemptTokenRefresh(authError)) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        return apiRequest<T>(path, { ...options, retryOnUnauthorized: false });
+      }
+      if (!options.suppressSessionExpiry) {
+        await expireSession();
+      }
+      throw new ApiError(
+        401,
+        authError.code === 'UNAUTHORIZED' ? 'TOKEN_EXPIRED' : authError.code,
+        authError.message || 'Session expired',
+      );
+    }
+
+    throw authError;
   }
 
   if (!response.ok) {
     const payload = await readErrorBody(response);
     const error = buildApiError(response.status, payload);
-    if (options.auth !== false && shouldExpireSession(error, hadCredentials)) {
+    if (options.auth !== false && shouldExpireSession(error, hadCredentials) && !options.suppressSessionExpiry) {
       await expireSession();
     }
     throw error;

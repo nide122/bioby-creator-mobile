@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -10,6 +10,7 @@ import {
   Badge,
   getTextInputProps,
   getTextInputStyle,
+  HubCallout,
   HubLinkGroup,
   HubScreen,
   QueryRetryCard,
@@ -20,15 +21,33 @@ import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
-import { submitDealVerification } from '@/src/api/deals-api';
+import { submitDealVerification, approveDealVerification } from '@/src/api/deals-api';
+import {
+  invalidateDealClosureArtifacts,
+  invalidateDealWorkspaceQueries,
+} from '@/src/lib/invalidate-deal-queries';
+import { getActiveTenantPublicId, tenantQueryKey } from '@/src/lib/tenant-query';
+import { useDealWorkspaceFocusRefresh, useDealWorkspaceRefresh } from '@/src/hooks/use-deal-refresh';
 import { useDealPacket } from '@/src/hooks/use-deal-packet';
 import { useDealDetail } from '@/src/hooks/use-deals';
+import {
+  canSubmitVerification,
+  evidenceStatusFromForm,
+  isValidPostLink,
+  isUserConfirmChecklistId,
+  mergeEvidenceStatuses,
+  allUserChecksConfirmed,
+  resolveVerificationChecklist,
+  type ChecklistConfirmations,
+  type UserConfirmChecklistId,
+} from '@/src/lib/verification-submit-eligibility';
+import { cooperationLeadLine } from '@/src/lib/cooperation-display-name';
 
 type VerificationStatus = 'done' | 'reviewing' | 'missing';
 
 const EVIDENCE_DEFS: { id: string; status: VerificationStatus }[] = [
-  { id: 'post-link', status: 'done' },
-  { id: 'screenshot', status: 'reviewing' },
+  { id: 'post-link', status: 'missing' },
+  { id: 'screenshot', status: 'missing' },
   { id: 'metrics', status: 'missing' },
 ];
 
@@ -49,12 +68,17 @@ export default function DealVerificationScreen() {
   const dealId = Array.isArray(params.dealId) ? params.dealId[0] : params.dealId;
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const [postLink, setPostLink] = useState('');
+  const [screenshotAttested, setScreenshotAttested] = useState(false);
   const [firstDayMetrics, setFirstDayMetrics] = useState('');
   const [creatorNote, setCreatorNote] = useState('');
+  const [checklistConfirmations, setChecklistConfirmations] = useState<ChecklistConfirmations>({});
   const [submitted, setSubmitted] = useState(false);
   const queryClient = useQueryClient();
   const dealQuery = useDealDetail(dealId);
   const packetQuery = useDealPacket(dealId);
+  const { refreshing, onRefresh } = useDealWorkspaceRefresh(dealId);
+  useDealWorkspaceFocusRefresh(dealId);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -125,23 +149,133 @@ export default function DealVerificationScreen() {
   const baseEvidence =
     apiEvidence && apiEvidence.length > 0 ? apiEvidence : EVIDENCE_DEFS;
   const apiChecklist = packetQuery.data?.packet.verification?.checklist;
-  const resolvedChecklist =
+  const baseChecklist =
     apiChecklist && apiChecklist.length > 0 ? apiChecklist : CHECKLIST_DEFS;
+  const postLinkValid = isValidPostLink(postLink);
+  const resolvedChecklist = useMemo(
+    () => resolveVerificationChecklist(baseChecklist, checklistConfirmations, postLinkValid),
+    [baseChecklist, checklistConfirmations, postLinkValid],
+  );
   const payoutHint = packetQuery.data?.packet.verification?.payoutHint;
+  const brandReviewStatus = packetQuery.data?.packet.verification?.brandReviewStatus;
+  const brandReviewPending =
+    submitted && brandReviewStatus !== 'approved' && dealQuery.data?.escrowPhase === 'pending_verification';
 
-  const canSubmit = firstDayMetrics.trim().length >= 6 && creatorNote.trim().length >= 6;
+  const phaseAllowsSubmit = dealQuery.data?.escrowPhase === 'pending_verification';
+  const formInput = useMemo(
+    () => ({
+      postLink,
+      screenshotAttested,
+      firstDayMetrics,
+      creatorNote,
+    }),
+    [postLink, screenshotAttested, firstDayMetrics, creatorNote],
+  );
+  const canSubmit = canSubmitVerification(formInput, phaseAllowsSubmit, resolvedChecklist);
   const visibleEvidence = useMemo(
     () =>
-      baseEvidence.map((item) =>
-        item.id === 'metrics' && (canSubmit || submitted)
-          ? { ...item, status: 'reviewing' as VerificationStatus }
-          : item,
+      mergeEvidenceStatuses(
+        baseEvidence,
+        evidenceStatusFromForm(formInput, submitted),
+        submitted,
       ),
-    [baseEvidence, canSubmit, submitted],
+    [baseEvidence, formInput, submitted],
   );
 
   const completedEvidence = visibleEvidence.filter((item) => item.status === 'done').length;
   const passedChecks = resolvedChecklist.filter((item) => item.passed).length;
+
+  const toggleChecklistItem = useCallback((id: UserConfirmChecklistId) => {
+    setChecklistConfirmations((current) => ({
+      ...current,
+      [id]: !current[id],
+    }));
+  }, []);
+
+  const registerScreenshotProof = useCallback(() => {
+    setScreenshotAttested(true);
+  }, []);
+
+  const handleSubmit = useCallback(() => {
+    if (!canSubmit || submitted || submitting || !dealId) return;
+    const payload = {
+      postLink: postLink.trim(),
+      firstDayMetrics: firstDayMetrics.trim(),
+      creatorNote: creatorNote.trim(),
+    };
+    if (shouldUseBackendApi() && /^\d+$/.test(dealId)) {
+      setSubmitting(true);
+      void submitDealVerification(dealId, payload)
+        .then(() => {
+          setSubmitted(true);
+          invalidateDealWorkspaceQueries(queryClient, dealId);
+          void queryClient.invalidateQueries({ queryKey: ['payments'] });
+          void alertAction(
+            t('dealVerificationScreen.submitAlertTitle'),
+            t('dealVerificationScreen.submitAlertBody'),
+          );
+        })
+        .catch(() => {
+          void alertAction(
+            t('dealVerificationScreen.submitErrorTitle'),
+            t('dealVerificationScreen.submitErrorBody'),
+          );
+        })
+        .finally(() => setSubmitting(false));
+      return;
+    }
+    setSubmitted(true);
+    void alertAction(t('dealVerificationScreen.submitAlertTitle'), t('dealVerificationScreen.submitAlertBody'));
+  }, [
+    canSubmit,
+    creatorNote,
+    dealId,
+    firstDayMetrics,
+    postLink,
+    queryClient,
+    submitted,
+    submitting,
+    t,
+  ]);
+
+  const submitFooter =
+    !submitted ? (
+      <View
+        style={[styles.stickyFooter, { borderColor: theme.border, backgroundColor: theme.background }]}>
+        {!phaseAllowsSubmit ? (
+          <Text style={[styles.footerHint, { color: theme.mutedForeground }]}>
+            {t('dealVerificationScreen.deliveryIncompleteHint')}
+          </Text>
+        ) : !canSubmit ? (
+          <Text style={[styles.footerHint, { color: theme.mutedForeground }]}>
+            {!allUserChecksConfirmed(resolvedChecklist)
+              ? t('dealVerificationScreen.checklistBlockedHint')
+              : t('dealVerificationScreen.submitBlockedHint')}
+          </Text>
+        ) : null}
+        <Pressable
+          testID="deal-verification-submit"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canSubmit || submitting || !phaseAllowsSubmit }}
+          disabled={!canSubmit || submitting || !phaseAllowsSubmit}
+          onPress={handleSubmit}
+          style={[
+            styles.primary,
+            {
+              backgroundColor: theme.primary,
+              opacity: !canSubmit || submitting || !phaseAllowsSubmit ? 0.45 : 1,
+            },
+          ]}>
+          {submitting ? (
+            <ActivityIndicator color={theme.primaryForeground} />
+          ) : (
+            <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
+              {t('dealVerificationScreen.ctaSubmit')}
+            </Text>
+          )}
+        </Pressable>
+      </View>
+    ) : null;
 
   if (!dealId) {
     return (
@@ -154,9 +288,15 @@ export default function DealVerificationScreen() {
 
   if (packetQuery.isPending && !packetQuery.data) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <ActivityIndicator accessibilityLabel={t('dealVerificationScreen.loadingA11y')} color={theme.primary} />
-      </View>
+      <HubScreen
+        eyebrow={t('tabs.deals')}
+        title={t('dealVerificationScreen.title')}
+        refreshing={refreshing}
+        onRefresh={onRefresh}>
+        <View style={styles.centered}>
+          <ActivityIndicator accessibilityLabel={t('dealVerificationScreen.loadingA11y')} color={theme.primary} />
+        </View>
+      </HubScreen>
     );
   }
 
@@ -171,17 +311,20 @@ export default function DealVerificationScreen() {
   }
 
   const dealTitle = dealQuery.data?.title ?? packetQuery.data?.title;
-  const dealBrand = dealQuery.data?.brandPlaceholder ?? packetQuery.data?.brandPlaceholder;
 
   return (
     <HubScreen
       eyebrow={t('tabs.deals')}
       title={t('dealVerificationScreen.title')}
       lead={
-        dealTitle && dealBrand
-          ? `${dealBrand} · ${dealTitle}`
+        dealTitle
+          ? cooperationLeadLine(dealQuery.data?.brandPlaceholder ?? packetQuery.data?.brandPlaceholder, dealTitle)
           : payoutHint ?? t('dealVerificationScreen.description')
-      }>
+      }
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      fixedFooter={submitFooter}
+      scrollBottomInset={submitFooter ? 108 : undefined}>
       <View style={[styles.summary, { borderColor: theme.border, backgroundColor: theme.card }]}>
         <View style={styles.summaryTop}>
           <View style={{ flex: 1, gap: spacing.xs }}>
@@ -192,7 +335,9 @@ export default function DealVerificationScreen() {
             </Text>
             <Text style={[styles.summaryCopy, { color: theme.mutedForeground }]}>
               {submitted
-                ? t('dealVerificationScreen.summarySubmittedCopy')
+                ? brandReviewPending
+                  ? t('dealVerificationScreen.brandReviewPendingHint')
+                  : t('dealVerificationScreen.summarySubmittedCopy')
                 : t('dealVerificationScreen.summaryDraftCopy')}
             </Text>
           </View>
@@ -215,7 +360,7 @@ export default function DealVerificationScreen() {
           </View>
           <View style={styles.progressItem}>
             <Text style={[styles.progressValue, { color: theme.primary }]}>
-              {passedChecks}/{CHECKLIST_DEFS.length}
+              {passedChecks}/{resolvedChecklist.length}
             </Text>
             <Text style={[styles.progressLabel, { color: theme.foregroundSubtitle }]}>
               {t('dealVerificationScreen.progressChecks')}
@@ -224,10 +369,183 @@ export default function DealVerificationScreen() {
         </View>
       </View>
 
+      {!phaseAllowsSubmit && !submitted ? (
+        <>
+          <HubCallout body={t('dealVerificationScreen.deliveryIncompleteHint')} />
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push(`/deal/${dealId}/delivery` as Href)}
+            style={[styles.primary, { backgroundColor: theme.primary }]}>
+            <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
+              {t('dealVerificationScreen.ctaContinueDelivery')}
+            </Text>
+          </Pressable>
+        </>
+      ) : null}
+
+      <SectionCard title={t('dealVerificationScreen.neededEvidenceTitle')} emphasis>
+        <View style={{ gap: spacing.md }}>
+          {visibleEvidence.map((item) => {
+            const copy = verificationStatusCopy(item.status);
+            const canEditEvidence = !submitted && phaseAllowsSubmit;
+            return (
+              <View
+                key={item.id}
+                style={[styles.evidenceRow, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+                <View style={{ flex: 1, gap: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+                    <View style={{ flex: 1, gap: spacing.xs }}>
+                      <Text style={[styles.evidenceTitle, { color: theme.foreground }]}>
+                        {evidenceTitle(item.id)}
+                      </Text>
+                      <Text style={[styles.evidenceDesc, { color: theme.mutedForeground }]}>
+                        {evidenceDescription(item.id)}
+                      </Text>
+                    </View>
+                    <Badge tone={copy.tone} label={copy.label} />
+                  </View>
+                  {item.id === 'post-link' && canEditEvidence ? (
+                    <TextInput
+                      value={postLink}
+                      onChangeText={setPostLink}
+                      placeholder={t('dealVerificationScreen.placeholderPostLink')}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="url"
+                      {...getTextInputProps(theme)}
+                      style={getTextInputStyle(theme)}
+                    />
+                  ) : null}
+                  {item.id === 'screenshot' && canEditEvidence ? (
+                    <View style={{ gap: spacing.sm }}>
+                      <Pressable
+                        testID="deal-verification-upload-screenshot"
+                        accessibilityRole="button"
+                        disabled={screenshotAttested}
+                        onPress={registerScreenshotProof}
+                        style={[
+                          styles.uploadProofButton,
+                          {
+                            borderColor: screenshotAttested ? theme.border : theme.primary,
+                            backgroundColor: screenshotAttested ? theme.card : theme.primary,
+                            opacity: screenshotAttested ? 0.72 : 1,
+                          },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.uploadProofLabel,
+                            { color: screenshotAttested ? theme.foreground : theme.primaryForeground },
+                          ]}>
+                          {screenshotAttested
+                            ? t('dealVerificationScreen.screenshotUploaded')
+                            : t('dealVerificationScreen.screenshotUploadCta')}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: screenshotAttested }}
+                        onPress={() => setScreenshotAttested((value) => !value)}
+                        style={[
+                          styles.attestRow,
+                          {
+                            borderColor: screenshotAttested ? theme.primary : theme.border,
+                            backgroundColor: screenshotAttested ? theme.accentMintSoft : theme.card,
+                          },
+                        ]}>
+                        <View style={[styles.attestBox, { borderColor: theme.primary }]}>
+                          {screenshotAttested ? (
+                            <View style={[styles.attestDot, { backgroundColor: theme.primary }]} />
+                          ) : null}
+                        </View>
+                        <Text style={[styles.attestLabel, { color: theme.foreground }]}>
+                          {t('dealVerificationScreen.screenshotAttestLabel')}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  {item.id === 'metrics' && canEditEvidence ? (
+                    <TextInput
+                      value={firstDayMetrics}
+                      onChangeText={setFirstDayMetrics}
+                      placeholder={t('dealVerificationScreen.placeholderMetrics')}
+                      {...getTextInputProps(theme)}
+                      style={getTextInputStyle(theme, { multiline: true, minHeight: 88 })}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+          {phaseAllowsSubmit && !submitted ? (
+            <View style={{ gap: spacing.xs }}>
+              <Text style={[styles.inputLabel, { color: theme.foregroundSubtitle }]}>
+                {t('dealVerificationScreen.labelNote')}
+              </Text>
+              <TextInput
+                value={creatorNote}
+                onChangeText={setCreatorNote}
+                placeholder={t('dealVerificationScreen.placeholderNote')}
+                {...getTextInputProps(theme)}
+                style={getTextInputStyle(theme, { multiline: true, minHeight: 88 })}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+          ) : null}
+        </View>
+      </SectionCard>
+
+      <SectionCard title={t('dealVerificationScreen.preflightTitle')} emphasis>
+        <View style={{ gap: spacing.sm }}>
+          {resolvedChecklist.map((item) => (
+            <View key={item.id} style={styles.checkRow}>
+              {item.userConfirmable && !submitted && phaseAllowsSubmit ? (
+                <Pressable
+                  testID={`deal-verification-check-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: item.passed }}
+                  onPress={() => {
+                    if (isUserConfirmChecklistId(item.id)) {
+                      toggleChecklistItem(item.id);
+                    }
+                  }}
+                  style={[
+                    styles.checkAction,
+                    {
+                      borderColor: item.passed ? theme.primary : theme.border,
+                      backgroundColor: item.passed ? theme.accentMintSoft : theme.card,
+                    },
+                  ]}>
+                  <Text style={[styles.checkActionLabel, { color: item.passed ? theme.primary : theme.foreground }]}>
+                    {item.passed
+                      ? t('dealVerificationScreen.checkPass')
+                      : t('dealVerificationScreen.checkConfirmCta')}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Badge
+                  tone={item.passed ? 'mint' : 'warning'}
+                  label={
+                    item.passed ? t('dealVerificationScreen.checkPass') : t('dealVerificationScreen.checkPending')
+                  }
+                />
+              )}
+              <Text style={[styles.checkLabel, { color: theme.foreground }]}>{checklistLabel(item.id)}</Text>
+            </View>
+          ))}
+          {!submitted && phaseAllowsSubmit && !allUserChecksConfirmed(resolvedChecklist) ? (
+            <Text style={[styles.submitHint, { color: theme.mutedForeground }]}>
+              {t('dealVerificationScreen.checklistBlockedHint')}
+            </Text>
+          ) : null}
+        </View>
+      </SectionCard>
+
       <SectionCard
         title={t('dealVerificationScreen.whyNotDirectTitle')}
-        subtitle={t('dealVerificationScreen.whyNotDirectSubtitle')}
-        emphasis>
+        subtitle={t('dealVerificationScreen.whyNotDirectSubtitle')}>
         <View style={styles.gateGrid}>
           <View style={[styles.gateCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
             <Badge tone="mint" label={t('dealVerificationScreen.badgePrecheck')} />
@@ -250,30 +568,7 @@ export default function DealVerificationScreen() {
         </View>
       </SectionCard>
 
-      <SectionCard title={t('dealVerificationScreen.neededEvidenceTitle')}>
-        <View style={{ gap: spacing.md }}>
-          {visibleEvidence.map((item) => {
-            const copy = verificationStatusCopy(item.status);
-            return (
-              <View
-                key={item.id}
-                style={[styles.evidenceRow, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-                <View style={{ flex: 1, gap: spacing.xs }}>
-                  <Text style={[styles.evidenceTitle, { color: theme.foreground }]}>
-                    {evidenceTitle(item.id)}
-                  </Text>
-                  <Text style={[styles.evidenceDesc, { color: theme.mutedForeground }]}>
-                    {evidenceDescription(item.id)}
-                  </Text>
-                </View>
-                <Badge tone={copy.tone} label={copy.label} />
-              </View>
-            );
-          })}
-        </View>
-      </SectionCard>
-
-      <SectionCard title={t('dealVerificationScreen.aiPrecheckTitle')} emphasis>
+      <SectionCard title={t('dealVerificationScreen.aiPrecheckTitle')}>
         <View style={{ gap: spacing.sm }}>
           <View style={[styles.evidenceRow, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
             <View style={{ flex: 1, gap: spacing.xs }}>
@@ -281,109 +576,28 @@ export default function DealVerificationScreen() {
                 {t('dealVerificationScreen.foundLinksTitle')}
               </Text>
               <Text style={[styles.evidenceDesc, { color: theme.mutedForeground }]}>
-                {t('dealVerificationScreen.foundLinksHint')}
+                {submitted
+                  ? t('dealVerificationScreen.foundLinksHintSubmitted')
+                  : canSubmit
+                    ? t('dealVerificationScreen.foundLinksHintReady')
+                    : t('dealVerificationScreen.foundLinksHint')}
               </Text>
             </View>
-            <Badge tone="mint" label={t('dealVerificationScreen.badgeFound')} />
+            <Badge
+              tone={submitted || canSubmit ? 'mint' : 'warning'}
+              label={
+                submitted || canSubmit
+                  ? t('dealVerificationScreen.badgeFound')
+                  : t('dealVerificationScreen.badgePendingConfirm')
+              }
+            />
           </View>
-          <View style={[styles.evidenceRow, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={[styles.evidenceTitle, { color: theme.foreground }]}>
-                {t('dealVerificationScreen.confirmBeforeSubmitTitle')}
-              </Text>
-              <Text style={[styles.evidenceDesc, { color: theme.mutedForeground }]}>
-                {t('dealVerificationScreen.confirmBeforeSubmitHint')}
-              </Text>
-            </View>
-            <Badge tone="warning" label={t('dealVerificationScreen.badgePendingConfirm')} />
-          </View>
-        </View>
-      </SectionCard>
-
-      <SectionCard title={t('dealVerificationScreen.supplementTitle')}>
-        <Text style={[styles.inputLabel, { color: theme.foregroundSubtitle }]}>
-          {t('dealVerificationScreen.labelMetrics')}
-        </Text>
-        <TextInput
-          value={firstDayMetrics}
-          onChangeText={setFirstDayMetrics}
-          placeholder={t('dealVerificationScreen.placeholderMetrics')}
-          {...getTextInputProps(theme)}
-          style={getTextInputStyle(theme, { multiline: true, minHeight: 88 })}
-          multiline
-          textAlignVertical="top"
-        />
-        <Text style={[styles.inputLabel, { color: theme.foregroundSubtitle }]}>
-          {t('dealVerificationScreen.labelNote')}
-        </Text>
-        <TextInput
-          value={creatorNote}
-          onChangeText={setCreatorNote}
-          placeholder={t('dealVerificationScreen.placeholderNote')}
-          {...getTextInputProps(theme)}
-          style={getTextInputStyle(theme, { multiline: true, minHeight: 88 })}
-          multiline
-          textAlignVertical="top"
-        />
-      </SectionCard>
-
-      <SectionCard title={t('dealVerificationScreen.preflightTitle')}>
-        <View style={{ gap: spacing.sm }}>
-          {resolvedChecklist.map((item) => (
-            <View key={item.id} style={styles.checkRow}>
-              <Badge
-                tone={item.passed ? 'mint' : 'warning'}
-                label={
-                  item.passed ? t('dealVerificationScreen.checkPass') : t('dealVerificationScreen.checkPending')
-                }
-              />
-              <Text style={[styles.checkLabel, { color: theme.foreground }]}>{checklistLabel(item.id)}</Text>
-            </View>
-          ))}
         </View>
       </SectionCard>
 
       <HubLinkGroup
         title={t('hubLinks.actions')}
         links={[
-          {
-            label: submitted
-              ? t('dealVerificationScreen.ctaSubmitted')
-              : t('dealVerificationScreen.ctaSubmit'),
-            icon: 'cloud-upload-outline',
-            detailAccent: canSubmit && !submitted,
-            onPress: () => {
-              if (!canSubmit || submitted || submitting || !dealId) return;
-              const payload = {
-                firstDayMetrics: firstDayMetrics.trim(),
-                creatorNote: creatorNote.trim(),
-              };
-              if (shouldUseBackendApi() && /^\d+$/.test(dealId)) {
-                setSubmitting(true);
-                void submitDealVerification(dealId, payload)
-                  .then(() => {
-                    setSubmitted(true);
-                    void queryClient.invalidateQueries({ queryKey: ['deals', 'packet', dealId] });
-                    void queryClient.invalidateQueries({ queryKey: ['deals'] });
-                    void queryClient.invalidateQueries({ queryKey: ['payments'] });
-                    void alertAction(
-                      t('dealVerificationScreen.submitAlertTitle'),
-                      t('dealVerificationScreen.submitAlertBody')
-                    );
-                  })
-                  .catch(() => {
-                    void alertAction(
-                      t('dealVerificationScreen.submitErrorTitle'),
-                      t('dealVerificationScreen.submitErrorBody')
-                    );
-                  })
-                  .finally(() => setSubmitting(false));
-                return;
-              }
-              setSubmitted(true);
-              void alertAction(t('dealVerificationScreen.submitAlertTitle'), t('dealVerificationScreen.submitAlertBody'));
-            },
-          },
           {
             label: t('dealVerificationScreen.ctaBackDelivery'),
             href: `/deal/${dealId}/delivery` as Href,
@@ -396,6 +610,39 @@ export default function DealVerificationScreen() {
         <HubLinkGroup
           title={t('dealVerificationScreen.afterSubmitTitle')}
           links={[
+            ...(shouldUseBackendApi() && dealId && /^\d+$/.test(dealId) && brandReviewPending
+              ? [
+                  {
+                    label: t('dealVerificationScreen.ctaBrandApprove'),
+                    icon: 'checkmark-done-outline' as const,
+                    detailAccent: true,
+                    onPress: () => {
+                      if (submitting) return;
+                      setSubmitting(true);
+                      void approveDealVerification(dealId)
+                        .then(() => {
+                          invalidateDealWorkspaceQueries(queryClient, dealId);
+                          invalidateDealClosureArtifacts(queryClient);
+                          void queryClient.invalidateQueries({
+                            queryKey: tenantQueryKey(getActiveTenantPublicId(), 'decisions'),
+                          });
+                          void alertAction(
+                            t('dealVerificationScreen.approveAlertTitle'),
+                            t('dealVerificationScreen.approveAlertBody')
+                          );
+                          router.replace(`/deal/${dealId}` as Href);
+                        })
+                        .catch(() => {
+                          void alertAction(
+                            t('dealVerificationScreen.approveErrorTitle'),
+                            t('dealVerificationScreen.approveErrorBody')
+                          );
+                        })
+                        .finally(() => setSubmitting(false));
+                    },
+                  },
+                ]
+              : []),
             { label: t('dealVerificationScreen.ctaPayments'), href: '/payments', icon: 'wallet-outline' },
             { label: t('dealVerificationScreen.ctaDisputes'), href: '/disputes', icon: 'lock-closed-outline' },
           ]}
@@ -406,7 +653,7 @@ export default function DealVerificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 },
   summary: {
     borderWidth: 1,
     borderRadius: radii.lg,
@@ -441,7 +688,53 @@ const styles = StyleSheet.create({
   gateTitle: { fontSize: fontSize.bodySmall, fontWeight: '800', lineHeight: lineHeight.body },
   inputLabel: { fontSize: fontSize.caption, fontWeight: '700', marginTop: spacing.xs },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  checkAction: {
+    borderWidth: 1,
+    borderRadius: radii.sm,
+    minWidth: 72,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  checkActionLabel: { fontSize: fontSize.caption, fontWeight: '700' },
   checkLabel: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  uploadProofButton: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    minHeight: layout.touchMin,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  uploadProofLabel: { fontSize: fontSize.body, fontWeight: '700' },
+  attestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+  },
+  attestBox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attestDot: { width: 10, height: 10, borderRadius: 5 },
+  attestLabel: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body, fontWeight: '600' },
+  submitHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  stickyFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  footerHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body, textAlign: 'center' },
   actions: { gap: spacing.sm },
   primary: {
     borderRadius: radii.md,

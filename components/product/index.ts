@@ -27,5 +27,8 @@ export { SettingsBlock, SettingsGroup, SettingsRow } from './SettingsGroup';
 export { TextField } from './TextField';
 export { OpportunityPath } from './OpportunityPath';
 export type { OpportunityPathStep } from './OpportunityPath';
+export { DealLifecyclePath } from './DealLifecyclePath';
+export { FlowSteps } from './FlowSteps';
+export type { FlowStep, FlowStepState } from './FlowSteps';
 export { getTextInputProps, getTextInputStyle } from './text-input-style';
 export { AppDialogHost } from './AppDialog';

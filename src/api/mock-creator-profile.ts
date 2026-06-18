@@ -18,6 +18,14 @@ export type CreatorProfileResolved = {
   displayName: string;
   bio: string;
   followerCountLabel: string;
+  followerCount?: number;
+  avgViews?: number;
+  engagementRate?: number;
+  avatarUrl?: string;
+  crmInfluencerId?: string;
+  email?: string;
+  minPrice?: unknown;
+  maxPrice?: unknown;
   nicheTags: string[];
   confidence: 'high' | 'low';
   fetchedAtISO: string;
@@ -31,6 +39,9 @@ type PlatformMeta = {
   displayName: string;
   bio: string;
   followerCountLabel: string;
+  followerCount?: number;
+  avgViews?: number;
+  engagementRate?: number;
   nicheTags: string[];
 };
 
@@ -43,6 +54,9 @@ const PLATFORM_FIXTURES: PlatformMeta[] = [
     displayName: 'Mia Skin Notes',
     bio: 'Skincare creator focused on sensitive-skin trials and clear ingredient stories.',
     followerCountLabel: '128K followers',
+    followerCount: 128_000,
+    avgViews: 42_000,
+    engagementRate: 0.048,
     nicheTags: ['Skincare reviews', 'Sensitive skin', 'Ingredients'],
   },
   {
@@ -73,6 +87,9 @@ const PLATFORM_FIXTURES: PlatformMeta[] = [
     displayName: 'Mia Daily Fit',
     bio: 'Lifestyle creator focused on fitness routines and everyday wellness.',
     followerCountLabel: '94K followers',
+    followerCount: 94_000,
+    avgViews: 28_000,
+    engagementRate: 0.035,
     nicheTags: ['Fitness', 'Lifestyle', 'Wellness'],
   },
   {
@@ -83,6 +100,9 @@ const PLATFORM_FIXTURES: PlatformMeta[] = [
     displayName: 'Home Finds',
     bio: 'Short-form home gadgets and affordable room upgrades.',
     followerCountLabel: '210K followers',
+    followerCount: 210_000,
+    avgViews: 185_000,
+    engagementRate: 0.062,
     nicheTags: ['Home', 'Gadgets', 'Short video'],
   },
   {
@@ -93,6 +113,9 @@ const PLATFORM_FIXTURES: PlatformMeta[] = [
     displayName: 'Calm Studio',
     bio: 'Long-form creator for travel, slow living and camera gear.',
     followerCountLabel: '58K subscribers',
+    followerCount: 58_000,
+    avgViews: 12_000,
+    engagementRate: 0.041,
     nicheTags: ['Travel', 'Slow living', 'Camera gear'],
   },
 ];
@@ -108,7 +131,10 @@ function getHandle(url: URL, fallback: string) {
   return (raw ?? fallback).replace(/^@/, '');
 }
 
-export async function resolveCreatorProfileFromUrl(inputUrl: string): Promise<CreatorProfileResolved> {
+export async function resolveCreatorProfileFromUrl(
+  inputUrl: string,
+  expectedPlatform?: Extract<SocialPlatformKey, 'youtube' | 'tiktok' | 'instagram'>,
+): Promise<CreatorProfileResolved> {
   await mockDelay(420);
 
   let url: URL;
@@ -127,6 +153,10 @@ export async function resolveCreatorProfileFromUrl(inputUrl: string): Promise<Cr
     throw new Error('We do not recognize this platform yet. Try another profile URL or enter details manually.');
   }
 
+  if (expectedPlatform && matched.platform !== expectedPlatform) {
+    throw new Error('This link does not match the selected platform. Paste the correct profile URL.');
+  }
+
   const handle = getHandle(url, matched.defaultHandle);
 
   return {
@@ -138,6 +168,9 @@ export async function resolveCreatorProfileFromUrl(inputUrl: string): Promise<Cr
     displayName: matched.displayName,
     bio: matched.bio,
     followerCountLabel: matched.followerCountLabel,
+    followerCount: matched.followerCount,
+    avgViews: matched.avgViews,
+    engagementRate: matched.engagementRate,
     nicheTags: matched.nicheTags,
     confidence: handle === matched.defaultHandle ? 'low' : 'high',
     fetchedAtISO: new Date().toISOString(),

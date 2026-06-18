@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { fetchAccountOverview, type AccountOverviewResponse } from '@/src/api/account-api';
+import { fetchAccountOverview, mapCreatorProfileResponse, type AccountOverviewResponse } from '@/src/api/account-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import {
   getActiveTenantPublicId,
@@ -9,7 +9,7 @@ import {
   useTenantApiQueryEnabled,
   useTenantQueryKey,
 } from '@/src/lib/tenant-query';
-import type { AgentSendMode, CreatorFocusMode, CreatorProfileBasics } from '@/src/stores/session-store';
+import type { AgentSendMode, ClassificationStrictness, CreatorFocusMode } from '@/src/stores/session-store';
 import { useSessionStore } from '@/src/stores/session-store';
 
 /** Infer whether a returning API user has finished onboarding (unit-tested). */
@@ -24,16 +24,7 @@ export function inferOnboardingComplete(overview: AccountOverviewResponse): bool
 }
 
 function mapProfile(view: NonNullable<AccountOverviewResponse['profile']>): CreatorProfileBasics {
-  return {
-    displayName: view.displayName,
-    niche: (view.nicheTags ?? []).join(' / ') || view.bio || '',
-    platforms: view.platforms ?? [],
-    profileUrl: view.profileUrl ?? undefined,
-    platform: (view.platform as CreatorProfileBasics['platform']) ?? 'other',
-    platformLabel: view.platform ?? 'Other',
-    bio: view.bio ?? undefined,
-    nicheTags: view.nicheTags ?? [],
-  };
+  return mapCreatorProfileResponse(view);
 }
 
 function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
@@ -41,6 +32,8 @@ function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
   complianceAcceptedAt: string | null;
   agentSendMode: AgentSendMode | null;
   creatorFocusMode: CreatorFocusMode;
+  classificationStrictness: ClassificationStrictness;
+  inboxFilterStepFinished: boolean;
   emailWizardFinished: boolean;
   emailSkipped: boolean;
   mailboxConnection: ReturnType<typeof useSessionStore.getState>['mailboxConnection'];
@@ -52,6 +45,8 @@ function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
     complianceAcceptedAt: null as string | null,
     agentSendMode: null as AgentSendMode | null,
     creatorFocusMode: (overview.creatorFocusMode ?? 'quiet') as CreatorFocusMode,
+    classificationStrictness: (overview.classificationStrictness ?? 'standard') as ClassificationStrictness,
+    inboxFilterStepFinished: Boolean(overview.inboxFilterConfigured),
     emailWizardFinished: false,
     emailSkipped: false,
     mailboxConnection: null as ReturnType<typeof useSessionStore.getState>['mailboxConnection'],
@@ -99,6 +94,7 @@ export function applyOverviewToSession(overview: AccountOverviewResponse) {
       acceptCompliance,
       setAgentSendMode,
       setCreatorFocusMode,
+      setClassificationStrictness,
     } = useSessionStore.getState();
     if (overview.profile) {
       setProfileBasics(mapProfile(overview.profile));
@@ -118,6 +114,10 @@ export function applyOverviewToSession(overview: AccountOverviewResponse) {
       }
     }
     setCreatorFocusMode((overview.creatorFocusMode ?? 'quiet') as CreatorFocusMode);
+    if (overview.inboxFilterConfigured) {
+      setClassificationStrictness((overview.classificationStrictness ?? 'standard') as ClassificationStrictness);
+      useSessionStore.setState({ inboxFilterStepFinished: true });
+    }
     const tenantDisplayName = overview.tenantDisplayName?.trim() || null;
     if (inferOnboardingComplete(overview)) {
       useSessionStore.setState({ onboardingComplete: true, planAcknowledged: true, tenantDisplayName });

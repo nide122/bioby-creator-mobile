@@ -24,7 +24,15 @@ type Props = {
 
 // `User.Read` makes the issued access token valid for Microsoft Graph `/me` (used for email + backend verify).
 const LOGIN_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'User.Read'];
-const MAILBOX_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'User.Read', 'Mail.Read'];
+const MAILBOX_SCOPES = [
+  'openid',
+  'profile',
+  'email',
+  'offline_access',
+  'User.Read',
+  'Mail.Read',
+  'Mail.Send',
+];
 
 export function MicrosoftOAuthButton(props: Props) {
   const { t } = useTranslation();

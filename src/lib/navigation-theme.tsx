@@ -118,6 +118,9 @@ export function getStackBackFallbackHref(
   if (parts[0] === 'settings') {
     return '/account';
   }
+  if (parts[0] === 'ops') {
+    return '/account';
+  }
 
   return `/${parts.slice(0, -1).join('/')}` as Href;
 }

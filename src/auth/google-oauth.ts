@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 import { getAppScheme, OAUTH_CALLBACK_PATH } from '@/src/auth/oauth-redirect';
 
 /**
- * Web: localhost root (matches typical Google Console redirect URIs).
- * Native: deep link with oauth callback path.
+ * Web: localhost root, matching the Expo web origin registered in Google Console.
+ * Native: app deep link with the shared OAuth callback path.
  */
 export function getGoogleOAuthRedirectUri(): string {
   if (Platform.OS === 'web') {
@@ -17,7 +17,7 @@ export function getGoogleOAuthRedirectUri(): string {
   });
 }
 
-/** Web uses authorization code + PKCE; code is exchanged on the backend (needs client_secret). */
+/** Web uses authorization code + PKCE; the code is exchanged on the backend. */
 export function getGoogleAuthRequestConfig(base: Record<string, unknown>) {
   if (Platform.OS !== 'web') {
     return base;
@@ -26,13 +26,22 @@ export function getGoogleAuthRequestConfig(base: Record<string, unknown>) {
     ...base,
     responseType: ResponseType.Code,
     usePKCE: true,
-    // Web OAuth clients need client_secret — exchange on backend only (see loginWithGoogleAuthCode).
     shouldAutoExchangeCode: false,
   };
+}
+
+/** Google redirect URIs must match GCP registration exactly (no trailing slash on origin-only URIs). */
+export function normalizeOAuthRedirectUri(uri: string): string {
+  const trimmed = uri.trim();
+  if (/^https?:\/\/[^/]+\/$/.test(trimmed)) {
+    return trimmed.slice(0, -1);
+  }
+  return trimmed;
 }
 
 export type GoogleAuthCodePayload = {
   code: string;
   redirectUri: string;
   codeVerifier: string;
+  clientId?: string;
 };

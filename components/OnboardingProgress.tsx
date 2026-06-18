@@ -3,11 +3,12 @@ import { Text, View, StyleSheet, type DimensionValue } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, palette, radii, spacing } from '@/constants/tokens';
 
-export type OnboardingStepKey = 'profile' | 'consent' | 'email' | 'complete';
+export type OnboardingStepKey = 'profile' | 'consent' | 'inbox-filter' | 'email' | 'complete';
 
 const STEPS: { key: OnboardingStepKey; label: string }[] = [
   { key: 'profile', label: 'Profile' },
   { key: 'consent', label: 'Consent' },
+  { key: 'inbox-filter', label: 'Filter' },
   { key: 'email', label: 'Inbox' },
   { key: 'complete', label: 'Done' },
 ];

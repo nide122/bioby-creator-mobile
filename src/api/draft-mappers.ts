@@ -1,6 +1,13 @@
 import type { DraftDetail, DraftKind, DraftSummary } from '@/src/types/domain';
 
-const DRAFT_KINDS: DraftKind[] = ['ai_reply', 'quote', 'follow_up'];
+const DRAFT_KINDS: DraftKind[] = [
+  'ai_reply',
+  'quote',
+  'follow_up',
+  'clarify_budget',
+  'counter_offer',
+  'ack_and_schedule',
+];
 
 export type DraftListItemDto = {
   id: string;

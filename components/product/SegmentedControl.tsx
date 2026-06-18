@@ -15,23 +15,25 @@ type Props<T extends string> = {
   options: readonly SegmentOption<T>[];
   value: T;
   onChange: (id: T) => void;
+  disabled?: boolean;
 };
 
-export function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
+export function SegmentedControl<T extends string>({ options, value, onChange, disabled = false }: Props<T>) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
   return (
-    <View style={[styles.track, { backgroundColor: theme.muted }]}>
+    <View style={[styles.track, { backgroundColor: theme.muted }, disabled && styles.trackDisabled]}>
       {options.map((option) => {
         const active = value === option.id;
         return (
           <Pressable
             key={option.id}
             accessibilityRole="button"
-            accessibilityState={{ selected: active }}
+            accessibilityState={{ selected: active, disabled }}
+            disabled={disabled}
             onPress={() => {
-              if (!active) onChange(option.id);
+              if (!active && !disabled) onChange(option.id);
             }}
             android_ripple={{ color: `${theme.primary}22`, borderless: false }}
             style={({ pressed }) => [
@@ -67,6 +69,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     padding: 3,
     gap: 2,
+  },
+  trackDisabled: {
+    opacity: 0.65,
   },
   segment: {
     flex: 1,

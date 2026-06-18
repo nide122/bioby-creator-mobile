@@ -65,10 +65,12 @@ export async function inviteMockTeamMember(input: {
   const member: TeamMember = {
     id: nextMockMemberId++,
     email: input.email.trim(),
-    displayName: input.email.split('@')[0] ?? input.email,
+    displayName: null,
     role: input.role,
     status: 'INVITED',
     createdAt: new Date().toISOString(),
+    inviteKind: 'EMAIL',
+    emailSent: true,
   };
   mockTeamMembers = [...mockTeamMembers, member];
   return { ...member };

@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, type ComponentProps } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import {
   Animated,
+  Alert,
   PanResponder,
   Pressable,
   ScrollView,
@@ -21,29 +22,42 @@ import {
   HubMetrics,
   HubNoticeStrip,
   HubScreen,
-  SegmentedControl,
   SettingsGroup,
+  Badge,
 } from '@/components/product';
+import { LeadValueBandIconShell } from '@/components/inbox/LeadValueBandChrome';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { calendarLocaleTagForLanguage } from '@/src/i18n';
 import { useDecisionQueue } from '@/src/hooks/use-decisions';
 import { useAiActionLog } from '@/src/hooks/use-ai-action-log';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
-import { useCreatorFocusMode } from '@/src/hooks/use-creator-focus';
+import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { useSessionStore } from '@/src/stores/session-store';
-import type { AiActionLogEntry, DecisionCard, DecisionCategory } from '@/src/types/domain';
+import type { AiActionLogEntry, DecisionAction, DecisionCard, DecisionCategory } from '@/src/types/domain';
+import {
+  resolveDecisionCardBandAccent,
+  resolveDecisionCardBorderAccent,
+} from '@/src/lib/decision-card-visuals';
+import { parseDecisionSourceHint } from '@/src/lib/decision-card-content';
+import {
+  formatLocalizedDecisionQueuePreviewLines,
+  getLocalizedDecisionPresentation,
+  localizeDecisionHeadline,
+} from '@/src/lib/decision-card-i18n';
+import { leadValueBandBadgeTone } from '@/src/lib/lead-value-band-visuals';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────
 
 const SWIPE_THRESHOLD = 90;
 const SWIPE_OUT_X = 400;
 
-/** One context line for the card — avoids stacked Note + alert + source blocks. */
-function decisionCardContext(card: DecisionCard): string | undefined {
-  const parts = [card.aiNote, card.sourceHint].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : undefined;
-}
+import { runDecisionActionEffect } from '@/src/lib/decision-action-effects';
+import {
+  invalidateDealClosureArtifacts,
+  invalidateDealWorkspaceQueries,
+} from '@/src/lib/invalidate-deal-queries';
+import { getActiveTenantPublicId, tenantQueryKey } from '@/src/lib/tenant-query';
 
 type CategoryVisual = {
   icon: ComponentProps<typeof Ionicons>['name'];
@@ -129,22 +143,6 @@ function ProgressBar({
   );
 }
 
-function TodayFocusControl() {
-  const { t } = useTranslation();
-  const { creatorFocusMode, setCreatorFocusMode } = useCreatorFocusMode();
-
-  return (
-    <SegmentedControl
-      options={[
-        { id: 'quiet' as const, label: t('account.focusModes.quiet.label'), icon: 'moon-outline' },
-        { id: 'work' as const, label: t('account.focusModes.work.label'), icon: 'flash-outline' },
-      ]}
-      value={creatorFocusMode}
-      onChange={setCreatorFocusMode}
-    />
-  );
-}
-
 function UndoDecisionBanner({
   entry,
   onUndo,
@@ -157,14 +155,136 @@ function UndoDecisionBanner({
   if (!entry) return null;
 
   const verb = entry.disposition === 'deferred' ? t('today.undo.deferredVerb') : t('today.undo.resolvedVerb');
+  const headline = localizeDecisionHeadline(entry.card.headline, entry.card, t);
 
   return (
     <HubNoticeStrip
       testID="today-undo"
-      message={`${verb} · ${entry.card.headline}`}
+      message={`${verb} · ${headline}`}
       actionLabel={t('today.undo.button')}
       onAction={onUndo}
     />
+  );
+}
+
+function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
+  const { t } = useTranslation();
+  const categoryLabels = useDecisionCategoryLabels();
+  const { leadValueBandLabel } = useDomainLabels();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const cfg = categoryLabels[card.category];
+  const bandAccent = resolveDecisionCardBandAccent(card, theme);
+  const { display } = getLocalizedDecisionPresentation(card, t);
+
+  return (
+    <View style={styles.categoryRow}>
+      {bandAccent && card.leadValueBand ? (
+        <LeadValueBandIconShell band={card.leadValueBand} icon={cfg.icon} />
+      ) : (
+        <View style={[styles.categoryIcon, { backgroundColor: cfg.color + '18' }]}>
+          <Ionicons name={cfg.icon} size={15} color={cfg.color} />
+        </View>
+      )}
+      <Badge tone="neutral" label={cfg.label} />
+      {card.leadValueBand && card.leadValueBand !== 'archived' ? (
+        <Badge tone={leadValueBandBadgeTone(card.leadValueBand)} label={leadValueBandLabel[card.leadValueBand]} />
+      ) : null}
+      {display.urgencyLabel ? <Badge tone="warning" label={display.urgencyLabel} /> : null}
+      {card.amountLabel ? (
+        <Text style={[styles.amountLabel, { color: bandAccent?.iconColor ?? cfg.color }]}>{card.amountLabel}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function DecisionCardIdentityBlock({ card }: { card: DecisionCard }) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const { display } = getLocalizedDecisionPresentation(card, t);
+
+  return (
+    <View style={styles.identityBlock}>
+      <Text style={[styles.brandName, { color: theme.foreground }]}>{display.brand}</Text>
+      {display.subject ? (
+        <Text style={[styles.subjectLine, { color: theme.foregroundSubtitle }]} numberOfLines={2}>
+          {display.subject}
+        </Text>
+      ) : null}
+      {display.actionSummary ? (
+        <Text style={[styles.actionSummary, { color: theme.mutedForeground }]} numberOfLines={1}>
+          {display.actionSummary}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function DecisionCardNextStepRow({ card }: { card: DecisionCard }) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const primaryAction = getLocalizedDecisionPresentation(card, t).display.primaryAction;
+
+  if (!primaryAction) return null;
+
+  return (
+    <View style={[styles.nextStepRow, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+      <Ionicons name="arrow-forward-circle-outline" size={15} color={theme.primary} />
+      <View style={styles.nextStepCopy}>
+        <Text style={[styles.nextStepEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.nextStep')}</Text>
+        <Text style={[styles.nextStepLabel, { color: theme.foreground }]} numberOfLines={2}>
+          {primaryAction.label}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DecisionCardWhyNowBlock({ card }: { card: DecisionCard }) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const aiNote = getLocalizedDecisionPresentation(card, t).aiNote;
+
+  if (!aiNote?.trim()) return null;
+
+  return (
+    <View style={styles.whyBlock}>
+      <Text style={[styles.whyEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.whyNow')}</Text>
+      <Text style={[styles.whyText, { color: theme.mutedForeground }]} numberOfLines={3}>
+        {aiNote}
+      </Text>
+    </View>
+  );
+}
+
+function DecisionCardSourceRow({ card }: { card: DecisionCard }) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const sourceHint = getLocalizedDecisionPresentation(card, t).sourceHint;
+  const { prefix, detail } = parseDecisionSourceHint(sourceHint);
+  const sourceLabel = [prefix, detail].filter(Boolean).join(' · ');
+
+  if (!sourceLabel) return null;
+
+  return (
+    <Pressable
+      accessibilityRole={card.sourceHref ? 'link' : undefined}
+      disabled={!card.sourceHref}
+      onPress={() => card.sourceHref && router.push(card.sourceHref as Href)}
+      style={styles.sourceRow}>
+      <Text style={[styles.sourceEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.source')}</Text>
+      <View style={styles.sourceLinkRow}>
+        <Text style={[styles.sourceText, { color: theme.mutedForeground }]} numberOfLines={1}>
+          {sourceLabel}
+        </Text>
+        {card.sourceHref ? <Ionicons name="chevron-forward" size={12} color={theme.foregroundEyebrow} /> : null}
+      </View>
+    </Pressable>
   );
 }
 
@@ -180,12 +300,15 @@ function SwipeableDecisionCard({
   onDefer: (card: DecisionCard) => void;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const categoryLabels = useDecisionCategoryLabels();
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const cfg = categoryLabels[card.category];
-  const contextLine = decisionCardContext(card);
+  const borderAccentColor = resolveDecisionCardBorderAccent(card, cfg.color, theme);
+  const localizedPresentation = getLocalizedDecisionPresentation(card, t);
+  const [actionPending, setActionPending] = useState(false);
 
   const translateX = useRef(new Animated.Value(0)).current;
   const rotate = translateX.interpolate({
@@ -228,12 +351,47 @@ function SwipeableDecisionCard({
     ]).start(cb);
   }
 
+  function finishResolvedAction(action: DecisionAction) {
+    onResolve(card, action.label, action.href);
+  }
+
+  function afterApproveSuccess(dealId: string, action: DecisionAction) {
+    invalidateDealWorkspaceQueries(queryClient, dealId);
+    invalidateDealClosureArtifacts(queryClient);
+    void queryClient.invalidateQueries({ queryKey: tenantQueryKey(getActiveTenantPublicId(), 'decisions') });
+    finishResolvedAction(action);
+    router.push(`/deal/${dealId}` as Href);
+  }
+
+  function runPrimaryAction(action: DecisionAction) {
+    if (actionPending) return;
+    if (action.id === 'approve') {
+      setActionPending(true);
+      void runDecisionActionEffect(action)
+        .then((result) => {
+          if (result.handled && result.dealId) {
+            afterApproveSuccess(result.dealId, action);
+            return;
+          }
+          finishResolvedAction(action);
+          if (action.href) router.push(action.href as Href);
+        })
+        .catch(() => {
+          Alert.alert(
+            t('dealVerificationScreen.approveErrorTitle'),
+            t('dealVerificationScreen.approveErrorBody')
+          );
+        })
+        .finally(() => setActionPending(false));
+      return;
+    }
+    finishResolvedAction(action);
+    if (action.href) router.push(action.href as Href);
+  }
+
   function handlePrimaryAction() {
     const primary = card.actions[0];
-    flyOut('right', () => {
-      onResolve(card, primary.label, primary.href);
-      if (primary.href) router.push(primary.href as Href);
-    });
+    flyOut('right', () => runPrimaryAction(primary));
   }
 
   function handleDefer() {
@@ -247,10 +405,7 @@ function SwipeableDecisionCard({
     } else if (href && (action.id === 'open' || action.id === 'review')) {
       router.push(href as Href);
     } else {
-      flyOut('right', () => {
-        onResolve(card, action.label, href);
-        if (href) router.push(href as Href);
-      });
+      flyOut('right', () => runPrimaryAction({ ...action, href }));
     }
   }
 
@@ -291,45 +446,22 @@ function SwipeableDecisionCard({
           {
             borderColor: theme.border,
             backgroundColor: theme.card,
-            borderLeftColor: cfg.color,
+            borderLeftColor: borderAccentColor,
           },
           { transform: [{ translateX }, { rotate }, { translateY: entryY }], opacity: entryOpacity },
         ]}>
 
         {/* 类型标签行 */}
-        <View style={styles.categoryRow}>
-          <View style={[styles.categoryIcon, { backgroundColor: cfg.color + '18' }]}>
-            <Ionicons name={cfg.icon} size={15} color={cfg.color} />
-          </View>
-          <Text style={[styles.categoryLabel, { color: theme.foregroundEyebrow }]}>{cfg.label}</Text>
-          {card.amountLabel ? (
-            <Text style={[styles.amountLabel, { color: cfg.color }]}>{card.amountLabel}</Text>
-          ) : null}
-        </View>
+        <DecisionCardMetaRow card={card} />
 
-        {/* 标题 + 品牌 + 一行上下文 */}
-        <View style={{ gap: spacing.xs }}>
-          <Text style={[styles.headline, { color: theme.foreground }]}>{card.headline}</Text>
-          <Text style={[styles.entityName, { color: theme.mutedForeground }]}>{card.entityName}</Text>
-          {contextLine ? (
-            <Pressable
-              accessibilityRole={card.sourceHref ? 'link' : undefined}
-              disabled={!card.sourceHref}
-              onPress={() => card.sourceHref && router.push(card.sourceHref as Href)}
-              style={styles.contextRow}>
-              <Text style={[styles.contextText, { color: theme.mutedForeground }]} numberOfLines={2}>
-                {contextLine}
-              </Text>
-              {card.sourceHref ? (
-                <Ionicons name="chevron-forward" size={12} color={theme.foregroundEyebrow} />
-              ) : null}
-            </Pressable>
-          ) : null}
-        </View>
+        <DecisionCardIdentityBlock card={card} />
+        <DecisionCardNextStepRow card={card} />
+        <DecisionCardWhyNowBlock card={card} />
+        <DecisionCardSourceRow card={card} />
 
         {/* 操作按钮 */}
         <View style={styles.actionsCol}>
-          {card.actions.map((action) => (
+          {localizedPresentation.actions.map((action) => (
             <ActionButton
               key={action.id}
               testID={`today-action-${card.id}-${action.id}`}
@@ -391,30 +523,65 @@ function ActionButton({
 
 function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
   const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
   const categoryLabels = useDecisionCategoryLabels();
+  const { leadValueBandLabel } = useDomainLabels();
   const router = useRouter();
-  const preview = items.slice(1, 3);
+  const [expanded, setExpanded] = useState(false);
 
-  if (preview.length === 0) return null;
+  const preview = items.slice(1, 3);
+  const remaining = items.slice(3);
+  const visibleItems = expanded ? items.slice(1) : preview;
+
+  if (visibleItems.length === 0 && remaining.length === 0) return null;
 
   return (
-    <SettingsGroup title={t('today.queueNextTitle')}>
-      {preview.map((item) => {
-        const cfg = categoryLabels[item.category];
-        return (
-          <HubListRow
-            key={item.id}
-            icon={cfg.icon}
-            title={item.headline}
-            subtitle={item.entityName}
-            detail={cfg.label}
-            onPress={() => {
-              if (item.sourceHref) router.push(item.sourceHref as Href);
-            }}
-          />
-        );
-      })}
-    </SettingsGroup>
+    <View style={styles.queuePreviewWrap}>
+      {visibleItems.length > 0 ? (
+        <SettingsGroup title={t('today.queueNextTitle')}>
+          {visibleItems.map((item) => {
+            const cfg = categoryLabels[item.category];
+            const bandAccent = resolveDecisionCardBandAccent(item, theme);
+            const previewLines = formatLocalizedDecisionQueuePreviewLines(item, t);
+            const detail =
+              item.leadValueBand && item.leadValueBand !== 'archived'
+                ? leadValueBandLabel[item.leadValueBand]
+                : cfg.label;
+            return (
+              <HubListRow
+                key={item.id}
+                iconElement={
+                  bandAccent ? (
+                    <LeadValueBandIconShell band={item.leadValueBand} icon={cfg.icon} />
+                  ) : undefined
+                }
+                icon={bandAccent ? undefined : cfg.icon}
+                title={previewLines.title}
+                subtitle={previewLines.subtitle}
+                detail={detail}
+                detailAccent={bandAccent?.detailAccent}
+                onPress={() => {
+                  if (item.sourceHref) router.push(item.sourceHref as Href);
+                }}
+              />
+            );
+          })}
+        </SettingsGroup>
+      ) : null}
+      {remaining.length > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? t('today.queueCollapse') : t('today.queueRemaining', { count: remaining.length })}
+          onPress={() => setExpanded((open) => !open)}
+          style={({ pressed }) => [styles.queueExpandButton, pressed && styles.queueExpandButtonPressed]}>
+          <Text style={[styles.queueExpandLabel, { color: theme.primary }]}>
+            {expanded ? t('today.queueCollapse') : t('today.queueRemaining', { count: remaining.length })}
+          </Text>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.primary} />
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -423,21 +590,19 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
 function DoneState({
   aiActionLog,
   deferred,
-  hiddenByFocusCount,
   onReprocessDeferred,
-  onStartWorkMode,
 }: {
   aiActionLog: AiActionLogEntry[];
   deferred: DecisionCard[];
-  hiddenByFocusCount: number;
   onReprocessDeferred: () => void;
-  onStartWorkMode: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const timeTag = calendarLocaleTagForLanguage(i18n.language);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const categoryLabels = useDecisionCategoryLabels();
+  const { leadValueBandLabel } = useDomainLabels();
 
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -457,35 +622,37 @@ function DoneState({
           <Ionicons name="checkmark-circle" size={32} color={theme.primary} />
         </View>
         <Text style={[styles.doneTitle, { color: theme.foreground }]}>{t('today.doneTitle')}</Text>
-        {hiddenByFocusCount > 0 ? (
-          <Text style={[styles.doneSub, { color: theme.mutedForeground }]}>
-            {t('today.doneSubHidden', { count: hiddenByFocusCount })}
-          </Text>
-        ) : null}
-        {hiddenByFocusCount > 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={onStartWorkMode}
-            style={[styles.doneInlineButton, { borderColor: theme.border }]}>
-            <Text style={[styles.doneInlineButtonLabel, { color: theme.primary }]}>{t('today.seeOpportunities')}</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       {/* 推迟的事项 */}
       {deferred.length > 0 ? (
         <SettingsGroup title={t('today.deferredCardTitle', { count: deferred.length })}>
-          {deferred.map((c) => (
-            <HubListRow
-              key={c.id}
-              icon="time-outline"
-              title={c.headline}
-              subtitle={c.entityName}
-              onPress={() => {
-                if (c.sourceHref) router.push(c.sourceHref as Href);
-              }}
-            />
-          ))}
+          {deferred.map((c) => {
+            const cfg = categoryLabels[c.category];
+            const bandAccent = resolveDecisionCardBandAccent(c, theme);
+            const previewLines = formatLocalizedDecisionQueuePreviewLines(c, t);
+            const { display } = getLocalizedDecisionPresentation(c, t);
+            const detail =
+              c.leadValueBand && c.leadValueBand !== 'archived'
+                ? leadValueBandLabel[c.leadValueBand]
+                : display.urgencyLabel ?? cfg.label;
+            return (
+              <HubListRow
+                key={c.id}
+                iconElement={
+                  bandAccent ? <LeadValueBandIconShell band={c.leadValueBand} icon={cfg.icon} /> : undefined
+                }
+                icon={bandAccent ? undefined : 'time-outline'}
+                title={previewLines.title}
+                subtitle={previewLines.subtitle}
+                detail={detail}
+                detailAccent={bandAccent?.detailAccent}
+                onPress={() => {
+                  if (c.sourceHref) router.push(c.sourceHref as Href);
+                }}
+              />
+            );
+          })}
           <HubListRow icon="refresh-outline" title={t('today.processDeferredCta')} onPress={onReprocessDeferred} />
         </SettingsGroup>
       ) : null}
@@ -526,7 +693,6 @@ export default function DecisionQueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const profile = useSessionStore((s) => s.profileBasics);
-  const { creatorFocusMode, setCreatorFocusMode } = useCreatorFocusMode();
   const queryClient = useQueryClient();
   const queue = useDecisionQueue();
   const aiActionLog = useAiActionLog();
@@ -561,14 +727,7 @@ export default function DecisionQueueScreen() {
     );
   }
 
-  const displayPending =
-    creatorFocusMode === 'quiet'
-      ? queue.pending.filter(
-          (card) =>
-            card.category !== 'opportunity' || !!card.interruptReason || !!card.urgencyNote
-        )
-      : queue.pending;
-  const hiddenByFocusCount = queue.pending.length - displayPending.length;
+  const displayPending = queue.pending;
   const displayCurrent = displayPending[0] ?? null;
   const displayDone = !queue.isPending && displayPending.length === 0;
 
@@ -612,7 +771,6 @@ export default function DecisionQueueScreen() {
           />
         </HubMetrics>
       ) : null}
-      <TodayFocusControl />
       {!displayDone ? <UndoDecisionBanner entry={queue.lastEntry} onUndo={queue.undoLast} /> : null}
     </>
   );
@@ -629,9 +787,7 @@ export default function DecisionQueueScreen() {
         <DoneState
           aiActionLog={aiActionLog}
           deferred={queue.deferred}
-          hiddenByFocusCount={hiddenByFocusCount}
           onReprocessDeferred={handleReprocessDeferred}
-          onStartWorkMode={() => setCreatorFocusMode('work')}
         />
       ) : displayCurrent ? (
         <View style={styles.cardSection}>
@@ -675,6 +831,17 @@ const styles = StyleSheet.create({
 
   // 决策卡
   cardSection: { gap: spacing.md },
+  queuePreviewWrap: { gap: spacing.sm },
+  queueExpandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: layout.touchMin * 0.75,
+    paddingVertical: spacing.xs,
+  },
+  queueExpandButtonPressed: { opacity: 0.72 },
+  queueExpandLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderLeftWidth: 3,
@@ -682,14 +849,32 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
-  categoryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  categoryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   categoryIcon: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
-  categoryLabel: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', flex: 1 },
-  amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  headline: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.35, lineHeight: lineHeight.lead },
-  entityName: { fontSize: fontSize.bodySmall, fontWeight: '500' },
-  contextRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xs },
-  contextText: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 'auto' },
+  identityBlock: { gap: spacing.xs },
+  brandName: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.35, lineHeight: lineHeight.lead },
+  subjectLine: { fontSize: fontSize.body, fontWeight: '600', lineHeight: lineHeight.body },
+  actionSummary: { fontSize: fontSize.bodySmall, fontWeight: '600' },
+  nextStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  nextStepCopy: { flex: 1, gap: 2 },
+  nextStepEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  nextStepLabel: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
+  whyBlock: { gap: spacing.xs },
+  whyEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  whyText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  sourceRow: { gap: spacing.xs },
+  sourceEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  sourceLinkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  sourceText: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   actionsCol: { gap: spacing.sm, marginTop: spacing.sm },
   btnPrimary: { borderRadius: radii.md, minHeight: layout.touchMin, alignItems: 'center', justifyContent: 'center' },
   btnPrimaryLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },

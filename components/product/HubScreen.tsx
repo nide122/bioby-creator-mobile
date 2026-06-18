@@ -79,6 +79,8 @@ export function HubScreen({
         scrollBottomInset ? { paddingBottom: scrollBottomInset } : null,
       ]}
       showsVerticalScrollIndicator={false}
+      alwaysBounceVertical={!!onRefresh}
+      overScrollMode={onRefresh ? 'always' : undefined}
       onScroll={onScroll}
       onContentSizeChange={onContentSizeChange}
       scrollEventThrottle={onScroll ? 16 : undefined}

@@ -1,4 +1,5 @@
 import { render, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { NavigationBootstrap } from '@/components/NavigationBootstrap';
 import { useSessionStore } from '@/src/stores/session-store';
@@ -10,6 +11,25 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
   usePathname: () => mockPathname,
 }));
+
+jest.mock('@/src/hooks/use-auth-bootstrap', () => ({
+  useAuthBootstrap: () => true,
+}));
+
+jest.mock('@/src/hooks/use-session-hydrated', () => ({
+  useSessionHydrated: () => true,
+}));
+
+function renderBootstrap() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <NavigationBootstrap />
+    </QueryClientProvider>
+  );
+}
 
 describe('NavigationBootstrap', () => {
   beforeAll(() => {
@@ -27,10 +47,16 @@ describe('NavigationBootstrap', () => {
     mockReplace.mockClear();
     useSessionStore.getState().resetDemoSession();
     mockPathname = '/inbox';
+    Object.defineProperty(global, 'window', {
+      value: {
+        location: { search: '', hash: '' },
+      },
+      writable: true,
+    });
   });
 
   it('redirects unauthenticated users away from workspace routes', async () => {
-    render(<NavigationBootstrap />);
+    renderBootstrap();
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/welcome');
@@ -42,7 +68,7 @@ describe('NavigationBootstrap', () => {
     mockPathname = '/deals';
     mockReplace.mockClear();
 
-    render(<NavigationBootstrap />);
+    renderBootstrap();
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/onboarding');
@@ -51,10 +77,10 @@ describe('NavigationBootstrap', () => {
 
   it('redirects completed users off auth screens to inbox', async () => {
     useSessionStore.getState().jumpToWorkspaceDemo();
-    mockPathname = '/welcome';
+    mockPathname = '/login';
     mockReplace.mockClear();
 
-    render(<NavigationBootstrap />);
+    renderBootstrap();
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/inbox');
@@ -66,7 +92,7 @@ describe('NavigationBootstrap', () => {
     mockPathname = '/';
     mockReplace.mockClear();
 
-    render(<NavigationBootstrap />);
+    renderBootstrap();
 
     await waitFor(() => {
       expect(mockReplace).not.toHaveBeenCalled();

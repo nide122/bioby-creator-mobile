@@ -2,8 +2,8 @@ import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { isApiConfigured } from '@/src/api/api-config';
-import { ApiError } from '@/src/api/api-client';
 import {
+  completeRegistration,
   loginAccount,
   loginWithGoogle,
   loginWithGoogleAuthCode,
@@ -12,23 +12,26 @@ import {
   registerAccount,
 } from '@/src/api/auth-api';
 import type { GoogleAuthCodePayload } from '@/src/auth/google-oauth';
-import { hydrateSessionFromBackend } from '@/src/hooks/use-account-overview';
+import { completeAuthSession } from '@/src/auth/complete-auth-session';
+import { resolveAuthApiErrorMessage } from '@/src/auth/auth-api-errors';
 import { clearAllQueries, invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { useSessionStore } from '@/src/stores/session-store';
 
-async function hydrateAfterAuth(queryClient: ReturnType<typeof useQueryClient>) {
+async function hydrateAfterAuth(
+  queryClient: ReturnType<typeof useQueryClient>,
+  session: Parameters<typeof completeAuthSession>[0],
+) {
+  await completeAuthSession(session);
   try {
-    await hydrateSessionFromBackend();
     await invalidateTenantScopedQueries(queryClient);
     await queryClient.invalidateQueries({ queryKey: ['tenants', 'mine'] });
   } catch {
-    // Keep JWT auth; overview can retry later.
+    // Query cache refresh is best-effort after auth.
   }
 }
 
 export function useAuthActions() {
   const queryClient = useQueryClient();
-  const applyAuthSession = useSessionStore((s) => s.applyAuthSession);
   const signInDemo = useSessionStore((s) => s.signInDemo);
   const clearLocalSession = useSessionStore((s) => s.clearLocalSession);
   const [loading, setLoading] = useState(false);
@@ -37,22 +40,40 @@ export function useAuthActions() {
     async (input: { email: string; password: string; displayName: string }) => {
       if (!isApiConfigured()) {
         signInDemo(input.email, { displayNameHint: input.displayName });
-        return { ok: true as const };
+        return { ok: true as const, requiresVerification: false as const };
       }
       setLoading(true);
       try {
-        const session = await registerAccount(input);
-        applyAuthSession(session);
-        await hydrateAfterAuth(queryClient);
-        return { ok: true as const };
+        const response = await registerAccount(input);
+        return { ok: true as const, requiresVerification: true as const, email: response.email };
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : 'Registration failed';
+        const message = resolveAuthApiErrorMessage(err, 'auth.register.errors.submit');
         return { ok: false as const, message };
       } finally {
         setLoading(false);
       }
     },
-    [applyAuthSession, queryClient, signInDemo]
+    [signInDemo]
+  );
+
+  const completeRegister = useCallback(
+    async (input: { email: string; code: string }) => {
+      if (!isApiConfigured()) {
+        return { ok: false as const, message: resolveAuthApiErrorMessage(null, 'auth.apiErrors.API_NOT_CONFIGURED') };
+      }
+      setLoading(true);
+      try {
+        const session = await completeRegistration(input.email, input.code);
+        await hydrateAfterAuth(queryClient, session);
+        return { ok: true as const };
+      } catch (err) {
+        const message = resolveAuthApiErrorMessage(err, 'auth.verifyEmailPending.errors.verify');
+        return { ok: false as const, message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [queryClient]
   );
 
   const login = useCallback(
@@ -64,80 +85,76 @@ export function useAuthActions() {
       setLoading(true);
       try {
         const session = await loginAccount(input);
-        applyAuthSession(session);
-        await hydrateAfterAuth(queryClient);
+        await hydrateAfterAuth(queryClient, session);
         return { ok: true as const };
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : 'Sign-in failed';
+        const message = resolveAuthApiErrorMessage(err, 'auth.login.errors.submit');
         return { ok: false as const, message };
       } finally {
         setLoading(false);
       }
     },
-    [applyAuthSession, queryClient, signInDemo]
+    [queryClient, signInDemo]
   );
 
   const loginMicrosoft = useCallback(
     async (accessToken: string) => {
       if (!isApiConfigured()) {
-        return { ok: false as const, message: 'API not configured' };
+        return { ok: false as const, message: resolveAuthApiErrorMessage(null, 'auth.apiErrors.API_NOT_CONFIGURED') };
       }
       setLoading(true);
       try {
         const session = await loginWithMicrosoft(accessToken);
-        applyAuthSession(session);
-        await hydrateAfterAuth(queryClient);
+        await hydrateAfterAuth(queryClient, session);
         return { ok: true as const };
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : 'Microsoft sign-in failed';
+        const message = resolveAuthApiErrorMessage(err, 'auth.login.errors.microsoft');
         return { ok: false as const, message };
       } finally {
         setLoading(false);
       }
     },
-    [applyAuthSession, queryClient]
+    [queryClient]
   );
 
   const loginGoogle = useCallback(
     async (idToken: string) => {
       if (!isApiConfigured()) {
-        return { ok: false as const, message: 'API not configured' };
+        return { ok: false as const, message: resolveAuthApiErrorMessage(null, 'auth.apiErrors.API_NOT_CONFIGURED') };
       }
       setLoading(true);
       try {
         const session = await loginWithGoogle(idToken);
-        applyAuthSession(session);
-        await hydrateAfterAuth(queryClient);
+        await hydrateAfterAuth(queryClient, session);
         return { ok: true as const };
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : 'Google sign-in failed';
+        const message = resolveAuthApiErrorMessage(err, 'auth.login.errors.google');
         return { ok: false as const, message };
       } finally {
         setLoading(false);
       }
     },
-    [applyAuthSession, queryClient]
+    [queryClient]
   );
 
   const loginGoogleWithAuthCode = useCallback(
     async (payload: GoogleAuthCodePayload) => {
       if (!isApiConfigured()) {
-        return { ok: false as const, message: 'API not configured' };
+        return { ok: false as const, message: resolveAuthApiErrorMessage(null, 'auth.apiErrors.API_NOT_CONFIGURED') };
       }
       setLoading(true);
       try {
         const session = await loginWithGoogleAuthCode(payload);
-        applyAuthSession(session);
-        await hydrateAfterAuth(queryClient);
+        await hydrateAfterAuth(queryClient, session);
         return { ok: true as const };
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : 'Google sign-in failed';
+        const message = resolveAuthApiErrorMessage(err, 'auth.login.errors.google');
         return { ok: false as const, message };
       } finally {
         setLoading(false);
       }
     },
-    [applyAuthSession, queryClient]
+    [queryClient]
   );
 
   const signOut = useCallback(async () => {
@@ -150,6 +167,7 @@ export function useAuthActions() {
 
   return {
     register,
+    completeRegister,
     login,
     loginGoogle,
     loginGoogleWithAuthCode,

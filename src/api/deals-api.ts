@@ -55,7 +55,7 @@ export async function declineRecommendedDeal(dealId: string): Promise<void> {
 
 export async function submitDealVerification(
   dealId: string,
-  input: { firstDayMetrics: string; creatorNote: string }
+  input: { postLink: string; firstDayMetrics: string; creatorNote: string }
 ): Promise<void> {
   if (!shouldUseBackendApi()) return;
   await apiRequest(`/api/v1/deals/${dealId}/verification-submissions`, {
@@ -73,4 +73,39 @@ export async function registerDealDeliveryUpload(
     method: 'POST',
     body: input,
   });
+}
+
+export async function collectDealPrepay(dealId: string): Promise<DealSummary> {
+  if (!shouldUseBackendApi()) {
+    return fetchMockDealById(dealId);
+  }
+  const item = await apiRequest<DealListItemDto>(`/api/v1/deals/${dealId}/collect-prepay`, { method: 'POST' });
+  return mapDealDto(item);
+}
+
+export async function settleDeal(dealId: string): Promise<DealSummary> {
+  if (!shouldUseBackendApi()) {
+    return fetchMockDealById(dealId);
+  }
+  const item = await apiRequest<DealListItemDto>(`/api/v1/deals/${dealId}/settle`, { method: 'POST' });
+  return mapDealDto(item);
+}
+
+export async function approveDealVerification(dealId: string): Promise<DealSummary> {
+  if (!shouldUseBackendApi()) {
+    return fetchMockDealById(dealId);
+  }
+  const item = await apiRequest<DealListItemDto>(`/api/v1/deals/${dealId}/approve-verification`, { method: 'POST' });
+  return mapDealDto(item);
+}
+
+export async function openDealDispute(dealId: string, input: { title: string; causeCode?: string }): Promise<DealSummary> {
+  if (!shouldUseBackendApi()) {
+    return fetchMockDealById(dealId);
+  }
+  const item = await apiRequest<DealListItemDto>(`/api/v1/deals/${dealId}/disputes`, {
+    method: 'POST',
+    body: input,
+  });
+  return mapDealDto(item);
 }

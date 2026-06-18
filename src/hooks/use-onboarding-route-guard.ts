@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useAuthSessionReady } from '@/src/hooks/use-auth-session-ready';
 import { useSessionStore } from '@/src/stores/session-store';
 
-export type OnboardingRouteStep = 'profile' | 'consent' | 'email' | 'complete';
+export type OnboardingRouteStep = 'profile' | 'consent' | 'inbox-filter' | 'email' | 'complete';
 
 /**
  * Redirects when prerequisites are missing. Waits for JWT / session rehydrate before treating the user as logged out.
@@ -18,8 +18,10 @@ export function useOnboardingRouteGuard(
   const authReady = useAuthSessionReady();
 
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const onboardingComplete = useSessionStore((s) => s.onboardingComplete);
   const profileBasics = useSessionStore((s) => s.profileBasics);
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
+  const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
 
   useEffect(() => {
@@ -27,6 +29,11 @@ export function useOnboardingRouteGuard(
 
     if (!isAuthenticated) {
       router.replace('/welcome' as Href);
+      return;
+    }
+
+    if (onboardingComplete && !options?.skipPrerequisites) {
+      router.replace('/inbox' as Href);
       return;
     }
 
@@ -44,6 +51,13 @@ export function useOnboardingRouteGuard(
       return;
     }
 
+    if (step === 'inbox-filter') return;
+
+    if (!inboxFilterStepFinished) {
+      router.replace('/onboarding/inbox-filter' as Href);
+      return;
+    }
+
     if (step === 'email') return;
 
     if (!emailWizardFinished) {
@@ -55,8 +69,10 @@ export function useOnboardingRouteGuard(
   }, [
     authReady,
     complianceAcceptedAt,
+    inboxFilterStepFinished,
     emailWizardFinished,
     isAuthenticated,
+    onboardingComplete,
     profileBasics,
     rootNavigationState?.key,
     router,

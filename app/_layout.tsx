@@ -74,6 +74,7 @@ function RootLayoutNav() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ headerShown: false }} />
+          <Stack.Screen name="ops" options={{ headerShown: false }} />
           <Stack.Screen name="deal" options={{ headerShown: false }} />
           <Stack.Screen name="battle-reports" options={{ headerShown: false }} />
           <Stack.Screen name="drafts" options={{ headerShown: false }} />
@@ -87,6 +88,7 @@ function RootLayoutNav() {
           <Stack.Screen name="media-kit-public" options={{ title: t('stacks.mediaKitPublic') }} />
           <Stack.Screen name="c" options={{ headerShown: false }} />
           <Stack.Screen name="trust-passport" options={{ title: t('stacks.trustPassport') }} />
+          <Stack.Screen name="team" options={{ headerShown: false }} />
         </Stack>
         <LanguagePreferenceSync />
         <AuthSessionSync />

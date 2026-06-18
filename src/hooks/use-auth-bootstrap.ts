@@ -6,7 +6,7 @@ import { hydrateSessionFromBackend } from '@/src/hooks/use-account-overview';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { prefetchMyTenants } from '@/src/hooks/use-tenants';
 import { restoreSession } from '@/src/api/auth-api';
-import { hasStoredSession } from '@/src/auth/token-storage';
+import { hasStoredSession, hydrateAuthTokensFromStorage } from '@/src/auth/token-storage';
 import { useSessionStore } from '@/src/stores/session-store';
 
 /** Restore JWT session from storage before route guards run. */
@@ -26,7 +26,12 @@ export function useAuthBootstrap(): boolean {
     let cancelled = false;
     (async () => {
       try {
+        await hydrateAuthTokensFromStorage();
         if (!(await hasStoredSession())) {
+          const state = useSessionStore.getState();
+          if (state.isAuthenticated && !state.isLocalDemoWorkspace) {
+            clearLocalSession();
+          }
           return;
         }
         const session = await restoreSession();

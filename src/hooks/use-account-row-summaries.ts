@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useSubscriptionUsage, useTeamRoles } from '@/src/hooks/use-account-settings';
 import { useAccountOverview } from '@/src/hooks/use-account-overview';
 import { useMyTenants } from '@/src/hooks/use-tenants';
+import {
+  listConnectedPlatformStatLines,
+  migrateLegacyProfileBasics,
+} from '@/src/lib/creator-profile-aggregate';
 import { useSessionStore } from '@/src/stores/session-store';
 
 /** Trailing labels for Account settings rows (iOS Settings style). */
@@ -15,9 +19,13 @@ export function useAccountRowSummaries() {
   const subscription = useSubscriptionUsage();
   const team = useTeamRoles();
 
-  const profileDetail = profile?.handle
-    ? `@${profile.handle}`
-    : profile?.displayName?.trim() || undefined;
+  const profileDetail = (() => {
+    const { platformProfiles } = migrateLegacyProfileBasics(profile);
+    const statLines = listConnectedPlatformStatLines(platformProfiles);
+    if (statLines.length > 0) return statLines.join(' · ');
+    if (profile?.handle) return `@${profile.handle.replace(/^@/, '')}`;
+    return profile?.displayName?.trim() || undefined;
+  })();
 
   const planDetail = subscription.isError ? undefined : subscription.data?.planName;
   const teamRoles = Array.isArray(team.data) ? team.data : [];

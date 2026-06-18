@@ -36,13 +36,17 @@ import {
   SettingsRow,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { LeadValueBandIconShell, LeadValueBandSectionHeader } from '@/components/inbox/LeadValueBandChrome';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { useTranslation } from 'react-i18next';
 
-import type { InboxEmailCategory, InboxLeadStage, InboxThread } from '@/src/types/domain';
+import type { InboxEmailCategory, InboxThread, LeadValueBand } from '@/src/types/domain';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import {
+  registerMailboxSubscription,
+  renewMailboxSubscription,
+  retryFailedMailboxWritebackJobs,
   syncMailbox,
   type MailboxSyncLookback,
   type MailboxSyncStatus,
@@ -52,9 +56,31 @@ import {
 import { useMailboxConnection } from '@/src/hooks/use-mailbox-connection';
 import { useMailboxSyncStatus } from '@/src/hooks/use-mailbox-sync-status';
 import { useInboxThreads, useAiDailySummary } from '@/src/hooks/use-inbox-threads';
+import { useRateCardPackages } from '@/src/hooks/use-growth';
+import { useAuthSessionReady } from '@/src/hooks/use-auth-session-ready';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
+import { resolveMailboxPushMissingReason, resolveMailboxRepairError } from '@/src/lib/mailbox-push-i18n';
+import { formatInboxMessageStats, hasUnreadMessages } from '@/src/lib/inbox-message-stats';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
+import {
+  applyMailboxLastSyncToCache,
+  refreshInboxQueries,
+} from '@/src/lib/mailbox-sync-display';
+import {
+  globalRulesProcessingScope,
+  rulesProcessingScope,
+  rulesScopeI18nKey,
+  threadUsesRulesProcessing,
+} from '@/src/lib/ai-processing-labels';
+import { inboxRiskReasons } from '@/src/lib/inbox-risk-badges';
+import { formatExceptionalBudgetLabel } from '@/src/lib/exceptional-budget-label';
+import { countPriorityLeadValueBands, resolvePriorityLeadValueBand } from '@/src/lib/priority-lead-value-band';
+import { leadValueBandAccent } from '@/src/lib/lead-value-band-visuals';
+import {
+  commercialProgressDetailAccent,
+  resolveCommercialProgressLabel,
+} from '@/src/lib/opportunity-progress-label';
 import { useSessionStore } from '@/src/stores/session-store';
 import { useAgentTrainingRules } from '@/src/hooks/use-agent-training';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
@@ -104,26 +130,96 @@ function InboxMailboxStatusCard({
   processingActive,
   syncLookback,
   onSyncLookbackChange,
+  syncStatus,
+  onReconnect,
+  onRegisterWatch,
+  onRenewWatch,
+  onRetryWriteback,
+  repairAction,
+  repairError,
 }: {
   onSync?: () => void;
   syncing?: boolean;
   processingActive?: boolean;
   syncLookback: MailboxSyncLookback;
   onSyncLookbackChange: (value: MailboxSyncLookback) => void;
+  syncStatus?: MailboxSyncStatus | null;
+  onReconnect?: () => void;
+  onRegisterWatch?: () => void;
+  onRenewWatch?: () => void;
+  onRetryWriteback?: () => void;
+  repairAction?: 'reconnect' | 'watch' | 'writeback' | null;
+  repairError?: string | null;
 }) {
   const { t, i18n } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const mailbox = useMailboxConnection();
 
-  if (!shouldUseBackendApi() || !mailbox.data?.emailAddress) return null;
+  const connection = syncStatus?.connection ?? mailbox.data;
+  if (!shouldUseBackendApi() || !connection?.emailAddress) return null;
 
-  const lastSyncLabel = mailbox.data.lastSyncAtISO
-    ? new Date(mailbox.data.lastSyncAtISO).toLocaleString(
-        i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US',
+  const locale = i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US';
+  const formatDateTime = (value?: string | null) =>
+    value
+      ? new Date(value).toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : null;
+  const lastSyncLabel = connection.lastSyncAtISO
+    ? new Date(connection.lastSyncAtISO).toLocaleString(
+        locale,
         { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
       )
     : t('inboxScreen.mailboxNeverSynced');
+  const provider = connection.provider ?? 'IMAP';
+  const capabilities = connection.capabilities ?? [];
+  const watchExpiresAtISO = connection.watchExpiresAtISO ?? syncStatus?.subscription?.nextExpiresAtISO;
+  const watchExpiresLabel = formatDateTime(watchExpiresAtISO);
+  const subscription = syncStatus?.subscription;
+  const writeback = syncStatus?.writeback;
+  const nativeSyncEnabled = provider === 'GOOGLE' || provider === 'MICROSOFT';
+  const watchExpired = watchExpiresAtISO ? new Date(watchExpiresAtISO).getTime() <= Date.now() : false;
+  const hasAnyWatch = (subscription?.active ?? 0) > 0 || !!watchExpiresAtISO;
+  const hasPushWatch = ((subscription?.active ?? 0) > 0 || !!watchExpiresAtISO) && !watchExpired;
+  const watchNeedsRenewal =
+    watchExpired || (subscription?.renewalDue ?? 0) + (subscription?.expired ?? 0) + (subscription?.error ?? 0) > 0;
+  const writebackActive = (writeback?.pending ?? 0) + (writeback?.processing ?? 0);
+  const writebackFailed = writeback?.failed ?? 0;
+  const pushRegistrationConfigured = subscription?.pushRegistrationConfigured ?? false;
+  const pushRegistrationMissingReason = subscription?.pushRegistrationMissingReason ?? null;
+  const pushUnavailable = nativeSyncEnabled && !pushRegistrationConfigured;
+  const showWatchRepair =
+    nativeSyncEnabled &&
+    !connection.reconsentRequired &&
+    pushRegistrationConfigured &&
+    (!hasPushWatch || watchNeedsRenewal);
+  const showPushConfigHint =
+    nativeSyncEnabled &&
+    !connection.reconsentRequired &&
+    (subscription?.pushSetupRequired ?? false) &&
+    !hasPushWatch;
+  const statusChips = [
+    {
+      id: 'provider',
+      icon: provider === 'GOOGLE' ? 'logo-google' : provider === 'MICROSOFT' ? 'logo-microsoft' : 'server-outline',
+      label: provider === 'GOOGLE' ? 'Gmail API' : provider === 'MICROSOFT' ? 'Graph Mail' : provider,
+      tone: nativeSyncEnabled ? 'good' : 'neutral',
+    },
+    {
+      id: 'send',
+      icon: 'paper-plane-outline',
+      label:
+        capabilities.includes('SEND') && capabilities.includes('NATIVE_DRAFTS')
+          ? t('inboxScreen.mailboxSendReady')
+          : t('inboxScreen.mailboxSendLimited'),
+      tone: capabilities.includes('SEND') && capabilities.includes('NATIVE_DRAFTS') ? 'good' : 'neutral',
+    },
+    {
+      id: 'sync',
+      icon: 'mail-unread-outline',
+      label: capabilities.includes('SYNC') ? t('inboxScreen.mailboxSyncReady') : t('inboxScreen.mailboxSyncLimited'),
+      tone: capabilities.includes('SYNC') ? 'good' : 'neutral',
+    },
+  ] as const;
 
   return (
     <SettingsGroup insetDividers={false}>
@@ -136,7 +232,7 @@ function InboxMailboxStatusCard({
               </View>
               <View style={styles.mailboxIdentityText}>
                 <Text style={[styles.mailboxAddressText, { color: theme.foreground }]}>
-                  {mailbox.data.emailAddress}
+                  {connection.emailAddress}
                 </Text>
                 <Text style={[styles.mailboxLastSyncText, { color: theme.foregroundSubtitle }]}>
                   {t('inboxScreen.mailboxLastSync', { time: lastSyncLabel })}
@@ -171,6 +267,126 @@ function InboxMailboxStatusCard({
             {t('inboxScreen.syncingInline')}
           </Text>
         ) : null}
+        <View style={styles.mailboxChipRow}>
+          {statusChips.map((chip) => (
+            <View
+              key={chip.id}
+              style={[
+                styles.mailboxStatusChip,
+                {
+                  borderColor: chip.tone === 'good' ? theme.primary + '55' : theme.border,
+                  backgroundColor: chip.tone === 'good' ? theme.primary + '10' : theme.secondary,
+                },
+              ]}>
+              <Ionicons
+                name={chip.icon as ComponentProps<typeof Ionicons>['name']}
+                size={14}
+                color={chip.tone === 'good' ? theme.primary : theme.foregroundEyebrow}
+              />
+              <Text
+                style={[
+                  styles.mailboxStatusChipText,
+                  { color: chip.tone === 'good' ? theme.primary : theme.mutedForeground },
+                ]}
+                numberOfLines={1}>
+                {chip.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.mailboxTelemetryStack}>
+          {!pushUnavailable ? (
+            <View style={styles.mailboxTelemetryRow}>
+              <Ionicons
+                name={hasPushWatch ? 'radio-outline' : 'time-outline'}
+                size={15}
+                color={hasPushWatch ? theme.primary : theme.foregroundEyebrow}
+              />
+              <Text style={[styles.mailboxTelemetryText, { color: theme.foregroundSubtitle }]} numberOfLines={1}>
+                {hasPushWatch
+                  ? t('inboxScreen.mailboxWatchActive', { time: watchExpiresLabel ?? t('inboxScreen.mailboxWatchUnknown') })
+                  : nativeSyncEnabled
+                    ? t('inboxScreen.mailboxWatchPending')
+                    : t('inboxScreen.mailboxWatchPolling')}
+              </Text>
+            </View>
+          ) : null}
+          {writeback ? (
+            <View style={styles.mailboxTelemetryRow}>
+              <Ionicons
+                name={writebackFailed > 0 ? 'warning-outline' : writebackActive > 0 ? 'sync-outline' : 'checkmark-circle-outline'}
+                size={15}
+                color={writebackFailed > 0 ? '#B45309' : writebackActive > 0 ? theme.primary : theme.foregroundEyebrow}
+              />
+              <Text
+                style={[
+                  styles.mailboxTelemetryText,
+                  { color: writebackFailed > 0 ? '#B45309' : theme.foregroundSubtitle },
+                ]}
+                numberOfLines={1}>
+                {writebackFailed > 0
+                  ? t('inboxScreen.mailboxWritebackFailed', { count: writebackFailed })
+                  : writebackActive > 0
+                    ? t('inboxScreen.mailboxWritebackActive', { count: writebackActive })
+                    : t('inboxScreen.mailboxWritebackReady')}
+              </Text>
+            </View>
+          ) : null}
+          {connection.reconsentRequired ? (
+            <View style={styles.mailboxTelemetryRow}>
+              <Ionicons name="key-outline" size={15} color="#B45309" />
+              <Text style={[styles.mailboxTelemetryText, { color: '#B45309' }]} numberOfLines={1}>
+                {t('inboxScreen.mailboxReconsentRequired')}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {connection.reconsentRequired || showWatchRepair || showPushConfigHint || writebackFailed > 0 ? (
+          <View style={styles.mailboxRepairStack}>
+            <View style={styles.mailboxRepairActions}>
+              {connection.reconsentRequired && onReconnect ? (
+                <MailboxRepairButton
+                  icon="key-outline"
+                  label={t('inboxScreen.mailboxReconnectCta')}
+                  a11yLabel={t('inboxScreen.mailboxReconnectA11y')}
+                  onPress={onReconnect}
+                  loading={repairAction === 'reconnect'}
+                />
+              ) : null}
+              {showWatchRepair && (hasAnyWatch ? onRenewWatch : onRegisterWatch) ? (
+                <MailboxRepairButton
+                  icon={hasAnyWatch ? 'refresh-circle-outline' : 'radio-outline'}
+                  label={hasAnyWatch ? t('inboxScreen.mailboxRenewWatchCta') : t('inboxScreen.mailboxRegisterWatchCta')}
+                  a11yLabel={hasAnyWatch ? t('inboxScreen.mailboxRenewWatchA11y') : t('inboxScreen.mailboxRegisterWatchA11y')}
+                  onPress={hasAnyWatch ? onRenewWatch : onRegisterWatch}
+                  loading={repairAction === 'watch'}
+                />
+              ) : null}
+              {writebackFailed > 0 && onRetryWriteback ? (
+                <MailboxRepairButton
+                  icon="repeat-outline"
+                  label={t('inboxScreen.mailboxRetryWritebackCta')}
+                  a11yLabel={t('inboxScreen.mailboxRetryWritebackA11y')}
+                  onPress={onRetryWriteback}
+                  loading={repairAction === 'writeback'}
+                />
+              ) : null}
+            </View>
+            {repairError ? (
+              <Text style={[styles.mailboxRepairError, { color: '#B45309' }]} numberOfLines={2}>
+                {repairError}
+              </Text>
+            ) : showPushConfigHint ? (
+              <Text style={[styles.mailboxRepairError, { color: theme.foregroundSubtitle }]} numberOfLines={3}>
+                {resolveMailboxPushMissingReason(pushRegistrationMissingReason, t)}
+              </Text>
+            ) : writeback?.lastErrorMessage && writebackFailed > 0 ? (
+              <Text style={[styles.mailboxRepairError, { color: theme.foregroundSubtitle }]} numberOfLines={2}>
+                {writeback.lastErrorMessage}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         <View style={styles.syncLookbackBlock}>
           <Text style={[styles.syncLookbackLabel, { color: theme.foregroundSubtitle }]}>
             {t('inboxScreen.syncLookbackLabel')}
@@ -188,6 +404,49 @@ function InboxMailboxStatusCard({
         </View>
       </View>
     </SettingsGroup>
+  );
+}
+
+function MailboxRepairButton({
+  icon,
+  label,
+  a11yLabel,
+  onPress,
+  loading,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  a11yLabel: string;
+  onPress?: () => void;
+  loading?: boolean;
+}) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      disabled={loading}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.mailboxRepairButton,
+        {
+          borderColor: theme.border,
+          backgroundColor: theme.card,
+        },
+        pressed && !loading && styles.mailboxRepairButtonPressed,
+        loading && styles.mailboxRepairButtonDisabled,
+      ]}>
+      {loading ? (
+        <ActivityIndicator size="small" color={theme.primary} />
+      ) : (
+        <Ionicons name={icon} size={15} color={theme.primary} />
+      )}
+      <Text style={[styles.mailboxRepairButtonText, { color: theme.primary }]} numberOfLines={2}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -282,13 +541,20 @@ function InboxSyncProgressCard({
 
   const summary = progressSummaryForStatus(status);
   const summaryTotalCount = summaryTotal(summary);
-  const failed = status.mailProcessing.failed + status.briefExtraction.failed + (status.lastSync?.failed ?? 0);
+  const writebackActive = (status.writeback?.pending ?? 0) + (status.writeback?.processing ?? 0);
+  const writebackFailed = status.writeback?.failed ?? 0;
+  const mailFailed = status.mailProcessing.failed + (status.lastSync?.failed ?? 0);
+  const briefFailed = status.briefExtraction.failed;
+  const failed = mailFailed + briefFailed + writebackFailed;
   const pending = summaryTotalCount > 0 ? summary.pending : 0;
   const processing = summaryTotalCount > 0 ? summary.processing : 0;
-  const displayFailed = summaryTotalCount > 0 ? summary.failed : (status.lastSync?.failed ?? 0);
-  const total = Math.max(summaryTotalCount, status.lastSync?.processed ?? 0, status.active ? 1 : 0);
+  const writebackOnlyActive = status.active && !hasActiveProcessing(status.mailProcessing) && !hasActiveProcessing(status.briefExtraction) && writebackActive > 0;
+  const displayFailed = summaryTotalCount > 0 ? summary.failed : Math.max(writebackFailed, status.lastSync?.failed ?? 0);
+  const total = Math.max(summaryTotalCount, writebackActive, status.lastSync?.processed ?? 0, status.active ? 1 : 0);
   const completed =
-    summaryTotalCount > 0
+    writebackOnlyActive
+      ? Math.max(0, writebackActive - (status.writeback?.processing ?? 0) - (status.writeback?.pending ?? 0))
+      : summaryTotalCount > 0
       ? summary.completed
       : status.active
         ? 0
@@ -301,14 +567,25 @@ function InboxSyncProgressCard({
   const progress = total > 0 ? Math.min(1, Math.max(0, completed / total)) : active ? 0.08 : 1;
   const progressWidth = `${Math.max(active ? 8 : 100, Math.round(progress * 100))}%` as DimensionValue;
   const title = active
-    ? t('inboxScreen.syncProgressTitleActive')
+    ? writebackOnlyActive
+      ? t('inboxScreen.writebackProgressTitleActive')
+      : t('inboxScreen.syncProgressTitleActive')
     : failed > 0
-      ? t('inboxScreen.syncProgressTitleFailed')
+      ? briefFailed > 0 && mailFailed === 0 && writebackFailed === 0
+        ? t('inboxScreen.syncProgressTitleBriefFailed')
+        : t('inboxScreen.syncProgressTitleFailed')
       : t('inboxScreen.syncProgressTitleDone');
   const body = active
-    ? t('inboxScreen.syncProgressBodyActive', { completed, total, processing, pending })
+    ? writebackOnlyActive
+      ? t('inboxScreen.writebackProgressBodyActive', {
+          processing: status.writeback?.processing ?? 0,
+          pending: status.writeback?.pending ?? 0,
+        })
+      : t('inboxScreen.syncProgressBodyActive', { completed, total, processing, pending })
     : failed > 0
-      ? t('inboxScreen.syncProgressBodyFailed', { failed })
+      ? briefFailed > 0 && mailFailed === 0 && writebackFailed === 0
+        ? t('inboxScreen.syncProgressBodyBriefFailed', { failed: briefFailed })
+        : t('inboxScreen.syncProgressBodyFailed', { failed })
       : t('inboxScreen.syncProgressBodyDone', { completed, total });
   const isExpanded = active || expanded || failed > 0;
 
@@ -361,7 +638,7 @@ function InboxSyncProgressCard({
               />
             </View>
             <Text style={[styles.syncProgressText, { color: theme.foregroundSubtitle }]}>{body}</Text>
-            {active ? (
+            {active && !writebackOnlyActive ? (
               <Text style={[styles.syncProgressStage, { color: theme.mutedForeground }]}>
                 {t('inboxScreen.syncProgressStage', { stage: stageLabel(currentStage, t) })}
               </Text>
@@ -373,11 +650,75 @@ function InboxSyncProgressCard({
   );
 }
 
-function AiSummaryCard({ onPress }: { onPress?: () => void }) {
+function InboxRateCardBanner() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const [dismissed, setDismissed] = useState(false);
+  const rateCard = useRateCardPackages();
+
+  if (!shouldUseBackendApi() || dismissed || rateCard.isPending) return null;
+  if ((rateCard.data?.length ?? 0) > 0) return null;
+
+  return (
+    <HubBanner
+      title={t('inboxScreen.rateCardMissingTitle')}
+      body={t('inboxScreen.rateCardMissingBody')}
+      primaryLabel={t('inboxScreen.rateCardMissingCta')}
+      onPrimary={() => router.push('/pricing' as Href)}
+      secondaryLabel={t('inboxScreen.later')}
+      onSecondary={() => setDismissed(true)}
+    />
+  );
+}
+
+function InboxReclassificationBanner() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const summary = useAiDailySummary();
+  const active = useSessionStore((s) => s.inboxReclassificationActive);
+
+  if (!shouldUseBackendApi() || !active) return null;
+
+  return (
+    <View style={[reclassifyBannerStyles.row, { borderColor: theme.border, backgroundColor: theme.card }]}>
+      <ActivityIndicator size="small" color={theme.primary} />
+      <Text style={[reclassifyBannerStyles.text, { color: theme.foreground }]} numberOfLines={2}>
+        {t('inboxScreen.reclassificationBanner')}
+      </Text>
+    </View>
+  );
+}
+
+function InboxAiRulesBanner({ syncStatus }: { syncStatus?: MailboxSyncStatus | null }) {
+  const { t } = useTranslation();
+  const [dismissed, setDismissed] = useState(false);
+  const scope = globalRulesProcessingScope(syncStatus?.aiProcessing ?? null);
+
+  if (!shouldUseBackendApi() || dismissed || !scope) return null;
+
+  return (
+    <HubBanner
+      title={t('inboxScreen.aiRulesBannerTitle')}
+      body={t(rulesScopeI18nKey(scope, 'inboxScreen.aiRulesBannerBody'))}
+      primaryLabel={t('inboxScreen.aiRulesBannerDismiss')}
+      onPrimary={() => setDismissed(true)}
+      secondaryLabel={t('inboxScreen.later')}
+      onSecondary={() => setDismissed(true)}
+    />
+  );
+}
+
+function AiSummaryCard({
+  onPress,
+  mailboxProcessingActive,
+}: {
+  onPress?: () => void;
+  mailboxProcessingActive?: boolean;
+}) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const summary = useAiDailySummary({ mailboxProcessingActive });
 
   if (summary.isPending || !summary.data) return null;
   const { processedCount, commercialCount, needsActionCount, archivedCount } = summary.data;
@@ -432,17 +773,19 @@ function InboxViewToggle({
 function ArchiveSummaryCard({
   count,
   onPress,
+  titleKey = 'inboxScreen.archiveRemaining',
 }: {
   count: number;
   onPress: () => void;
+  titleKey?: 'inboxScreen.archiveRemaining' | 'inboxScreen.archivedBandRemaining';
 }) {
   const { t } = useTranslation();
 
   return (
     <SettingsGroup>
       <HubListRow
-        icon="archive-outline"
-        title={t('inboxScreen.archiveRemaining', { count })}
+        iconElement={<LeadValueBandIconShell band="archived" icon="archive-outline" />}
+        title={t(titleKey, { count })}
         subtitle={t('inboxScreen.archiveHint')}
         detail={String(count)}
         detailAccent={count > 0}
@@ -469,6 +812,7 @@ function CategoryFilterBar({
     { id: 'pr_sample' as const, label: inboxCategoryLabel.pr_sample, count: counts.pr_sample },
     { id: 'media' as const, label: inboxCategoryLabel.media, count: counts.media },
     { id: 'personal' as const, label: inboxCategoryLabel.personal, count: counts.personal },
+    { id: 'spam' as const, label: inboxCategoryLabel.spam, count: counts.spam },
     { id: 'other' as const, label: inboxCategoryLabel.other, count: counts.other },
   ];
   const items = allItems.filter((item) => item.id === 'all' || item.count > 0);
@@ -546,7 +890,12 @@ function ClassifiedMailControls({
   const { inboxCategoryLabel } = useDomainLabels();
 
   const categoryLabel = categoryFilter === 'all' ? t('inboxScreen.filterAll') : inboxCategoryLabel[categoryFilter];
-  const sortLabel = sortBy === 'MESSAGE_COUNT' ? t('inboxScreen.sortByMessageCount') : t('inboxScreen.sortByTime');
+  const sortLabel =
+    sortBy === 'MESSAGE_COUNT'
+      ? t('inboxScreen.sortByMessageCount')
+      : sortBy === 'CLASSIFICATION_SCORE'
+        ? t('inboxScreen.sortByClassificationScore')
+        : t('inboxScreen.sortByTime');
   const directionLabel = sortOrder === 'ASC' ? t('inboxScreen.sortAscending') : t('inboxScreen.sortDescending');
   const summary = t('inboxScreen.classifiedControlsSummary', {
     category: categoryLabel,
@@ -622,6 +971,12 @@ function ClassifiedMailControls({
                 label={t('inboxScreen.sortByMessageCount')}
                 order={sortBy === 'MESSAGE_COUNT' ? sortOrder : 'ASC'}
                 onPress={() => handleSortPress('MESSAGE_COUNT')}
+              />
+              <SortToggleButton
+                active={sortBy === 'CLASSIFICATION_SCORE'}
+                label={t('inboxScreen.sortByClassificationScore')}
+                order={sortBy === 'CLASSIFICATION_SCORE' ? sortOrder : 'DESC'}
+                onPress={() => handleSortPress('CLASSIFICATION_SCORE')}
               />
             </View>
           </View>
@@ -749,13 +1104,81 @@ function inboxThreadIcon(category: InboxEmailCategory): IconName {
       return 'newspaper-outline';
     case 'personal':
       return 'person-outline';
+    case 'spam':
+      return 'ban-outline';
     default:
       return 'ellipsis-horizontal-outline';
   }
 }
 
-function inboxThreadDetailAccent(stage: InboxLeadStage): boolean {
-  return stage === 'negotiating' || stage === 'draft_ready';
+function commercialProgressPillColors(
+  item: Pick<InboxThread, 'dealEscrowPhase' | 'pipelinePhase' | 'category' | 'dealId'>,
+  theme: (typeof palette)['light'],
+) {
+  if (item.dealEscrowPhase === 'settled' || item.pipelinePhase === 'CLOSED') {
+    return {
+      backgroundColor: theme.accentMintSoft,
+      color: theme.accentMintStrong,
+      borderColor: `${theme.accentMintStrong}44`,
+    };
+  }
+  if (item.dealEscrowPhase === 'disputed' || item.dealEscrowPhase === 'remediation') {
+    return {
+      backgroundColor: '#2A1012',
+      color: '#FDA4AF',
+      borderColor: '#FDA4AF44',
+    };
+  }
+  if (commercialProgressDetailAccent(item)) {
+    return {
+      backgroundColor: `${theme.primary}18`,
+      color: theme.primary,
+      borderColor: `${theme.primary}44`,
+    };
+  }
+  return {
+    backgroundColor: theme.secondary,
+    color: theme.foregroundSubtitle,
+    borderColor: theme.border,
+  };
+}
+
+function CommercialTrailingMeta({
+  budgetLabel,
+  progressLabel,
+  progressPill,
+  theme,
+}: {
+  budgetLabel?: string;
+  progressLabel?: string;
+  progressPill: ReturnType<typeof commercialProgressPillColors>;
+  theme: (typeof palette)['light'];
+}) {
+  return (
+    <View style={styles.threadTrailingTop}>
+      <View style={styles.threadBudgetSlot}>
+        <Text style={[styles.threadBudget, { color: theme.foregroundSubtitle }]} numberOfLines={1}>
+          {budgetLabel ?? ''}
+        </Text>
+      </View>
+      {progressLabel ? (
+        <View style={styles.threadProgressSlot}>
+          <View
+            style={[
+              styles.threadProgressPill,
+              {
+                backgroundColor: progressPill.backgroundColor,
+                borderColor: progressPill.borderColor,
+              },
+            ]}>
+            <Text style={[styles.threadProgressLabel, { color: progressPill.color }]} numberOfLines={1}>
+              {progressLabel}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 function InboxThreadHubRow({
@@ -766,37 +1189,113 @@ function InboxThreadHubRow({
   onPress: () => void;
 }) {
   const { t } = useTranslation();
-  const { inboxCategoryLabel, inboxLeadStageLabel } = useDomainLabels();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const { inboxCategoryLabel, inboxLeadStageLabel, escrowLifecycleLabel, opportunityPipelinePhaseLabel } =
+    useDomainLabels();
   const correctedLocal = useInboxCorrectionStore((s) => !!s.classificationByThreadId[item.id]);
   const corrected = correctedLocal || !!item.userCorrected;
+  const showCommercialMeta = item.category === 'commercial' || !!item.leadValueBand;
+  const priorityBand = resolvePriorityLeadValueBand(item);
+  const progressLabel =
+    item.category === 'commercial'
+      ? resolveCommercialProgressLabel(item, {
+          leadStage: inboxLeadStageLabel,
+          escrow: escrowLifecycleLabel,
+          pipeline: opportunityPipelinePhaseLabel,
+        })
+      : undefined;
+
+  const messageStatsFooter = formatInboxMessageStats(item.messageStats, item.messageCount, t);
+  const unreadHighlight = hasUnreadMessages(item.messageStats);
+  const isCommercialRow = item.category === 'commercial';
+  const progressPill =
+    isCommercialRow && progressLabel ? commercialProgressPillColors(item, theme) : null;
 
   const subtitleParts = [item.brandName];
-  if (item.nextActionLabel) subtitleParts.push(item.nextActionLabel);
-  else if (item.preview) subtitleParts.push(item.preview);
-  if (item.riskLabel && item.category === 'commercial') subtitleParts.push(item.riskLabel);
-  else if (item.actionReasons?.[0]?.message && item.category === 'commercial') {
-    subtitleParts.push(item.actionReasons[0].message);
+  if (isCommercialRow) {
+    if (item.nextActionLabel) subtitleParts.push(item.nextActionLabel);
+  } else if (item.nextActionLabel) {
+    subtitleParts.push(item.nextActionLabel);
+  } else if (item.preview) {
+    subtitleParts.push(item.preview);
+  }
+  if (!isCommercialRow) {
+    if (item.riskLabel && showCommercialMeta) subtitleParts.push(item.riskLabel);
+    else if (item.exceptionalBudget || item.budgetFloorRatio != null) {
+      const exceptionalLabel = formatExceptionalBudgetLabel(item.budgetFloorRatio, t);
+      if (exceptionalLabel) subtitleParts.push(exceptionalLabel);
+    } else if (priorityBand === 'high_value') {
+      inboxRiskReasons(item.actionReasons).forEach((reason) => subtitleParts.push(reason.message));
+    } else if (item.actionReasons?.[0]?.message && showCommercialMeta) {
+      subtitleParts.push(item.actionReasons[0].message);
+    }
   }
   if (corrected) subtitleParts.push(t('inboxScreen.userCorrected'));
-  const messageCount = Math.max(1, item.messageCount ?? 1);
+  if (threadUsesRulesProcessing(item)) subtitleParts.push(t('inboxScreen.threadRulesLabel'));
 
-  const detail =
-    item.category === 'commercial'
-      ? item.budgetLabel ?? inboxLeadStageLabel[item.leadStage]
-      : inboxCategoryLabel[item.category];
+  const metaLine = subtitleParts.join(' · ');
+
+  const detail = isCommercialRow && progressPill ? (
+    <CommercialTrailingMeta
+      budgetLabel={item.budgetLabel}
+      progressLabel={progressLabel}
+      progressPill={progressPill}
+      theme={theme}
+    />
+  ) : isCommercialRow ? (
+    item.budgetLabel
+  ) : !showCommercialMeta ? (
+    inboxCategoryLabel[item.category]
+  ) : (
+    item.budgetLabel
+  );
+
+  const detailAccent = isCommercialRow
+    ? false
+    : leadValueBandAccent(priorityBand ?? item.leadValueBand, theme).detailAccent;
 
   return (
     <HubListRow
       testID={`inbox-thread-${item.id}`}
-      icon={inboxThreadIcon(item.category)}
+        iconElement={
+          <LeadValueBandIconShell band={priorityBand ?? item.leadValueBand} icon={inboxThreadIcon(item.category)} />
+        }
       title={item.subject}
-      subtitle={subtitleParts.join(' · ')}
+      subtitle={metaLine}
       detail={detail}
-      detailAccent={item.category === 'commercial' && inboxThreadDetailAccent(item.leadStage)}
-      detailFooter={t('inboxScreen.threadMessageCount', { count: messageCount })}
-      detailFooterAccent
+      detailAccent={detailAccent}
+      detailFooter={messageStatsFooter}
+      detailFooterAccent={unreadHighlight}
       onPress={onPress}
     />
+  );
+}
+
+function LeadValueBandSection({
+  band,
+  items,
+  count,
+  onOpen,
+}: {
+  band: LeadValueBand;
+  items: InboxThread[];
+  count?: number;
+  onOpen: (item: InboxThread) => void;
+}) {
+  const { leadValueBandLabel } = useDomainLabels();
+
+  if (items.length === 0) return null;
+
+  return (
+    <View style={styles.bandSection}>
+      <LeadValueBandSectionHeader band={band} label={leadValueBandLabel[band]} count={count ?? items.length} />
+      <SettingsGroup insetDividers>
+        {items.map((item) => (
+          <InboxThreadHubRow key={item.id} item={item} onPress={() => onOpen(item)} />
+        ))}
+      </SettingsGroup>
+    </View>
   );
 }
 
@@ -831,6 +1330,8 @@ export default function InboxScreen() {
   const { inboxCategoryLabel } = useDomainLabels();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const authReady = useAuthSessionReady();
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
   useAgentTrainingRules();
   const viewMode = useInboxViewStore((s) => s.viewMode);
   const categoryFilter = useInboxViewStore((s) => s.categoryFilter);
@@ -849,6 +1350,8 @@ export default function InboxScreen() {
   const bodyTopYRef = useRef(0);
   const pendingBodyScrollRef = useRef(false);
   const shouldRestoreScrollRef = useRef(false);
+  const scrollYByViewModeRef = useRef<Record<InboxViewMode, number>>({ priority: 0, all: 0 });
+  const scrollYByCategoryRef = useRef<Partial<Record<InboxCategoryFilter, number>>>({});
   const autoSyncedMailboxRef = useRef<string | null>(null);
   const lastProcessingSignatureRef = useRef<string | null>(null);
   const wasProcessingActiveRef = useRef(false);
@@ -863,6 +1366,8 @@ export default function InboxScreen() {
     () => useInboxViewStore.getState().scrollY > SCROLL_TOP_THRESHOLD
   );
   const [lastSync, setLastSync] = useState<MailSyncResult | null>(null);
+  const [repairAction, setRepairAction] = useState<'reconnect' | 'watch' | 'writeback' | null>(null);
+  const [repairError, setRepairError] = useState<string | null>(null);
   const corrections = useInboxCorrectionStore((s) => s.classificationByThreadId);
   const clearAllCorrections = useInboxCorrectionStore((s) => s.clearAllCorrections);
   const lastSyncCompletedKey = lastSync?.endedAtISO ?? null;
@@ -877,12 +1382,43 @@ export default function InboxScreen() {
     });
   }, []);
 
+  const handleViewModeChange = useCallback(
+    (next: InboxViewMode) => {
+      if (next === viewMode) return;
+      scrollYByViewModeRef.current[viewMode] = useInboxViewStore.getState().scrollY;
+      const restoreY = scrollYByViewModeRef.current[next] ?? 0;
+      setScrollY(restoreY);
+      setShowScrollTop(restoreY > SCROLL_TOP_THRESHOLD);
+      shouldRestoreScrollRef.current = restoreY > 0;
+      setViewMode(next);
+      if (next === 'priority') {
+        setCategoryFilter('all');
+        setSearchQuery('');
+      }
+    },
+    [viewMode, setCategoryFilter, setSearchQuery, setScrollY, setViewMode],
+  );
+
+  const handleCategoryChange = useCallback(
+    (next: InboxCategoryFilter) => {
+      if (next === categoryFilter) return;
+      scrollYByCategoryRef.current[categoryFilter] = useInboxViewStore.getState().scrollY;
+      const restoreY = scrollYByCategoryRef.current[next] ?? useInboxViewStore.getState().scrollY;
+      setScrollY(restoreY);
+      setShowScrollTop(restoreY > SCROLL_TOP_THRESHOLD);
+      shouldRestoreScrollRef.current = restoreY > 0;
+      setCategoryFilter(next);
+    },
+    [categoryFilter, setCategoryFilter, setScrollY],
+  );
+
   const listFilters = useMemo(() => {
     if (viewMode === 'priority') {
       return {
         needsAction: true,
-        ...(categoryFilter !== 'all' ? { emailCategory: categoryFilter } : {}),
-      } as const;
+        sortBy: 'CLASSIFICATION_SCORE' as const,
+        sortDirection: 'DESC' as const,
+      };
     }
     return {
       timeRange: timeRangeFilter,
@@ -897,11 +1433,10 @@ export default function InboxScreen() {
   const theme = palette[colorScheme];
   const processingActive = !!syncStatus.data?.active;
 
-  const resetInboxScroll = useCallback(() => {
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    setScrollY(0);
-    setShowScrollTop(false);
-  }, [setScrollY]);
+  useEffect(() => {
+    if (!shouldRestoreScrollRef.current || inbox.isPending) return;
+    restoreScrollY();
+  }, [viewMode, categoryFilter, inbox.isPending, inbox.data, restoreScrollY]);
 
   const scrollToInboxBody = useCallback(() => {
     const scroll = () =>
@@ -913,11 +1448,13 @@ export default function InboxScreen() {
   }, []);
 
   const handleAiSummaryPress = useCallback(() => {
+    scrollYByViewModeRef.current[viewMode] = useInboxViewStore.getState().scrollY;
     pendingBodyScrollRef.current = true;
+    shouldRestoreScrollRef.current = false;
     setViewMode('priority');
-    setCategoryFilter('commercial');
+    setCategoryFilter('all');
     setSearchQuery('');
-  }, [setCategoryFilter, setSearchQuery, setViewMode]);
+  }, [viewMode, setCategoryFilter, setSearchQuery, setViewMode]);
 
   const handleBodyLayout = useCallback((event: LayoutChangeEvent) => {
     bodyTopYRef.current = event.nativeEvent.layout.y;
@@ -964,16 +1501,20 @@ export default function InboxScreen() {
 
   const runMailboxSync = useCallback(async (lookback: MailboxSyncLookback) => {
     if (shouldUseBackendApi()) {
+      if (!authReady || !isAuthenticated) return;
       try {
         const result = await syncMailbox({ lookback });
-        if (result) setLastSync(result);
+        if (result) {
+          setLastSync(result);
+          if (result.endedAtISO) applyMailboxLastSyncToCache(queryClient, result.endedAtISO);
+        }
       } catch {
         setLastSync(null);
       }
     }
     await Promise.all([
+      refreshInboxQueries(queryClient),
       invalidateTenantScopedQueries(queryClient),
-      queryClient.invalidateQueries({ queryKey: ['inbox'] }),
       queryClient.invalidateQueries({ queryKey: ['decisions'] }),
       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
       queryClient.invalidateQueries({ queryKey: ['account', 'agent-training-rules'] }),
@@ -981,9 +1522,67 @@ export default function InboxScreen() {
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),
       queryClient.invalidateQueries({ queryKey: ['account', 'overview'] }),
     ]);
-  }, [queryClient]);
+  }, [authReady, isAuthenticated, queryClient]);
   const refreshInbox = useCallback(() => runMailboxSync(syncLookback), [runMailboxSync, syncLookback]);
   const { refreshing, onRefresh } = useTabRefresh(refreshInbox);
+
+  const refreshMailboxState = useCallback(async () => {
+    await Promise.all([
+      refreshInboxQueries(queryClient),
+      invalidateTenantScopedQueries(queryClient),
+      queryClient.invalidateQueries({ queryKey: ['mailbox', 'connection'] }),
+      queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),
+      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+      queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
+    ]);
+  }, [queryClient]);
+
+  const handleReconnectMailbox = useCallback(() => {
+    setRepairError(null);
+    router.push('/onboarding/email?source=inbox-repair' as Href);
+  }, [router]);
+
+  const handleRegisterWatch = useCallback(async () => {
+    if (repairAction) return;
+    setRepairAction('watch');
+    setRepairError(null);
+    try {
+      await registerMailboxSubscription();
+      await refreshMailboxState();
+    } catch (error) {
+      setRepairError(resolveMailboxRepairError(error, t));
+    } finally {
+      setRepairAction(null);
+    }
+  }, [refreshMailboxState, repairAction, t]);
+
+  const handleRenewWatch = useCallback(async () => {
+    if (repairAction) return;
+    setRepairAction('watch');
+    setRepairError(null);
+    try {
+      await renewMailboxSubscription();
+      await refreshMailboxState();
+    } catch (error) {
+      setRepairError(resolveMailboxRepairError(error, t));
+    } finally {
+      setRepairAction(null);
+    }
+  }, [refreshMailboxState, repairAction, t]);
+
+  const handleRetryWriteback = useCallback(async () => {
+    if (repairAction) return;
+    setRepairAction('writeback');
+    setRepairError(null);
+    try {
+      await retryFailedMailboxWritebackJobs();
+      await refreshMailboxState();
+    } catch (error) {
+      setRepairError(resolveMailboxRepairError(error, t));
+    } finally {
+      setRepairAction(null);
+    }
+  }, [refreshMailboxState, repairAction, t]);
 
   const processingSignature = useMemo(() => {
     const status = syncStatus.data;
@@ -1004,29 +1603,37 @@ export default function InboxScreen() {
       status.lastSync?.success ?? 0,
       status.lastSync?.failed ?? 0,
       status.lastSync?.endedAtISO ?? '',
+      status.writeback?.pending ?? 0,
+      status.writeback?.processing ?? 0,
+      status.writeback?.failed ?? 0,
+      status.subscription?.active ?? 0,
+      status.subscription?.renewalDue ?? 0,
+      status.subscription?.expired ?? 0,
+      status.subscription?.error ?? 0,
     ].join('|');
   }, [syncStatus.data]);
 
   useEffect(() => {
     if (!shouldUseBackendApi() || !processingSignature) return;
     const status = syncStatus.data;
+    const pipelineActive = !!status?.active;
     if (lastProcessingSignatureRef.current === null) {
       lastProcessingSignatureRef.current = processingSignature;
-      if (!status || !wasProcessingActiveRef.current) return;
+      if (!status || (!wasProcessingActiveRef.current && !pipelineActive)) return;
     }
     if (lastProcessingSignatureRef.current === processingSignature) return;
     lastProcessingSignatureRef.current = processingSignature;
 
     void Promise.all([
+      refreshInboxQueries(queryClient),
       invalidateTenantScopedQueries(queryClient),
-      queryClient.invalidateQueries({ queryKey: ['inbox'] }),
       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
       queryClient.invalidateQueries({ queryKey: ['decisions'] }),
       queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'connection'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),
     ]);
-  }, [processingSignature, queryClient]);
+  }, [processingSignature, queryClient, syncStatus.data]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1048,11 +1655,11 @@ export default function InboxScreen() {
   useFocusEffect(
     useCallback(() => {
       const emailAddress = mailbox.data?.emailAddress;
-      if (!shouldUseBackendApi() || !emailAddress) return;
+      if (!shouldUseBackendApi() || !authReady || !isAuthenticated || !emailAddress) return;
       if (autoSyncedMailboxRef.current === emailAddress) return;
       autoSyncedMailboxRef.current = emailAddress;
       void runMailboxSync(DEFAULT_SYNC_LOOKBACK);
-    }, [mailbox.data?.emailAddress, runMailboxSync])
+    }, [authReady, isAuthenticated, mailbox.data?.emailAddress, runMailboxSync])
   );
 
   if (inbox.error && !inbox.data?.length) {
@@ -1068,8 +1675,6 @@ export default function InboxScreen() {
 
   const allThreads = inbox.data ?? [];
   const initialLoading = inbox.isPending && allThreads.length === 0;
-  const commercial = allThreads.filter((thread) => thread.category === 'commercial');
-  const nonCommercial = allThreads.filter((thread) => thread.category !== 'commercial');
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const searchableThreads = normalizedSearch
     ? allThreads.filter((thread) =>
@@ -1098,27 +1703,40 @@ export default function InboxScreen() {
     {} as Record<InboxEmailCategory, InboxThread[]>
   );
   const categoryCounts = inbox.categoryCounts;
+  const valueBandCounts = inbox.valueBandCounts;
+  const highValueThreads = allThreads.filter((thread) => resolvePriorityLeadValueBand(thread) === 'high_value');
+  const followUpThreads = allThreads.filter((thread) => resolvePriorityLeadValueBand(thread) === 'needs_negotiation');
+  const priorityBandCounts = countPriorityLeadValueBands(allThreads);
+  const archivedBandCount = valueBandCounts.archived ?? 0;
+  const hasPriorityThreads = highValueThreads.length + followUpThreads.length > 0;
 
   const openThread = (item: InboxThread) => router.push(`/inbox/${item.id}` as Href);
   const allModeCategories: InboxEmailCategory[] =
     categoryFilter === 'all'
-      ? ['commercial', 'pr_sample', 'media', 'personal', 'other']
+      ? ['commercial', 'pr_sample', 'media', 'personal', 'spam', 'other']
       : [categoryFilter];
   const visibleAllModeCount = allModeCategories.reduce((sum, category) => sum + (grouped[category]?.length ?? 0), 0);
-  const nonCommercialTotalCount = Object.entries(categoryCounts)
-    .filter(([category]) => category !== 'commercial')
-    .reduce((sum, [, count]) => sum + count, 0);
   const lastSyncCounts = lastSync ? syncResultCounts(lastSync) : null;
 
   const toolbar = (
     <>
       <InboxConnectionBanner />
+      <InboxRateCardBanner />
+      <InboxReclassificationBanner />
+      <InboxAiRulesBanner syncStatus={syncStatus.data} />
       <InboxMailboxStatusCard
         onSync={onRefresh}
         syncing={refreshing || inbox.isRefetching}
         processingActive={processingActive}
         syncLookback={syncLookback}
         onSyncLookbackChange={setSyncLookback}
+        syncStatus={syncStatus.data}
+        onReconnect={handleReconnectMailbox}
+        onRegisterWatch={handleRegisterWatch}
+        onRenewWatch={handleRenewWatch}
+        onRetryWriteback={handleRetryWriteback}
+        repairAction={repairAction}
+        repairError={repairError}
       />
       <InboxSyncProgressCard
         expanded={syncProgressExpanded}
@@ -1142,18 +1760,8 @@ export default function InboxScreen() {
           }
         />
       ) : null}
-      <AiSummaryCard onPress={handleAiSummaryPress} />
-      <InboxViewToggle
-        value={viewMode}
-        onChange={(next) => {
-          setViewMode(next);
-          resetInboxScroll();
-          if (next === 'priority') {
-            setCategoryFilter('all');
-            setSearchQuery('');
-          }
-        }}
-      />
+      <AiSummaryCard onPress={handleAiSummaryPress} mailboxProcessingActive={processingActive} />
+      <InboxViewToggle value={viewMode} onChange={handleViewModeChange} />
     </>
   );
 
@@ -1174,22 +1782,25 @@ export default function InboxScreen() {
           <InboxInlineLoading />
         ) : viewMode === 'priority' ? (
           <>
-            <MailCategorySection
-              category="commercial"
-              items={commercial}
-              count={categoryCounts.commercial}
+            <LeadValueBandSection
+              band="high_value"
+              items={highValueThreads}
+              count={priorityBandCounts.high_value}
               onOpen={openThread}
             />
-            {commercial.length === 0 ? (
+            <LeadValueBandSection
+              band="needs_negotiation"
+              items={followUpThreads}
+              count={priorityBandCounts.needs_negotiation}
+              onOpen={openThread}
+            />
+            {!hasPriorityThreads ? (
               <EmptyStateCard
                 title={t('inboxScreen.emptyCommercialTitle')}
                 description={t('inboxScreen.emptyCommercialDesc')}
                 primaryAction={{
                   label: t('inboxScreen.viewAllMail'),
-                  onPress: () => {
-                    setViewMode('all');
-                    resetInboxScroll();
-                  },
+                  onPress: () => handleViewModeChange('all'),
                 }}
                 secondaryAction={{
                   label: t('inboxScreen.emptyConnectMailbox'),
@@ -1197,10 +1808,11 @@ export default function InboxScreen() {
                 }}
               />
             ) : null}
-            {nonCommercialTotalCount > 0 ? (
+            {archivedBandCount > 0 ? (
               <ArchiveSummaryCard
-                count={nonCommercialTotalCount}
-                onPress={() => setViewMode('all')}
+                count={archivedBandCount}
+                titleKey="inboxScreen.archivedBandRemaining"
+                onPress={() => handleViewModeChange('all')}
               />
             ) : null}
             {inbox.isFetchingNextPage ? <InboxInlineLoading /> : null}
@@ -1229,7 +1841,7 @@ export default function InboxScreen() {
               timeRange={timeRangeFilter}
               sortBy={sortBy}
               sortOrder={sortOrder}
-              onCategoryChange={setCategoryFilter}
+              onCategoryChange={handleCategoryChange}
               onToggleExpanded={() => setClassifiedControlsExpanded((value) => !value)}
               onTimeRangeChange={setTimeRangeFilter}
               onSortByChange={setSortBy}
@@ -1288,6 +1900,7 @@ export default function InboxScreen() {
 }
 const styles = StyleSheet.create({
   screenFrame: { flex: 1 },
+  bandSection: { gap: spacing.sm },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   aiCardSub: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   aiSummaryPressed: { opacity: 0.78 },
@@ -1300,6 +1913,35 @@ const styles = StyleSheet.create({
   aiSummaryBadgeRow: { alignSelf: 'flex-start' },
   classifiedControlStack: { gap: spacing.xs },
   classifiedControlLabel: { fontSize: fontSize.caption, fontWeight: '700' },
+  threadTrailingTop: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+    minWidth: 84,
+  },
+  threadProgressSlot: {
+    alignItems: 'flex-end',
+    maxWidth: 96,
+  },
+  threadBudgetSlot: {
+    alignItems: 'flex-end',
+    width: '100%',
+  },
+  threadProgressPill: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    maxWidth: '100%',
+  },
+  threadProgressLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+  },
+  threadBudget: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
   classifiedControlsHeader: {
     minHeight: 54,
     paddingHorizontal: spacing.lg,
@@ -1386,7 +2028,83 @@ const styles = StyleSheet.create({
   mailboxSyncingText: {
     paddingHorizontal: spacing.lg,
     fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
+    lineHeight: lineHeight.body,
+    fontWeight: '700',
+  },
+  mailboxChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  mailboxStatusChip: {
+    minHeight: 28,
+    maxWidth: '100%',
+    borderRadius: radii.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  mailboxStatusChipText: {
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
+    fontWeight: '800',
+    flexShrink: 1,
+  },
+  mailboxTelemetryStack: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  mailboxTelemetryRow: {
+    minHeight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  mailboxTelemetryText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
+    fontWeight: '700',
+  },
+  mailboxRepairStack: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  mailboxRepairActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  mailboxRepairButton: {
+    minHeight: 34,
+    maxWidth: '100%',
+    borderRadius: radii.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    flexGrow: 1,
+    flexBasis: 128,
+  },
+  mailboxRepairButtonPressed: { opacity: 0.72 },
+  mailboxRepairButtonDisabled: { opacity: 0.58 },
+  mailboxRepairButtonText: {
+    flexShrink: 1,
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  mailboxRepairError: {
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
     fontWeight: '700',
   },
   syncLookbackBlock: {
@@ -1446,4 +2164,23 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   scrollTopButtonPressed: { transform: [{ scale: 0.98 }] },
+});
+
+const reclassifyBannerStyles = StyleSheet.create({
+  row: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  text: {
+    flex: 1,
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.bodyRelaxed,
+    fontWeight: '600',
+  },
 });

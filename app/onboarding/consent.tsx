@@ -53,7 +53,7 @@ export default function OnboardingConsentScreen() {
         void alertAction(t('onboardingSync.consentTitle'), result.error);
       }
     })();
-    router.push('/onboarding/email' as Href);
+    router.push('/onboarding/inbox-filter' as Href);
   };
 
   return (

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import appI18n from '@/src/i18n';
@@ -22,16 +22,21 @@ import type { LanguagePreference } from '@/src/stores/locale-store';
 import { useLocaleStore } from '@/src/stores/locale-store';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { confirmAction } from '@/src/lib/confirm-action';
+import { resolveAccountProfileHeroMeta } from '@/src/lib/creator-profile-aggregate';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
+import { ConnectedPlatformIcons } from '@/src/components/profile/ConnectedPlatformIcons';
+import { useClassificationStrictness } from '@/src/hooks/use-classification-strictness';
 import { useCreatorFocusMode } from '@/src/hooks/use-creator-focus';
 import { useAccountOverview } from '@/src/hooks/use-account-overview';
 import { useAccountRowSummaries } from '@/src/hooks/use-account-row-summaries';
 import { usePendingTenantInvites } from '@/src/hooks/use-tenants';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
+import type { ClassificationStrictness } from '@/src/stores/session-store';
 import { useSessionStore } from '@/src/stores/session-store';
 
 const LANGUAGE_OPTIONS: LanguagePreference[] = ['en', 'zh', 'system'];
+const INBOX_FILTER_OPTIONS: ClassificationStrictness[] = ['relaxed', 'standard', 'strict'];
 
 export default function AccountScreen() {
   const { t } = useTranslation();
@@ -46,7 +51,10 @@ export default function AccountScreen() {
   const emailSkipped = useSessionStore((s) => s.emailSkipped);
   const mailboxConnection = useSessionStore((s) => s.mailboxConnection);
   const agentSendMode = useSessionStore((s) => s.agentSendMode);
+  const membershipRole = useSessionStore((s) => s.membershipRole);
   const { creatorFocusMode, setCreatorFocusMode } = useCreatorFocusMode();
+  const { classificationStrictness, setClassificationStrictness, isUpdatingStrictness } =
+    useClassificationStrictness();
   const { signOut } = useAuthActions();
   const replayOnboarding = useSessionStore((s) => s.replayOnboardingDemo);
   const languagePreference = useLocaleStore((s) => s.languagePreference);
@@ -79,11 +87,13 @@ export default function AccountScreen() {
     }
     return t('account.reconnectInbox');
   }, [connectedEmail, overviewMailbox?.lastSyncAtISO, t]);
-  const platformMeta = profile?.platformLabel
-    ? `${profile.platformLabel}${profile.handle ? ` · @${profile.handle}` : ''}`
-    : accountEmail ?? t('account.emailNotConnected');
+  const platformMeta = useMemo(() => {
+    const emailFallback = accountEmail ?? t('account.emailNotConnected');
+    return resolveAccountProfileHeroMeta(profile, emailFallback);
+  }, [accountEmail, profile, t]);
   const { profileDetail, planDetail, teamDetail, workspaceDetail, dataDetail } = useAccountRowSummaries();
   const pendingInvites = usePendingTenantInvites();
+  const canUseOps = shouldUseBackendApi() && membershipRole === 'OWNER';
 
   useFocusEffect(
     useCallback(() => {
@@ -149,9 +159,14 @@ export default function AccountScreen() {
       </View>
       <View style={styles.profileText}>
         <Text style={[styles.profileName, { color: theme.foreground }]}>{creatorName}</Text>
-        <Text style={[styles.profileMeta, { color: theme.mutedForeground }]} numberOfLines={1}>
-          {platformMeta}
-        </Text>
+        <View style={styles.profileMetaRow}>
+          {platformMeta.connectedKeys.length > 0 ? (
+            <ConnectedPlatformIcons platforms={platformMeta.connectedKeys} size={14} />
+          ) : null}
+          <Text style={[styles.profileMeta, { color: theme.mutedForeground }]} numberOfLines={1}>
+            {platformMeta.subtitle}
+          </Text>
+        </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color={theme.foregroundEyebrow} />
     </Pressable>
@@ -206,6 +221,25 @@ export default function AccountScreen() {
       ) : null}
 
       <SettingsGroup title={t('account.automationHeading')} insetDividers={false}>
+        <SettingsBlock label={t('account.inboxFilterHeading')}>
+          <SegmentedControl
+            options={INBOX_FILTER_OPTIONS.map((id) => ({
+              id,
+              label: t(`account.inboxFilterModes.${id}.label`),
+            }))}
+            value={classificationStrictness}
+            onChange={setClassificationStrictness}
+            disabled={isUpdatingStrictness}
+          />
+          {isUpdatingStrictness ? (
+            <View style={styles.strictnessApplyingRow}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <Text style={[styles.strictnessApplyingText, { color: theme.mutedForeground }]}>
+                {t('account.inboxFilterApplying')}
+              </Text>
+            </View>
+          ) : null}
+        </SettingsBlock>
         <SettingsBlock label={t('account.focusHeading')}>
           <SegmentedControl options={focusModes} value={creatorFocusMode} onChange={setCreatorFocusMode} />
         </SettingsBlock>
@@ -280,6 +314,14 @@ export default function AccountScreen() {
           detail={dataDetail}
           onPress={() => router.push('/settings/data-export' as Href)}
         />
+        {canUseOps ? (
+          <NavRow
+            testID="account-mailbox-ops-row"
+            title="Mailbox ops"
+            detail="Subscriptions, cursors, jobs"
+            onPress={() => router.push('/ops/mailbox' as Href)}
+          />
+        ) : null}
         <NavRow
           testID="account-replay-row"
           title={t('account.rows.replayTitle')}
@@ -323,7 +365,8 @@ const styles = StyleSheet.create({
   avatarLabel: { fontSize: 24, fontWeight: '800' },
   profileText: { flex: 1, gap: 2 },
   profileName: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.4, lineHeight: lineHeight.lead },
-  profileMeta: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  profileMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minWidth: 0 },
+  profileMeta: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body, flex: 1 },
   signOut: {
     minHeight: layout.touchMin,
     alignItems: 'center',
@@ -344,4 +387,12 @@ const styles = StyleSheet.create({
   inviteBannerText: { flex: 1, gap: spacing.xs },
   inviteBannerTitle: { fontSize: fontSize.body, fontWeight: '700', lineHeight: lineHeight.body },
   inviteBannerLead: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
+  strictnessApplyingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  strictnessApplyingText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed, flex: 1 },
 });

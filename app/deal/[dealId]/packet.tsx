@@ -4,11 +4,34 @@ import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, HubLinkGroup, HubScreen, QueryRetryCard, SectionCard } from '@/components/product';
+import { Badge, HubLinkGroup, HubScreen, QueryRetryCard, SectionCard, type BadgeTone } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { useDealPacket } from '@/src/hooks/use-deal-packet';
+import { useDealWorkspaceFocusRefresh, useDealWorkspaceRefresh } from '@/src/hooks/use-deal-refresh';
+import {
+  localizeDeliveryFeedbackNote,
+  localizeDeliveryTimeline,
+} from '@/src/lib/delivery-workflow-i18n';
+import type { DealDeliveryStep } from '@/src/types/deal-workflow';
+import { cooperationLeadLine, shouldShowCooperationBrandEyebrow } from '@/src/lib/cooperation-display-name';
+
+function stepBadge(
+  status: DealDeliveryStep['status'],
+  t: (key: string) => string,
+): { label: string; tone: BadgeTone } {
+  switch (status) {
+    case 'done':
+      return { label: t('dealPacketScreen.stepStatusDone'), tone: 'mint' };
+    case 'current':
+      return { label: t('dealPacketScreen.stepStatusCurrent'), tone: 'warning' };
+    case 'blocked':
+      return { label: t('dealPacketScreen.stepStatusBlocked'), tone: 'danger' };
+    default:
+      return { label: t('dealPacketScreen.stepStatusUpcoming'), tone: 'neutral' };
+  }
+}
 
 export default function DealPacketScreen() {
   const { t } = useTranslation();
@@ -18,6 +41,8 @@ export default function DealPacketScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const query = useDealPacket(dealId);
+  const { refreshing, onRefresh } = useDealWorkspaceRefresh(dealId);
+  useDealWorkspaceFocusRefresh(dealId);
 
   const fallbackDeliverables = useMemo(
     () => [
@@ -29,6 +54,17 @@ export default function DealPacketScreen() {
     [t],
   );
 
+  const rawTimeline = query.data?.packet.delivery?.timeline ?? [];
+  const deliveryTimeline = useMemo(
+    () => localizeDeliveryTimeline(rawTimeline, t),
+    [rawTimeline, t],
+  );
+  const rawFeedbackNote = query.data?.packet.delivery?.feedbackNote;
+  const localizedFeedbackNote = useMemo(
+    () => localizeDeliveryFeedbackNote(rawFeedbackNote, t),
+    [rawFeedbackNote, t],
+  );
+
   if (!dealId) {
     return (
       <PlaceholderScreen
@@ -38,11 +74,17 @@ export default function DealPacketScreen() {
     );
   }
 
-  if (query.isPending) {
+  if (query.isPending && !query.data) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <ActivityIndicator accessibilityLabel={t('dealPacketScreen.loadingA11y')} color={theme.primary} />
-      </View>
+      <HubScreen
+        eyebrow={t('tabs.deals')}
+        title={t('dealPacketScreen.title')}
+        refreshing={refreshing}
+        onRefresh={onRefresh}>
+        <View style={styles.centered}>
+          <ActivityIndicator accessibilityLabel={t('dealPacketScreen.loadingA11y')} color={theme.primary} />
+        </View>
+      </HubScreen>
     );
   }
 
@@ -59,18 +101,23 @@ export default function DealPacketScreen() {
   const deal = query.data;
   const deliverables =
     deal.packet.deliverables.length > 0 ? deal.packet.deliverables : fallbackDeliverables;
+  const verification = deal.packet.verification;
+  const verificationPassed =
+    verification?.checklist.filter((item) => item.passed).length ?? 0;
+  const verificationTotal = verification?.checklist.length ?? 0;
 
   return (
     <HubScreen
       eyebrow={t('tabs.deals')}
       title={t('dealPacketScreen.title')}
-      lead={t('dealPacketScreen.heroEvidenceLine', {
-        brand: deal.brandPlaceholder,
-        title: deal.title,
-      })}>
+      lead={cooperationLeadLine(deal.brandPlaceholder, deal.title)}
+      refreshing={refreshing}
+      onRefresh={onRefresh}>
       <View style={[styles.hero, { borderColor: theme.border, backgroundColor: theme.card }]}>
         <View style={{ flex: 1, gap: spacing.xs }}>
-          <Text style={[styles.brand, { color: theme.foregroundEyebrow }]}>{deal.brandPlaceholder}</Text>
+          {shouldShowCooperationBrandEyebrow(deal.brandPlaceholder, deal.title) ? (
+            <Text style={[styles.brand, { color: theme.foregroundEyebrow }]}>{deal.brandPlaceholder}</Text>
+          ) : null}
           <Text style={[styles.title, { color: theme.foreground }]}>{deal.title}</Text>
           {deal.packet.summary ? (
             <Text style={[styles.next, { color: theme.mutedForeground }]}>{deal.packet.summary}</Text>
@@ -112,6 +159,69 @@ export default function DealPacketScreen() {
           ))}
         </View>
       </SectionCard>
+
+      {deliveryTimeline.length > 0 ? (
+        <SectionCard
+          title={t('dealPacketScreen.deliveryTimelineTitle')}
+          subtitle={localizedFeedbackNote ?? t('dealPacketScreen.deliveryTimelineSubtitle')}>
+          <View style={{ gap: spacing.sm }}>
+            {deliveryTimeline.map((step) => {
+              const badge = stepBadge(step.status, t);
+              return (
+                <View
+                  key={step.id}
+                  style={[styles.row, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+                    <Text style={[styles.rowLabel, { color: theme.foregroundSubtitle, flex: 1 }]}>
+                      {step.title}
+                    </Text>
+                    <Badge tone={badge.tone} label={badge.label} />
+                  </View>
+                  <Text style={[styles.rowValue, { color: theme.foreground }]}>{step.due}</Text>
+                  {step.note ? (
+                    <Text style={[styles.templateHint, { color: theme.mutedForeground }]}>{step.note}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        </SectionCard>
+      ) : null}
+
+      {verification ? (
+        <SectionCard
+          title={t('dealPacketScreen.verificationPreviewTitle')}
+          subtitle={verification.payoutHint ?? t('dealPacketScreen.verificationPreviewSubtitle')}>
+          <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+            <Text style={[styles.rowLabel, { color: theme.foregroundSubtitle }]}>
+              {t('dealPacketScreen.verificationChecklistLabel')}
+            </Text>
+            <Text style={[styles.rowValue, { color: theme.foreground }]}>
+              {t('dealPacketScreen.verificationChecklistProgress', {
+                passed: verificationPassed,
+                total: verificationTotal,
+              })}
+            </Text>
+          </View>
+          {verification.evidence.length > 0 ? (
+            <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
+              {verification.evidence.map((item) => (
+                <View
+                  key={item.id}
+                  style={[styles.templateItem, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                  <Badge
+                    tone={item.status === 'done' ? 'mint' : item.status === 'reviewing' ? 'warning' : 'neutral'}
+                    label={t(`dealPacketScreen.evidenceStatus.${item.status}`)}
+                  />
+                  <Text style={[styles.templateTitle, { color: theme.foreground }]}>
+                    {t(`dealPacketScreen.evidence.${item.id}`, { defaultValue: item.id })}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </SectionCard>
+      ) : null}
 
       <SectionCard title={t('dealPacketScreen.boundaryCheckTitle')}>
         <View style={styles.templateGrid}>
@@ -181,7 +291,7 @@ export default function DealPacketScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 },
   hero: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.lg,

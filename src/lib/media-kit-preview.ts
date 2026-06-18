@@ -2,6 +2,8 @@ import type { TFunction } from 'i18next';
 
 import { battleReportOutcome } from '@/src/lib/battle-report-media-kit';
 import { buildMediaKitContactUrl, slugifyDisplayName } from '@/src/lib/media-kit-contact-url';
+import { migrateLegacyProfileBasics } from '@/src/lib/creator-profile-aggregate';
+import { resolveMediaKitPreviewPlatforms } from '@/src/lib/platform-matrix-sync';
 import { formatI18nKey } from '@/src/lib/media-kit-formats';
 import type { CreatorProfileBasics } from '@/src/stores/session-store';
 import { resolveMediaKitPublicProofs } from '@/src/lib/public-proof';
@@ -38,13 +40,21 @@ function headlineNiche(
   profile: CreatorProfileBasics | null | undefined,
   document: MediaKitDocument
 ): string {
-  if (profile?.nicheTags?.length) {
-    return profile.nicheTags.slice(0, 2).join(' · ');
-  }
-  if (document.aboutTags?.length) {
-    return document.aboutTags.slice(0, 2).join(' · ');
+  const aboutTags = resolveMediaKitAboutTags(profile, document);
+  if (aboutTags?.length) {
+    return aboutTags.slice(0, 2).join(' · ');
   }
   return CREATOR_FALLBACK;
+}
+
+export function resolveMediaKitAboutTags(
+  profile: CreatorProfileBasics | null | undefined,
+  document: MediaKitDocument,
+): string[] | undefined {
+  if (profile?.nicheTags?.length) {
+    return profile.nicheTags;
+  }
+  return document.aboutTags?.length ? document.aboutTags : undefined;
 }
 
 function fromPrice(price: string | undefined, t?: TFunction): string {
@@ -155,12 +165,15 @@ export function buildMediaKitPreview(input: {
   const preview: MediaKitPreview = {
     headline: `${displayName} | ${niche}`,
     bio,
-    aboutTags: document.aboutTags,
+    aboutTags: resolveMediaKitAboutTags(profile, document),
     contactEmail: document.contactEmail,
     contactUrl: buildMediaKitContactUrl(slugifyDisplayName(displayName)),
     heroStats: document.heroStats,
     audience: document.audience,
-    platforms: document.platforms ?? [],
+    platforms: resolveMediaKitPreviewPlatforms(
+      document.platforms,
+      profile ? migrateLegacyProfileBasics(profile).platformProfiles : undefined,
+    ),
     partnerships: document.partnerships,
     paymentTerms: document.paymentTerms,
     cases: mergeMediaKitCases(document.cases, battleReports, document.syncBattleReports !== false, campaignRecap),

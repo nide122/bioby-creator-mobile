@@ -5,6 +5,7 @@ import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { ApiError } from '@/src/api/api-client';
 import {
   acceptTenantInvite,
+  acceptTenantInviteByToken,
   fetchTeamMembers,
   inviteTeamMember,
   revokeTeamInvite,
@@ -68,6 +69,17 @@ export function useAcceptTenantInvite() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (tenantPublicId: string) => acceptTenantInvite(tenantPublicId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenants', 'mine'] });
+      await invalidateTenantScopedQueries(queryClient);
+    },
+  });
+}
+
+export function useAcceptTenantInviteByToken() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) => acceptTenantInviteByToken(token),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenants', 'mine'] });
       await invalidateTenantScopedQueries(queryClient);

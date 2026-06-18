@@ -32,6 +32,7 @@ import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { PlatformIcon } from '@/src/components/PlatformIcon';
+import { TagInput } from '@/src/components/profile/TagInput';
 import {
   CONTENT_FORMAT_KEYS,
   createPlatformRateId,
@@ -39,6 +40,14 @@ import {
   formatI18nKey,
   PLATFORM_RATE_SUGGESTIONS,
 } from '@/src/lib/media-kit-formats';
+import {
+  applyProfilePrefillToMediaKitRow,
+  countVisibleMediaKitPlatforms,
+  isProfileSourcedPlatformRow,
+  mergeProfileChannelsWithMatrix,
+} from '@/src/lib/platform-matrix-sync';
+import { migrateLegacyProfileBasics } from '@/src/lib/creator-profile-aggregate';
+import { useSessionStore } from '@/src/stores/session-store';
 import { useMediaKitDocument, useUpsertMediaKitDocument } from '@/src/hooks/use-growth';
 import { useBattleReports } from '@/src/hooks/use-battle-reports';
 import { usePublicProofCatalog } from '@/src/hooks/use-trust-metrics';
@@ -87,13 +96,6 @@ function normalizeCases(rows: MediaKitCaseCard[]): MediaKitCaseCard[] {
     }));
 }
 
-function splitCsv(value: string): string[] {
-  return value
-    .split(/[，,\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 function ensureHeroStats(stats: MediaKitHeroStat[] | undefined): MediaKitHeroStat[] {
   const rows = [...(stats ?? [])];
   while (rows.length < 3) {
@@ -103,7 +105,7 @@ function ensureHeroStats(stats: MediaKitHeroStat[] | undefined): MediaKitHeroSta
 }
 
 function createEmptyPlatform(): MediaKitPlatformRow {
-  return { name: '', followersRange: '', nicheNote: '' };
+  return { name: '', followersRange: '', nicheNote: '', visibleInPreview: true };
 }
 
 /** At least one editable row; no fixed upper cap. */
@@ -176,15 +178,20 @@ export default function MediaKitEditScreen() {
   const saveMutation = useUpsertMediaKitDocument();
   const battleReports = useBattleReports();
   const publicProofCatalog = usePublicProofCatalog();
+  const profileBasics = useSessionStore((s) => s.profileBasics);
+  const profilePlatformProfiles = useMemo(
+    () => migrateLegacyProfileBasics(profileBasics).platformProfiles,
+    [profileBasics],
+  );
 
-  const [aboutTagsText, setAboutTagsText] = useState('');
+  const [aboutTags, setAboutTags] = useState<string[]>([]);
   const [contactEmail, setContactEmail] = useState('');
   const [heroStats, setHeroStats] = useState<MediaKitHeroStat[]>(ensureHeroStats([]));
   const [topLocations, setTopLocations] = useState('');
   const [genderAge, setGenderAge] = useState('');
   const [postingCadence, setPostingCadence] = useState('');
   const [platforms, setPlatforms] = useState<MediaKitPlatformRow[]>(ensurePlatforms([]));
-  const [partnershipsText, setPartnershipsText] = useState('');
+  const [partnerships, setPartnerships] = useState<string[]>([]);
   const [paymentTerms, setPaymentTerms] = useState('');
   const [inviteCta, setInviteCta] = useState('');
   const [platformRates, setPlatformRates] = useState<PlatformRateEntry[]>(ensurePlatformRates([]));
@@ -202,14 +209,14 @@ export default function MediaKitEditScreen() {
   useEffect(() => {
     if (!documentQuery.data) return;
     const doc = documentQuery.data;
-    setAboutTagsText((doc.aboutTags ?? []).join(', '));
+    setAboutTags(doc.aboutTags ?? []);
     setContactEmail(doc.contactEmail ?? '');
     setHeroStats(ensureHeroStats(doc.heroStats));
     setTopLocations(doc.audience?.topLocations ?? '');
     setGenderAge(doc.audience?.genderAge ?? '');
     setPostingCadence(doc.audience?.postingCadence ?? '');
-    setPlatforms(ensurePlatforms(doc.platforms));
-    setPartnershipsText((doc.partnerships ?? []).join(', '));
+    setPlatforms(mergeProfileChannelsWithMatrix(ensurePlatforms(doc.platforms), profilePlatformProfiles));
+    setPartnerships(doc.partnerships ?? []);
     setPaymentTerms(doc.paymentTerms ?? '');
     setInviteCta(doc.inviteCta ?? '');
     setPlatformRates(ensurePlatformRates(doc.platformRates));
@@ -219,18 +226,18 @@ export default function MediaKitEditScreen() {
     setCases(loadedCases);
     setSectionOrder(resolveSectionOrder(doc.sectionOrder));
     setEnabledPublicProofIds(doc.enabledPublicProofIds ?? []);
-  }, [documentQuery.data]);
+  }, [documentQuery.data, profilePlatformProfiles]);
 
   const canSave = useMemo(
     () =>
       contactEmail.trim().includes('@') &&
       inviteCta.trim().length >= 8 &&
-      platforms.some((row) => row.name.trim()),
-    [contactEmail, inviteCta, platforms]
+      countVisibleMediaKitPlatforms(platforms) > 0,
+    [contactEmail, inviteCta, platforms],
   );
 
   const buildDocument = (): MediaKitDocument => ({
-    aboutTags: splitCsv(aboutTagsText),
+    aboutTags,
     contactEmail: contactEmail.trim(),
     heroStats: heroStats.filter((row) => row.label.trim() && row.value.trim()),
     audience: {
@@ -239,7 +246,7 @@ export default function MediaKitEditScreen() {
       postingCadence: postingCadence.trim(),
     },
     platforms: platforms.filter((row) => row.name.trim()),
-    partnerships: splitCsv(partnershipsText),
+    partnerships,
     paymentTerms: paymentTerms.trim(),
     inviteCta: inviteCta.trim(),
     platformRates: platformRates.filter((row) => row.platform.trim() && row.priceLabel.trim()),
@@ -315,7 +322,20 @@ export default function MediaKitEditScreen() {
   const updatePlatform = (index: number, patch: Partial<MediaKitPlatformRow>) => {
     setPlatforms((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], ...patch };
+      const current = next[index];
+      if (isProfileSourcedPlatformRow(current)) {
+        const allowed: Partial<MediaKitPlatformRow> = {};
+        if (patch.visibleInPreview !== undefined) allowed.visibleInPreview = patch.visibleInPreview;
+        if (patch.monthlyViews !== undefined) allowed.monthlyViews = patch.monthlyViews;
+        if (patch.nicheNote !== undefined) allowed.nicheNote = patch.nicheNote;
+        next[index] = { ...current, ...allowed };
+        return next;
+      }
+      let row = { ...current, ...patch };
+      if (patch.name !== undefined) {
+        row = applyProfilePrefillToMediaKitRow(row, profilePlatformProfiles);
+      }
+      next[index] = row;
       return next;
     });
   };
@@ -340,10 +360,10 @@ export default function MediaKitEditScreen() {
   );
 
   const tagsSummary = useMemo(() => {
-    const tags = splitCsv(aboutTagsText).slice(0, 3).join(', ');
-    const brands = splitCsv(partnershipsText).slice(0, 2).join(', ');
+    const tags = aboutTags.slice(0, 3).join(', ');
+    const brands = partnerships.slice(0, 2).join(', ');
     return joinSummary([tags, brands]) ?? t('mediaKitEditScreen.sectionEmptySummary');
-  }, [aboutTagsText, partnershipsText, t]);
+  }, [aboutTags, partnerships, t]);
 
   const statsSummary = useMemo(() => {
     const filled = heroStats
@@ -359,16 +379,19 @@ export default function MediaKitEditScreen() {
   );
 
   const channelsSummary = useMemo(() => {
-    const names = platforms
-      .map((row) => row.name.trim())
-      .filter(Boolean)
-      .slice(0, 4)
-      .join(', ');
+    const linked = platforms.filter(isProfileSourcedPlatformRow).length;
+    const visible = countVisibleMediaKitPlatforms(platforms);
+    const totalNamed = platforms.filter((row) => row.name.trim()).length;
+    if (linked > 0) {
+      return t('mediaKitEditScreen.channelsSummaryWithVisibility', {
+        total: totalNamed,
+        visible,
+        linked,
+      });
+    }
     return (
-      joinSummary([
-        t('mediaKitEditScreen.channelsSummary', { count: platforms.length }),
-        names,
-      ]) ?? t('mediaKitEditScreen.sectionEmptySummary')
+      t('mediaKitEditScreen.channelsSummary', { count: totalNamed }) ||
+      t('mediaKitEditScreen.sectionEmptySummary')
     );
   }, [platforms, t]);
 
@@ -465,7 +488,7 @@ export default function MediaKitEditScreen() {
             icon="pricetag-outline"
             title={t('mediaKitEditScreen.ctaPricing')}
             subtitle={t('mediaKitEditScreen.ctaPricingHint')}
-            onPress={() => router.push('/pricing-edit' as Href)}
+            onPress={() => router.push('/pricing' as Href)}
           />
         </SettingsGroup>
 
@@ -567,20 +590,22 @@ export default function MediaKitEditScreen() {
           theme={theme}
           t={t}>
           <FieldLabel theme={theme} label={t('mediaKitEditScreen.labelAboutTags')} />
-          <TextInput
-            value={aboutTagsText}
-            onChangeText={setAboutTagsText}
-            placeholder={t('mediaKitEditScreen.placeholderAboutTags')}
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
+          <TagInput
+            testID="media-kit-about-tags"
+            tags={aboutTags}
+            onChangeTags={setAboutTags}
+            placeholder={t('mediaKitEditScreen.aboutTagPlaceholder')}
+            placeholderMore={t('mediaKitEditScreen.aboutTagPlaceholderMore')}
           />
           <FieldLabel theme={theme} label={t('mediaKitEditScreen.labelPartnerships')} />
-          <TextInput
-            value={partnershipsText}
-            onChangeText={setPartnershipsText}
-            placeholder={t('mediaKitEditScreen.placeholderPartnerships')}
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
+          <TagInput
+            testID="media-kit-partnerships"
+            tags={partnerships}
+            onChangeTags={setPartnerships}
+            placeholder={t('mediaKitEditScreen.brandPlaceholder')}
+            placeholderMore={t('mediaKitEditScreen.brandPlaceholderMore')}
+            addLabel={t('mediaKitEditScreen.brandAdd')}
+            removeA11yLabel="mediaKitEditScreen.brandRemoveA11y"
           />
         </CollapsibleEditSection>
 
@@ -666,11 +691,12 @@ export default function MediaKitEditScreen() {
           <View style={{ gap: spacing.md }}>
             {platforms.map((row, index) => (
               <ChannelEditCard
-                key={`platform-${index}`}
+                key={row.profileSource ? `profile-${row.profileSource}` : `platform-${index}`}
                 index={index}
                 row={row}
                 expanded={expandedChannelIndex === index}
-                canRemove={platforms.length > 1}
+                isProfileSourced={isProfileSourcedPlatformRow(row)}
+                canRemove={!isProfileSourcedPlatformRow(row)}
                 theme={theme}
                 onToggle={() =>
                   setExpandedChannelIndex((current) => (current === index ? null : index))
@@ -697,9 +723,12 @@ export default function MediaKitEditScreen() {
               }}
               style={[styles.addRateButton, { borderColor: theme.border }]}>
               <Text style={[styles.addRateLabel, { color: theme.primary }]}>
-                {t('mediaKitEditScreen.addPlatformRow')}
+                {t('mediaKitEditScreen.addCustomPlatformRow')}
               </Text>
             </Pressable>
+            <Text style={[styles.profilePrefillHint, { color: theme.mutedForeground }]}>
+              {t('mediaKitEditScreen.channelsProfilePrefillHint')}
+            </Text>
           </View>
         </CollapsibleEditSection>
 
@@ -975,6 +1004,7 @@ type ChannelEditCardProps = {
   index: number;
   row: MediaKitPlatformRow;
   expanded: boolean;
+  isProfileSourced: boolean;
   canRemove: boolean;
   theme: (typeof palette)['light'];
   onToggle: () => void;
@@ -987,6 +1017,7 @@ function ChannelEditCard({
   index,
   row,
   expanded,
+  isProfileSourced,
   canRemove,
   theme,
   onToggle,
@@ -996,11 +1027,20 @@ function ChannelEditCard({
 }: ChannelEditCardProps) {
   const name = row.name.trim();
   const title = name || t('mediaKitEditScreen.channelFallbackTitle', { index: index + 1 });
+  const visibleInPreview = row.visibleInPreview !== false;
   const summaryLine = joinSummary([row.followersRange, row.handle ?? '']) ?? t('mediaKitEditScreen.channelFallbackSubtitle');
   const headerSubtitle = expanded ? summaryLine : joinSummary([summaryLine, row.monthlyViews ?? '']) ?? summaryLine;
 
   return (
-    <View style={[styles.rateCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+    <View
+      style={[
+        styles.rateCard,
+        {
+          borderColor: theme.border,
+          backgroundColor: theme.card,
+          opacity: visibleInPreview ? 1 : 0.72,
+        },
+      ]}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -1012,7 +1052,14 @@ function ChannelEditCard({
         onPress={onToggle}
         style={({ pressed }) => [styles.rateHeader, pressed && { opacity: 0.85 }]}>
         <View style={styles.rateHeaderText}>
-          <Text style={[styles.rateTitle, { color: theme.foreground }]}>{title}</Text>
+          <View style={styles.channelTitleRow}>
+            {name ? <PlatformIcon platform={name} size={14} /> : null}
+            <Text style={[styles.rateTitle, { color: theme.foreground }]}>{title}</Text>
+            {isProfileSourced ? <Badge tone="mint" label={t('mediaKitEditScreen.profileChannelBadge')} /> : null}
+            {!visibleInPreview ? (
+              <Badge tone="neutral" label={t('mediaKitEditScreen.channelHiddenBadge')} />
+            ) : null}
+          </View>
           <Text style={[styles.rateSubtitle, { color: theme.mutedForeground }]}>{headerSubtitle}</Text>
         </View>
         <Ionicons
@@ -1021,6 +1068,18 @@ function ChannelEditCard({
           color={theme.foregroundEyebrow}
         />
       </Pressable>
+
+      {!expanded && isProfileSourced ? (
+        <View style={styles.channelToggleRow}>
+          <ToggleRow
+            theme={theme}
+            label={t('mediaKitEditScreen.channelVisibleInPreview')}
+            hint={t('mediaKitEditScreen.channelVisibleInPreviewHint')}
+            value={visibleInPreview}
+            onValueChange={(next) => onUpdate({ visibleInPreview: next })}
+          />
+        </View>
+      ) : null}
 
       {!expanded ? (
         <Pressable
@@ -1046,31 +1105,61 @@ function ChannelEditCard({
 
       {expanded ? (
         <View style={styles.rateBody}>
+          {isProfileSourced ? (
+            <>
+              <ToggleRow
+                theme={theme}
+                label={t('mediaKitEditScreen.channelVisibleInPreview')}
+                hint={t('mediaKitEditScreen.channelVisibleInPreviewHint')}
+                value={visibleInPreview}
+                onValueChange={(next) => onUpdate({ visibleInPreview: next })}
+              />
+              <Text style={[styles.profilePrefillHint, { color: theme.mutedForeground }]}>
+                {t('mediaKitEditScreen.profileChannelFactsHint')}
+              </Text>
+            </>
+          ) : null}
           <FieldLabel theme={theme} label={t('mediaKitEditScreen.labelPlatformName')} />
-          <TextInput
-            value={row.name}
-            onChangeText={(value) => onUpdate({ name: value })}
-            placeholder="TikTok"
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
+          {isProfileSourced ? (
+            <Text style={[styles.readOnlyField, { color: theme.foreground }]}>{row.name}</Text>
+          ) : (
+            <TextInput
+              value={row.name}
+              onChangeText={(value) => onUpdate({ name: value })}
+              placeholder="TikTok"
+              {...getTextInputProps(theme)}
+              style={getTextInputStyle(theme)}
+            />
+          )}
           <FieldLabel theme={theme} label={t('mediaKitEditScreen.labelFollowers')} />
-          <TextInput
-            value={row.followersRange}
-            onChangeText={(value) => onUpdate({ followersRange: value })}
-            placeholder="380k–520k"
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
+          {isProfileSourced ? (
+            <Text style={[styles.readOnlyField, { color: theme.foreground }]}>
+              {row.followersRange.trim() || '—'}
+            </Text>
+          ) : (
+            <TextInput
+              value={row.followersRange}
+              onChangeText={(value) => onUpdate({ followersRange: value })}
+              placeholder="380k–520k"
+              {...getTextInputProps(theme)}
+              style={getTextInputStyle(theme)}
+            />
+          )}
           <FieldLabel theme={theme} label={t('mediaKitEditScreen.labelHandle')} />
-          <TextInput
-            value={row.handle ?? ''}
-            onChangeText={(value) => onUpdate({ handle: value })}
-            autoCapitalize="none"
-            placeholder="@handle"
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
+          {isProfileSourced ? (
+            <Text style={[styles.readOnlyField, { color: theme.foreground }]}>
+              {row.handle?.trim() ? `@${row.handle.replace(/^@/, '')}` : '—'}
+            </Text>
+          ) : (
+            <TextInput
+              value={row.handle ?? ''}
+              onChangeText={(value) => onUpdate({ handle: value })}
+              autoCapitalize="none"
+              placeholder="@handle"
+              {...getTextInputProps(theme)}
+              style={getTextInputStyle(theme)}
+            />
+          )}
           <FieldLabel theme={theme} label={t('mediaKitEditScreen.labelMonthlyViews')} />
           <TextInput
             value={row.monthlyViews ?? ''}
@@ -1453,6 +1542,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   rateHeaderText: { flex: 1, gap: spacing.xs },
+  channelTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  channelToggleRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  readOnlyField: {
+    fontSize: fontSize.body,
+    lineHeight: lineHeight.body,
+    paddingVertical: spacing.sm,
+  },
   rateTitle: {
     fontSize: fontSize.body,
     fontWeight: '700',
@@ -1521,6 +1617,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addRateLabel: { fontSize: fontSize.body, fontWeight: '700' },
+  profilePrefillHint: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
   layoutRow: {
     flexDirection: 'row',
     alignItems: 'center',

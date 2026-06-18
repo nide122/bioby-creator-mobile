@@ -33,6 +33,56 @@ describe('media-kit-preview', () => {
     }
   });
 
+  it('syncs profile nicheTags into brand preview about tags', () => {
+    const preview = buildMediaKitPreview({
+      document: {
+        contactEmail: 'partnerships@example.com',
+        inviteCta: 'Email with brief and budget.',
+        aboutTags: ['test', 'test', 'test'],
+      },
+      profile: {
+        displayName: 'Mia',
+        niche: 'Skincare',
+        nicheTags: ['Skincare reviews', 'Sensitive skin', 'Ingredients'],
+        platforms: [],
+      },
+    });
+
+    expect(preview.aboutTags).toEqual(['Skincare reviews', 'Sensitive skin', 'Ingredients']);
+    expect(preview.headline).toBe('Mia | Skincare reviews · Sensitive skin');
+  });
+
+  it('syncs profile-linked platforms into brand preview channels', () => {
+    const preview = buildMediaKitPreview({
+      document: {
+        contactEmail: 'partnerships@example.com',
+        inviteCta: 'Email with brief and budget.',
+        platforms: [],
+      },
+      profile: {
+        displayName: 'Mia',
+        niche: 'Skincare',
+        platforms: ['TikTok'],
+        platformProfiles: {
+          youtube: { platform: 'youtube', status: 'empty' },
+          tiktok: {
+            platform: 'tiktok',
+            status: 'linked',
+            handle: 'home.finds',
+            followerCountLabel: '210K followers',
+            avgViews: 50000,
+          },
+          instagram: { platform: 'instagram', status: 'empty' },
+        },
+      },
+    });
+
+    expect(preview.platforms).toHaveLength(1);
+    expect(preview.platforms[0].name).toBe('TikTok');
+    expect(preview.platforms[0].handle).toBe('home.finds');
+    expect(preview.platforms[0].monthlyViews).toBe('~50K views / mo');
+  });
+
   it('builds contactUrl with backend-compatible slugify', () => {
     const preview = buildMediaKitPreview({
       document: {

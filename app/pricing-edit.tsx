@@ -11,12 +11,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import {
-  Badge,
   getTextInputProps,
   getTextInputStyle,
   HubScreen,
@@ -25,6 +24,11 @@ import {
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import {
+  isPackageFormValid,
+  RateCardPackageStructuredFields,
+} from '@/components/pricing/RateCardPackageFields';
+import { alertAction } from '@/src/lib/app-dialog';
 import { useRateCardPackages, useUpsertRateCardPackages } from '@/src/hooks/use-growth';
 import type { RateCardPackage } from '@/src/types/domain';
 
@@ -47,19 +51,8 @@ function createEmptyPackage(): RateCardPackage {
   };
 }
 
-function deliverablesToText(values: string[]): string {
-  return values.join('\n');
-}
-
-function textToDeliverables(value: string): string[] {
-  return value
-    .split(/\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function normalizePackages(packages: RateCardPackage[]): RateCardPackage[] {
-  return packages.map((pkg) => ({
+function normalizePackage(pkg: RateCardPackage): RateCardPackage {
+  return {
     ...pkg,
     name: pkg.name.trim(),
     tagline: pkg.tagline.trim(),
@@ -71,12 +64,49 @@ function normalizePackages(packages: RateCardPackage[]): RateCardPackage[] {
     addOnHint: pkg.addOnHint.trim(),
     highlights: pkg.highlights,
     recommended: pkg.recommended ? true : undefined,
-  }));
+  };
+}
+
+function mergePackagesForSave(
+  allPackages: RateCardPackage[],
+  edited: RateCardPackage,
+  isNew: boolean,
+): RateCardPackage[] {
+  const normalized = normalizePackage(edited);
+  const merged = isNew
+    ? [...allPackages, normalized]
+    : allPackages.map((item) => (item.id === normalized.id ? normalized : item));
+
+  if (!normalized.recommended) {
+    return merged.map((item) => normalizePackage(item));
+  }
+
+  return merged.map((item) =>
+    normalizePackage({
+      ...item,
+      recommended: item.id === normalized.id ? true : undefined,
+    }),
+  );
+}
+
+function paramFlag(value: string | string[] | undefined): boolean {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === '1' || raw === 'true';
+}
+
+function paramString(value: string | string[] | undefined): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw?.trim() || undefined;
 }
 
 export default function PricingEditScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ packageId?: string | string[]; new?: string | string[] }>();
+  const packageId = paramString(params.packageId);
+  const isNew = paramFlag(params.new);
+
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const insets = useSafeAreaInsets();
@@ -91,52 +121,81 @@ export default function PricingEditScreen() {
 
   const rateCardQuery = useRateCardPackages();
   const saveMutation = useUpsertRateCardPackages();
-  const [packages, setPackages] = useState<RateCardPackage[]>([]);
-  const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
+  const [pkg, setPkg] = useState<RateCardPackage | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (!rateCardQuery.data) return;
-    setPackages(structuredClone(rateCardQuery.data));
-  }, [rateCardQuery.data]);
+    if (isNew) {
+      setPkg(createEmptyPackage());
+      return;
+    }
+    if (!packageId) {
+      setPkg(null);
+      return;
+    }
+    const existing = rateCardQuery.data.find((item) => item.id === packageId);
+    setPkg(existing ? structuredClone(existing) : null);
+  }, [rateCardQuery.data, packageId, isNew]);
 
-  const canSave = useMemo(
-    () =>
-      packages.length > 0 &&
-      packages.every((pkg) => pkg.name.trim().length > 0 && pkg.priceLabel.trim().length > 0),
-    [packages]
-  );
+  const canSave = useMemo(() => {
+    if (!pkg || !rateCardQuery.data) return false;
+    if (!isPackageFormValid(pkg, t)) return false;
+    if (!pkg.recommended) return true;
+    return !rateCardQuery.data.some((item) => item.id !== pkg.id && item.recommended);
+  }, [pkg, rateCardQuery.data, t]);
 
-  const updatePackage = (index: number, patch: Partial<RateCardPackage>) => {
-    setPackages((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], ...patch };
-      return next;
-    });
-  };
+  const saveDisabledReason = useMemo(() => {
+    if (!pkg) return t('pricingEditScreen.missingPackageBody');
+    if (!pkg.name.trim()) {
+      return t('pricingEditScreen.saveBlockedMissingName', {
+        title: pkg.name.trim() || t('pricingEditScreen.titleNew'),
+      });
+    }
+    if (!isPackageFormValid(pkg, t)) {
+      return t('pricingEditScreen.saveBlockedMissingPrice', {
+        title: pkg.name.trim() || t('pricingEditScreen.titleNew'),
+      });
+    }
+    if (pkg.recommended && rateCardQuery.data?.some((item) => item.id !== pkg.id && item.recommended)) {
+      return t('pricingEditScreen.saveBlockedMultipleRecommended');
+    }
+    return null;
+  }, [pkg, rateCardQuery.data, t]);
 
-  const setRecommended = (index: number, enabled: boolean) => {
-    setPackages((prev) =>
-      prev.map((pkg, pkgIndex) => {
-        if (enabled) {
-          return { ...pkg, recommended: pkgIndex === index ? true : undefined };
-        }
-        if (pkgIndex === index) {
-          return { ...pkg, recommended: undefined };
-        }
-        return pkg;
-      })
-    );
-  };
+  const screenTitle = isNew
+    ? t('pricingEditScreen.titleNew')
+    : pkg?.name.trim() || t('pricingEditScreen.titleEdit');
 
   const onSave = async () => {
-    if (!canSave) return;
+    if (!pkg || !rateCardQuery.data || !canSave) return;
     try {
-      await saveMutation.mutateAsync(normalizePackages(packages));
+      await saveMutation.mutateAsync(mergePackagesForSave(rateCardQuery.data, pkg, isNew));
       setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 2000);
-    } catch {
-      // surfaced via saveMutation if needed
+      setTimeout(() => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/pricing' as Href);
+      }, 400);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('pricingEditScreen.saveFailedBody');
+      void alertAction(t('pricingEditScreen.saveFailedTitle'), message);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!pkg || !rateCardQuery.data || isNew) return;
+    try {
+      const remaining = rateCardQuery.data.filter((item) => item.id !== pkg.id).map(normalizePackage);
+      if (remaining.length === 0) {
+        void alertAction(t('pricingEditScreen.deleteBlockedTitle'), t('pricingEditScreen.deleteBlockedBody'));
+        return;
+      }
+      await saveMutation.mutateAsync(remaining);
+      if (router.canGoBack()) router.back();
+      else router.replace('/pricing' as Href);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('pricingEditScreen.saveFailedBody');
+      void alertAction(t('pricingEditScreen.saveFailedTitle'), message);
     }
   };
 
@@ -161,6 +220,36 @@ export default function PricingEditScreen() {
     );
   }
 
+  if (!isNew && !packageId) {
+    return (
+      <PlaceholderScreen
+        title={t('pricingEditScreen.missingPackageTitle')}
+        description={t('pricingEditScreen.missingPackageBody')}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.replace('/pricing' as Href)}
+          style={[styles.backLink, { borderColor: theme.border }]}>
+          <Text style={[styles.backLinkLabel, { color: theme.primary }]}>{t('pricingEditScreen.backToPricing')}</Text>
+        </Pressable>
+      </PlaceholderScreen>
+    );
+  }
+
+  if (!pkg) {
+    return (
+      <PlaceholderScreen
+        title={t('pricingEditScreen.packageNotFoundTitle')}
+        description={t('pricingEditScreen.packageNotFoundBody')}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.replace('/pricing' as Href)}
+          style={[styles.backLink, { borderColor: theme.border }]}>
+          <Text style={[styles.backLinkLabel, { color: theme.primary }]}>{t('pricingEditScreen.backToPricing')}</Text>
+        </Pressable>
+      </PlaceholderScreen>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.background }}
@@ -169,42 +258,23 @@ export default function PricingEditScreen() {
       <View style={styles.screen}>
         <HubScreen
           eyebrow={t('tabs.assets')}
-          title={t('pricingEditScreen.title')}
-          lead={t('pricingEditScreen.description')}
+          title={screenTitle}
+          lead={isNew ? t('pricingEditScreen.descriptionNew') : t('pricingEditScreen.descriptionEdit')}
           scrollBottomInset={scrollBottomInset}>
-          <View style={{ gap: spacing.md }}>
-            {packages.map((pkg, index) => (
-              <PackageEditCard
-                key={pkg.id}
-                index={index}
-                pkg={pkg}
-                expanded={expandedPackageId === pkg.id}
-                canRemove={packages.length > 1}
-                theme={theme}
-                onToggle={() =>
-                  setExpandedPackageId((current) => (current === pkg.id ? null : pkg.id))
-                }
-                onUpdate={(patch) => updatePackage(index, patch)}
-                onSetRecommended={(enabled) => setRecommended(index, enabled)}
-                onRemove={() => {
-                  setPackages(packages.filter((_, rowIndex) => rowIndex !== index));
-                  setExpandedPackageId((current) => (current === pkg.id ? null : current));
-                }}
-                t={t}
-              />
-            ))}
-          </View>
+          <PackageEditForm
+            pkg={pkg}
+            theme={theme}
+            t={t}
+            onUpdate={(patch) => setPkg((current) => (current ? { ...current, ...patch } : current))}
+            onSetRecommended={(enabled) =>
+              setPkg((current) => (current ? { ...current, recommended: enabled ? true : undefined } : current))
+            }
+            onDelete={!isNew ? onDelete : undefined}
+          />
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              const nextPackage = createEmptyPackage();
-              setPackages([...packages, nextPackage]);
-              setExpandedPackageId(nextPackage.id);
-            }}
-            style={[styles.addButton, { borderColor: theme.border }]}>
-            <Text style={[styles.addLabel, { color: theme.foreground }]}>{t('pricingEditScreen.addPackage')}</Text>
-          </Pressable>
+          {!canSave && saveDisabledReason ? (
+            <Text style={[styles.saveHint, { color: theme.mutedForeground }]}>{saveDisabledReason}</Text>
+          ) : null}
         </HubScreen>
 
         <View
@@ -237,230 +307,58 @@ function FieldLabel({ label, theme }: { label: string; theme: (typeof palette)['
   return <Text style={[styles.label, { color: theme.foregroundEyebrow }]}>{label}</Text>;
 }
 
-type PackageEditCardProps = {
-  index: number;
+type PackageEditFormProps = {
   pkg: RateCardPackage;
-  expanded: boolean;
-  canRemove: boolean;
   theme: (typeof palette)['light'];
-  onToggle: () => void;
+  t: ReturnType<typeof useTranslation>['t'];
   onUpdate: (patch: Partial<RateCardPackage>) => void;
   onSetRecommended: (enabled: boolean) => void;
-  onRemove: () => void;
-  t: ReturnType<typeof useTranslation>['t'];
+  onDelete?: () => void;
 };
 
-function PackageEditCard({
-  index,
-  pkg,
-  expanded,
-  canRemove,
-  theme,
-  onToggle,
-  onUpdate,
-  onSetRecommended,
-  onRemove,
-  t,
-}: PackageEditCardProps) {
-  const title = pkg.name.trim() || t('pricingEditScreen.packageFallbackTitle', { index: index + 1 });
-  const priceLabel = pkg.priceLabel.trim();
-  const tagline = pkg.tagline.trim();
-  const priceLine = [priceLabel, tagline].filter(Boolean).join(' · ');
-  const headerSubtitle =
-    expanded || !priceLine
-      ? priceLabel || t('pricingEditScreen.packageFallbackSubtitle')
-      : priceLine;
-
+function PackageEditForm({ pkg, theme, t, onUpdate, onSetRecommended, onDelete }: PackageEditFormProps) {
   return (
-    <View
-      style={[
-        styles.packageCard,
-        {
-          backgroundColor: pkg.recommended ? theme.secondary : theme.card,
-          borderColor: theme.border,
-        },
-      ]}>
-      {pkg.recommended ? <View style={[styles.packageAccent, { backgroundColor: theme.primary }]} /> : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        accessibilityLabel={
-          expanded
-            ? t('pricingEditScreen.collapsePackageA11y', { name: title })
-            : t('pricingEditScreen.expandPackageA11y', { name: title })
-        }
-        onPress={onToggle}
-        style={({ pressed }) => [styles.packageHeader, pressed && { opacity: 0.85 }]}>
-        <View style={styles.packageHeaderText}>
-          <Text style={[styles.packageTitle, { color: theme.foreground }]}>{title}</Text>
-          <Text style={[styles.packageSubtitle, { color: theme.mutedForeground }]}>{headerSubtitle}</Text>
-          {!expanded && pkg.recommended ? (
-            <Badge tone="mint" label={t('pricingEditScreen.badgeRecommended')} />
-          ) : null}
-        </View>
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={theme.foregroundEyebrow}
+    <View style={[styles.packageCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+      <View style={styles.packageBody}>
+        <FieldLabel theme={theme} label={t('pricingEditScreen.labelName')} />
+        <TextInput
+          value={pkg.name}
+          onChangeText={(value) => onUpdate({ name: value })}
+          placeholder={t('pricingEditScreen.placeholderName')}
+          {...getTextInputProps(theme)}
+          style={getTextInputStyle(theme)}
         />
-      </Pressable>
-
-      {!expanded ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('pricingEditScreen.expandPackageA11y', { name: title })}
-          onPress={onToggle}
-          style={({ pressed }) => [styles.collapsedPreview, pressed && { opacity: 0.85 }]}>
-          <PackageCollapsedPreview pkg={pkg} theme={theme} t={t} />
-        </Pressable>
-      ) : null}
-
-      {expanded ? (
-        <View style={styles.packageBody}>
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelName')} />
-          <TextInput
-            value={pkg.name}
-            onChangeText={(value) => onUpdate({ name: value })}
-            placeholder={t('pricingEditScreen.placeholderName')}
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelTagline')} />
-          <TextInput
-            value={pkg.tagline}
-            onChangeText={(value) => onUpdate({ tagline: value })}
-            placeholder={t('pricingEditScreen.placeholderTagline')}
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelPrice')} />
-          <TextInput
-            value={pkg.priceLabel}
-            onChangeText={(value) => onUpdate({ priceLabel: value })}
-            placeholder={t('pricingEditScreen.placeholderPrice')}
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelDeliverables')} />
-          <TextInput
-            value={deliverablesToText(pkg.deliverables)}
-            onChangeText={(value) => onUpdate({ deliverables: textToDeliverables(value) })}
-            placeholder={t('pricingEditScreen.placeholderDeliverables')}
-            multiline
-            {...getTextInputProps(theme)}
-            style={[getTextInputStyle(theme), styles.multiline]}
-          />
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelRevisionRounds')} />
-          <TextInput
-            value={pkg.revisionRounds}
-            onChangeText={(value) => onUpdate({ revisionRounds: value })}
-            placeholder={t('pricingEditScreen.placeholderRevisionRounds')}
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelUsageRights')} />
-          <TextInput
-            value={pkg.usageRights}
-            onChangeText={(value) => onUpdate({ usageRights: value })}
-            placeholder={t('pricingEditScreen.placeholderUsageRights')}
-            multiline
-            {...getTextInputProps(theme)}
-            style={[getTextInputStyle(theme), styles.multiline]}
-          />
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelPrepay')} />
-          <TextInput
-            value={pkg.prepayLabel}
-            onChangeText={(value) => onUpdate({ prepayLabel: value })}
-            placeholder={t('pricingEditScreen.placeholderPrepay')}
-            {...getTextInputProps(theme)}
-            style={getTextInputStyle(theme)}
-          />
-          <FieldLabel theme={theme} label={t('pricingEditScreen.labelAddOnHint')} />
-          <TextInput
-            value={pkg.addOnHint}
-            onChangeText={(value) => onUpdate({ addOnHint: value })}
-            placeholder={t('pricingEditScreen.placeholderAddOnHint')}
-            multiline
-            {...getTextInputProps(theme)}
-            style={[getTextInputStyle(theme), styles.multiline]}
-          />
-          <View style={styles.toggleRow}>
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={[styles.toggleLabel, { color: theme.foreground }]}>
-                {t('pricingEditScreen.labelRecommended')}
-              </Text>
-              <Text style={[styles.toggleHint, { color: theme.mutedForeground }]}>
-                {t('pricingEditScreen.recommendedHint')}
-              </Text>
-            </View>
-            <Switch
-              value={pkg.recommended === true}
-              onValueChange={onSetRecommended}
-              trackColor={{ true: theme.primary }}
-            />
+        <FieldLabel theme={theme} label={t('pricingEditScreen.labelTagline')} />
+        <TextInput
+          value={pkg.tagline}
+          onChangeText={(value) => onUpdate({ tagline: value })}
+          placeholder={t('pricingEditScreen.placeholderTagline')}
+          {...getTextInputProps(theme)}
+          style={getTextInputStyle(theme)}
+        />
+        <RateCardPackageStructuredFields key={pkg.id} pkg={pkg} theme={theme} t={t} onUpdate={onUpdate} />
+        <FieldLabel theme={theme} label={t('pricingEditScreen.labelAddOnHint')} />
+        <TextInput
+          value={pkg.addOnHint}
+          onChangeText={(value) => onUpdate({ addOnHint: value })}
+          placeholder={t('pricingEditScreen.placeholderAddOnHint')}
+          multiline
+          {...getTextInputProps(theme)}
+          style={getTextInputStyle(theme, { multiline: true, minHeight: 72 })}
+        />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={[styles.toggleLabel, { color: theme.foreground }]}>{t('pricingEditScreen.labelRecommended')}</Text>
+            <Text style={[styles.toggleHint, { color: theme.mutedForeground }]}>{t('pricingEditScreen.recommendedHint')}</Text>
           </View>
-          {canRemove ? (
-            <Pressable accessibilityRole="button" onPress={onRemove} style={styles.removeRow}>
-              <Text style={{ color: theme.mutedForeground, fontSize: fontSize.caption }}>
-                {t('pricingEditScreen.removePackage')}
-              </Text>
-            </Pressable>
-          ) : null}
+          <Switch value={pkg.recommended === true} onValueChange={onSetRecommended} trackColor={{ true: theme.primary }} />
         </View>
-      ) : null}
-    </View>
-  );
-}
-
-function PackageCollapsedPreview({
-  pkg,
-  theme,
-  t,
-}: {
-  pkg: RateCardPackage;
-  theme: (typeof palette)['light'];
-  t: ReturnType<typeof useTranslation>['t'];
-}) {
-  const revisionRounds = pkg.revisionRounds.trim();
-  const usageRights = pkg.usageRights.trim();
-  const addOnHint = pkg.addOnHint.trim();
-  const prepayLabel = pkg.prepayLabel.trim();
-  const hasBoundary = usageRights.length > 0 || addOnHint.length > 0 || prepayLabel.length > 0;
-
-  return (
-    <View style={styles.collapsedContent}>
-      {revisionRounds.length > 0 ? (
-        <View style={styles.collapsedBadgeRow}>
-          <Badge tone="neutral" label={revisionRounds} />
-        </View>
-      ) : null}
-
-      {pkg.deliverables.length > 0 ? (
-        <View style={styles.collapsedList}>
-          {pkg.deliverables.map((item) => (
-            <Text key={item} style={[styles.collapsedHint, { color: theme.foreground }]}>
-              {item}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-
-      {hasBoundary ? (
-        <View style={[styles.collapsedBoundary, { borderColor: theme.border, backgroundColor: theme.card }]}>
-          {usageRights.length > 0 ? (
-            <>
-              <Badge tone="warning" label={t('pricingScreen.badgeRightsBoundary')} />
-              <Text style={[styles.collapsedBoundaryTitle, { color: theme.foreground }]}>{usageRights}</Text>
-            </>
-          ) : null}
-          {addOnHint.length > 0 ? (
-            <Text style={[styles.collapsedHint, { color: theme.mutedForeground }]}>{addOnHint}</Text>
-          ) : null}
-          {prepayLabel.length > 0 ? (
-            <Text style={[styles.collapsedHint, { color: theme.foregroundSubtitle }]}>{prepayLabel}</Text>
-          ) : null}
-        </View>
-      ) : null}
+        {onDelete ? (
+          <Pressable accessibilityRole="button" onPress={onDelete} style={styles.removeRow}>
+            <Text style={{ color: theme.mutedForeground, fontSize: fontSize.caption }}>{t('pricingEditScreen.removePackage')}</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -473,60 +371,28 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.lg,
     gap: spacing.md,
-    overflow: 'hidden',
   },
-  packageAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    opacity: 0.65,
-  },
-  packageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  packageHeaderText: { flex: 1, gap: spacing.xs },
-  packageTitle: {
-    fontSize: fontSize.body,
-    fontWeight: '700',
-    letterSpacing: -0.15,
-  },
-  packageSubtitle: {
-    fontSize: fontSize.bodySmall,
-    lineHeight: lineHeight.body,
-  },
-  packageBody: { gap: spacing.sm, marginTop: spacing.xs },
-  collapsedPreview: { marginTop: -spacing.xs },
-  collapsedContent: { gap: spacing.sm },
-  collapsedBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' },
-  collapsedList: { gap: spacing.xs },
-  collapsedHint: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
-  collapsedBoundary: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  collapsedBoundaryTitle: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
-  multiline: { minHeight: 88, textAlignVertical: 'top' },
+  packageBody: { gap: spacing.sm },
   label: { fontSize: fontSize.caption, fontWeight: '600', marginTop: spacing.sm, marginBottom: spacing.xs },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
   toggleLabel: { fontSize: fontSize.body, fontWeight: '600' },
   toggleHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   removeRow: { alignSelf: 'flex-start', marginTop: spacing.sm },
-  addButton: {
+  saveHint: {
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  backLink: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
     minHeight: layout.touchMin,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
-  addLabel: { fontSize: fontSize.body, fontWeight: '700' },
+  backLinkLabel: { fontSize: fontSize.body, fontWeight: '700' },
   floatingSave: {
     position: 'absolute',
     left: 0,

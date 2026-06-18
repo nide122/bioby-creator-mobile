@@ -11,9 +11,13 @@ import {
   importBattleReportToMediaKit,
   upsertMediaKitDocument,
 } from '@/src/api/growth-api';
+import { migrateLegacyProfileBasics } from '@/src/lib/creator-profile-aggregate';
+import { resolveMediaKitAboutTags } from '@/src/lib/media-kit-preview';
+import { resolveMediaKitPreviewPlatforms } from '@/src/lib/platform-matrix-sync';
 import { invalidateTenantScopedQueries, useTenantQueryKey, useTenantScopedQueryEnabled } from '@/src/lib/tenant-query';
 import { mergeMediaKitPreviewPublicProofs } from '@/src/lib/public-proof';
 import { usePublicProofCatalog } from '@/src/hooks/use-trust-metrics';
+import { useSessionStore } from '@/src/stores/session-store';
 import type { MediaKitDocument, RateCardPackage } from '@/src/types/domain';
 
 export function useRateCardPackages() {
@@ -60,13 +64,30 @@ export function useMediaKitPreview() {
   });
   const documentQuery = useMediaKitDocument();
   const catalogQuery = usePublicProofCatalog();
+  const profileBasics = useSessionStore((s) => s.profileBasics);
 
   const data = useMemo(
-    () =>
-      query.data
-        ? mergeMediaKitPreviewPublicProofs(query.data, documentQuery.data, catalogQuery.data)
-        : undefined,
-    [query.data, documentQuery.data, catalogQuery.data]
+    () => {
+      if (!query.data) return undefined;
+
+      let preview = mergeMediaKitPreviewPublicProofs(query.data, documentQuery.data, catalogQuery.data);
+
+      if (documentQuery.data) {
+        const { platformProfiles } = migrateLegacyProfileBasics(profileBasics);
+        preview = {
+          ...preview,
+          platforms: resolveMediaKitPreviewPlatforms(documentQuery.data.platforms, platformProfiles),
+        };
+      }
+
+      const aboutTags = resolveMediaKitAboutTags(profileBasics, documentQuery.data ?? {});
+      if (aboutTags?.length) {
+        preview = { ...preview, aboutTags };
+      }
+
+      return preview;
+    },
+    [query.data, documentQuery.data, catalogQuery.data, profileBasics],
   );
 
   return {

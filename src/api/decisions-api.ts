@@ -1,6 +1,7 @@
 import { apiRequest } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { fetchMockDecisions } from '@/src/api/mock-decisions';
+import { asLeadValueBand } from '@/src/api/opportunity-mappers';
 import type { DecisionAction, DecisionCard, DecisionCategory } from '@/src/types/domain';
 
 type DecisionActionDto = {
@@ -21,6 +22,7 @@ type DecisionCardDto = {
   amountLabel?: string | null;
   sourceHint?: string | null;
   sourceHref?: string | null;
+  leadValueBand?: string | null;
   actions: DecisionActionDto[];
 };
 
@@ -53,6 +55,7 @@ function mapCard(dto: DecisionCardDto): DecisionCard {
     amountLabel: dto.amountLabel ?? undefined,
     sourceHint: dto.sourceHint ?? undefined,
     sourceHref: dto.sourceHref ?? undefined,
+    leadValueBand: asLeadValueBand(dto.leadValueBand),
     actions: (dto.actions ?? []).map(
       (a): DecisionAction => ({
         id: a.id,

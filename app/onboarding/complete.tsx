@@ -24,6 +24,7 @@ export default function OnboardingCompleteScreen() {
   const emailSkipped = useSessionStore((s) => s.emailSkipped);
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
+  const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
   const agentSendMode = useSessionStore((s) => s.agentSendMode);
   const creatorFocusMode = useSessionStore((s) => s.creatorFocusMode);
   const colorScheme = useColorScheme() ?? 'light';
@@ -42,6 +43,10 @@ export default function OnboardingCompleteScreen() {
       router.replace('/onboarding/consent' as Href);
       return;
     }
+    if (!inboxFilterStepFinished) {
+      router.replace('/onboarding/inbox-filter' as Href);
+      return;
+    }
     if (!emailWizardFinished) {
       router.replace('/onboarding/email' as Href);
       return;
@@ -51,6 +56,7 @@ export default function OnboardingCompleteScreen() {
       void markOnboardingCompleted({
         agentSendMode: agentSendMode ?? 'agent_assist',
         creatorFocusMode,
+        classificationStrictness: useSessionStore.getState().classificationStrictness,
       }).catch((err: unknown) => {
         const message =
           err instanceof ApiError ? err.message : t('onboardingSync.completeFallback');

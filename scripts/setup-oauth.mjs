@@ -50,7 +50,11 @@ function printRedirects() {
   console.log('  • Enable public client flows if prompted');
   console.log('\nBackend (same Google Web Client ID):');
   console.log('  export GOOGLE_OAUTH_CLIENT_IDS=<your-web-client-id>');
+  console.log('  export GOOGLE_OAUTH_CLIENT_SECRET=<from Google Console JSON>');
+  console.log('  export GOOGLE_OAUTH_CLIENT_SECRET_CLIENT_ID=<your-web-client-id>');
   console.log('  or add bioby.oauth.google-client-ids in application-local.yml\n');
+  console.log('If Expo opens with 127.0.0.1 instead of localhost, add the matching 127.0.0.1 origin and redirect URI too.');
+  console.log('Do not register http://localhost:8080 as the Google redirect URI; that is the backend API URL.\n');
 }
 
 function upsertEnv(lines, key, value) {
@@ -92,8 +96,9 @@ function writeEnv(args) {
     console.log('\nBackend: set Google Web Client ID + client secret (secret stays server-side only):');
     console.log(`  export GOOGLE_OAUTH_CLIENT_IDS=${args.googleWeb}`);
     console.log('  export GOOGLE_OAUTH_CLIENT_SECRET=<from Google Console JSON>');
+    console.log(`  export GOOGLE_OAUTH_CLIENT_SECRET_CLIENT_ID=${args.googleWeb}`);
     if (fs.existsSync(backendLocalExample)) {
-      console.log('  or bioby.oauth.google-client-ids / google-client-secret in application-local.yml');
+      console.log('  or bioby.oauth.google-client-ids / google-client-secret / google-client-secret-client-id in application-local.yml');
     }
   }
 }
