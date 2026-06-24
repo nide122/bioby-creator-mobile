@@ -103,6 +103,16 @@ export function revisionTypeLabel(type: RevisionTypeId, t: TFunction): string {
   return t(key[type]);
 }
 
+export function deliverableRowLabel(row: DeliverableRow, t: TFunction): string {
+  if (row.type === DELIVERABLE_CUSTOM) return row.customType.trim();
+  if (row.type) return deliverableTypeLabel(row.type, t);
+  return '';
+}
+
+export function revisionRowLabel(row: RevisionRow, t: TFunction): string {
+  return row.type ? revisionTypeLabel(row.type, t) : '';
+}
+
 export function usagePresetLabel(id: UsagePresetId, t: TFunction): string {
   if (id === USAGE_CUSTOM) return t('pricingEditScreen.usageCustomOption');
   const key: Record<Exclude<UsagePresetId, typeof USAGE_CUSTOM>, string> = {

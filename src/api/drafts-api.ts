@@ -2,7 +2,43 @@ import { apiRequest } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { mapDraftDetail, mapDraftSummary, type DraftDetailDto, type DraftListItemDto } from '@/src/api/draft-mappers';
 import { fetchMockDraftDetail, fetchMockDrafts } from '@/src/api/mock-draft';
+import type { ReplyDraftPurpose } from '@/src/lib/reply-draft-purpose';
 import type { DraftDetail, DraftKind, DraftSummary } from '@/src/types/domain';
+
+export type GeneratedReplyDraftDto = {
+  draft: DraftDetailDto | null;
+  source: 'llm' | 'rules';
+  purpose: string;
+  suggestedPurpose: string;
+  preview: boolean;
+  previewBody?: string | null;
+  previewSubject?: string | null;
+};
+
+export type GeneratedReplyDraft = {
+  draft: DraftDetail | null;
+  source: 'llm' | 'rules';
+  purpose: ReplyDraftPurpose;
+  suggestedPurpose: ReplyDraftPurpose;
+  preview: boolean;
+  previewBody?: string | null;
+  previewSubject?: string | null;
+};
+
+export type SuggestedReplyPurposeDto = {
+  purpose: string;
+  draftKind: string;
+};
+
+export type GenerateReplyDraftInput = {
+  purpose?: ReplyDraftPurpose;
+  rateCardPackageId?: string;
+  locale?: string;
+  /** overwrite (default) or fresh */
+  mode?: 'overwrite' | 'fresh';
+  overwriteDraftId?: string;
+  replyTemplateId?: string;
+};
 
 export async function fetchDraftList(): Promise<DraftSummary[]> {
   if (!shouldUseBackendApi()) {
@@ -77,4 +113,64 @@ export async function sendNativeMailboxDraft(draftId: string): Promise<RemoteDra
   return apiRequest<RemoteDraftSyncResult>(`/api/v1/drafts/${draftId}/remote-draft/send`, {
     method: 'POST',
   });
+}
+
+function mapGeneratedReplyDraft(dto: GeneratedReplyDraftDto): GeneratedReplyDraft {
+  return {
+    draft: dto.draft ? mapDraftDetail(dto.draft) : null,
+    source: dto.source === 'llm' ? 'llm' : 'rules',
+    purpose: dto.purpose as ReplyDraftPurpose,
+    suggestedPurpose: dto.suggestedPurpose as ReplyDraftPurpose,
+    preview: dto.preview === true,
+    previewBody: dto.previewBody ?? null,
+    previewSubject: dto.previewSubject ?? null,
+  };
+}
+
+export async function fetchSuggestedReplyPurpose(
+  opportunityId: string,
+): Promise<{ purpose: ReplyDraftPurpose; draftKind: DraftKind }> {
+  if (!shouldUseBackendApi()) {
+    return { purpose: 'pre_outreach', draftKind: 'ack_and_schedule' };
+  }
+  const item = await apiRequest<SuggestedReplyPurposeDto>(
+    `/api/v1/opportunities/${opportunityId}/drafts/suggested-purpose`,
+  );
+  return {
+    purpose: item.purpose as ReplyDraftPurpose,
+    draftKind: item.draftKind as DraftKind,
+  };
+}
+
+export async function generateReplyDraft(
+  opportunityId: string,
+  input: GenerateReplyDraftInput = {},
+): Promise<GeneratedReplyDraft> {
+  if (!shouldUseBackendApi()) {
+    const mock = await fetchMockDraftDetail('draft-reply-01');
+    return {
+      draft: mock,
+      source: 'rules',
+      purpose: input.purpose ?? 'pre_outreach',
+      suggestedPurpose: 'pre_outreach',
+      preview: false,
+      previewBody: null,
+      previewSubject: null,
+    };
+  }
+  const item = await apiRequest<GeneratedReplyDraftDto>(
+    `/api/v1/opportunities/${opportunityId}/drafts/generate`,
+    {
+      method: 'POST',
+      body: {
+        purpose: input.purpose,
+        rateCardPackageId: input.rateCardPackageId,
+        locale: input.locale,
+        mode: input.mode,
+        overwriteDraftId: input.overwriteDraftId,
+        replyTemplateId: input.replyTemplateId,
+      },
+    },
+  );
+  return mapGeneratedReplyDraft(item);
 }

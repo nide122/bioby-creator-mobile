@@ -56,12 +56,12 @@ function AppDialogCard({
               <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>{request.cancelLabel}</Text>
             </Pressable>
           ) : null}
+          <View style={styles.actionsSpacer} />
           <Pressable
             accessibilityRole="button"
             onPress={onConfirm}
             style={[
               styles.primaryButton,
-              request.variant === 'confirm' ? styles.flexButton : styles.fullButton,
               destructive
                 ? { backgroundColor: '#EF4444' }
                 : { backgroundColor: theme.primary },
@@ -161,11 +161,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.xs,
+    width: '100%',
   },
-  flexButton: { flex: 1 },
-  fullButton: { alignSelf: 'stretch' },
+  actionsSpacer: { flex: 1 },
   primaryButton: {
     borderRadius: radii.md,
     minHeight: layout.touchMin,
@@ -174,7 +175,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   secondaryButton: {
-    flex: 1,
     borderRadius: radii.md,
     borderWidth: StyleSheet.hairlineWidth,
     minHeight: layout.touchMin,

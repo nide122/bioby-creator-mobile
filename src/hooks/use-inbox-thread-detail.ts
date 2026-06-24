@@ -16,8 +16,9 @@ export function useInboxThreadDetail(threadId: string | undefined) {
     enabled: enabled && !!threadId,
     refetchInterval: (current) => {
       if (!apiMode) return false;
-      const status = current.state.data?.extractionStatus;
-      return status === 'PENDING' ? 2500 : false;
+      const briefPending = current.state.data?.extractionStatus === 'PENDING';
+      const contractPending = current.state.data?.contractSummary?.status === 'PENDING';
+      return briefPending || contractPending ? 2500 : false;
     },
   });
 

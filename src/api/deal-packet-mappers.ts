@@ -2,6 +2,7 @@ import type {
   DealDeliveryStep,
   DealPacketContent,
   DealPacketView,
+  DealFulfillmentStatusView,
   DealTermRow,
   DealVerificationEvidence,
 } from '@/src/types/deal-workflow';
@@ -128,11 +129,43 @@ export function mapDealPacketDto(dto: {
   title: string;
   brandPlaceholder: string;
   packet: unknown;
+  fulfillmentStatus?: unknown;
 }): DealPacketView {
   return {
     dealId: dto.dealId,
     title: dto.title,
     brandPlaceholder: dto.brandPlaceholder,
     packet: parseDealPacketPayload(dto.packet),
+    fulfillmentStatus: parseFulfillmentStatus(dto.fulfillmentStatus),
+  };
+}
+
+function parseFulfillmentStatus(raw: unknown): DealFulfillmentStatusView | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const node = raw as Record<string, unknown>;
+  const payment = parseStatusBlock(node.payment);
+  const revision = parseStatusBlock(node.revision);
+  const brandReview = parseStatusBlock(node.brandReview);
+  if (!payment || !revision || !brandReview) return undefined;
+  return { payment, revision, brandReview };
+}
+
+function parseStatusBlock(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return null;
+  const node = raw as Record<string, unknown>;
+  const id = String(node.id ?? '');
+  const phase = String(node.phase ?? 'waiting');
+  const statusKey = String(node.statusKey ?? '');
+  const nextStepKey = String(node.nextStepKey ?? '');
+  if (!id || !statusKey || !nextStepKey) return null;
+  return {
+    id,
+    phase:
+      phase === 'done' || phase === 'active' || phase === 'waiting' || phase === 'blocked'
+        ? phase
+        : ('waiting' as const),
+    statusKey,
+    nextStepKey,
+    revisionCount: typeof node.revisionCount === 'number' ? node.revisionCount : null,
   };
 }

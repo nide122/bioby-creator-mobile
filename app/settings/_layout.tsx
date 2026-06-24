@@ -16,6 +16,8 @@ export default function SettingsStack() {
       <Stack.Screen name="team" options={{ title: t('stacks.team') }} />
       <Stack.Screen name="subscription" options={{ title: t('stacks.subscription') }} />
       <Stack.Screen name="reply-style" options={{ title: t('stacks.replyStyle') }} />
+      <Stack.Screen name="reply-templates" options={{ title: t('stacks.replyTemplates') }} />
+      <Stack.Screen name="reply-template-edit" options={{ title: t('stacks.replyTemplateEdit') }} />
       <Stack.Screen name="profile" options={{ title: t('stacks.profileSettings') }} />
       <Stack.Screen name="data-export" options={{ title: t('stacks.dataExport') }} />
     </Stack>

@@ -1,16 +1,20 @@
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import type { OpportunityDetail, OpportunityListItem, OpportunityTimeline } from '@/src/api/opportunity-types';
 import type {
+  ContractSummary,
   EscrowLifecyclePhase,
   InboxEmailCategory,
   InboxLeadStage,
   InboxMessage,
   InboxMessageDirection,
+  InboxMessageStats,
+  InboxPriority,
   InboxRiskFlag,
   InboxThread,
   InboxThreadDetail,
   LeadValueBand,
   OpportunityPipelinePhase,
+  PriorityBreakdown,
 } from '@/src/types/domain';
 
 const EMAIL_CATEGORIES: InboxEmailCategory[] = ['commercial', 'pr_sample', 'media', 'personal', 'spam', 'other'];
@@ -43,6 +47,25 @@ export function asLeadValueBand(value?: string | null): LeadValueBand | undefine
     return value;
   }
   return undefined;
+}
+
+export function asInboxPriority(value?: string | null): InboxPriority | undefined {
+  if (value === 'p0' || value === 'p1' || value === 'p2' || value === 'p3') {
+    return value;
+  }
+  return undefined;
+}
+
+function mapPriorityBreakdown(raw: OpportunityListItem['priorityBreakdown']): PriorityBreakdown | undefined {
+  if (!raw) return undefined;
+  return {
+    brandFit: raw.brandFit,
+    budgetValue: raw.budgetValue,
+    timelineUrgency: raw.timelineUrgency,
+    relationshipValue: raw.relationshipValue,
+    effort: raw.effort,
+    risk: raw.risk,
+  };
 }
 
 function asPipelinePhase(value?: string | null): OpportunityPipelinePhase | undefined {
@@ -89,6 +112,7 @@ function mapMessageStats(raw: OpportunityListItem['messageStats']): InboxMessage
 export function mapOpportunityToThread(item: OpportunityListItem): InboxThread {
   return {
     id: item.id,
+    brandId: item.brandId ?? undefined,
     subject: item.subject,
     preview: item.preview,
     updatedAtISO: item.updatedAtISO,
@@ -96,10 +120,14 @@ export function mapOpportunityToThread(item: OpportunityListItem): InboxThread {
     category: asEmailCategory(item.emailCategory),
     actionTier: item.actionTier as InboxThread['actionTier'],
     leadValueBand: asLeadValueBand(item.leadValueBand),
+    inboxPriority: asInboxPriority(item.inboxPriority),
+    priorityScore: item.priorityScore ?? undefined,
+    priorityBreakdown: mapPriorityBreakdown(item.priorityBreakdown),
     classificationSortScore: item.classificationSortScore,
     actionReasons: item.actionReasons,
     budgetLabel: item.budgetLabel ?? undefined,
     riskLabel: item.riskLabel ?? undefined,
+    contractRiskPreview: parseRiskFlag(item.contractRiskPreview),
     nextActionLabel: item.nextActionLabel ?? undefined,
     messageCount: item.messageCount ?? 1,
     messageStats: mapMessageStats(item.messageStats),
@@ -113,6 +141,7 @@ export function mapOpportunityToThread(item: OpportunityListItem): InboxThread {
     exceptionalBudget: item.exceptionalBudget ?? undefined,
     pipelinePhase: asPipelinePhase(item.pipelinePhase),
     dealEscrowPhase: asEscrowPhase(item.dealEscrowPhase),
+    classificationPending: item.classificationPending ?? false,
   };
 }
 
@@ -129,22 +158,55 @@ function inferMessageDirection(fromLabel: string | undefined): InboxMessageDirec
   return undefined;
 }
 
-function parseRiskFlags(raw: unknown): InboxRiskFlag[] {
+function parseRiskFlag(raw: unknown): InboxRiskFlag | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const item = raw as Record<string, unknown>;
+  const id = String(item.id ?? '');
+  if (!id) return undefined;
+  return {
+    id,
+    label: String(item.label ?? ''),
+    severity: (['info', 'warning', 'danger'].includes(String(item.severity))
+      ? String(item.severity)
+      : 'info') as InboxRiskFlag['severity'],
+    hint: item.hint != null ? String(item.hint) : undefined,
+    acknowledged: item.acknowledged === true,
+  };
+}
+
+export function parseRiskFlags(raw: unknown): InboxRiskFlag[] {
   if (!Array.isArray(raw)) {
     return [];
   }
   return raw
-    .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object')
-    .map((item) => ({
-      id: String(item.id ?? ''),
-      label: String(item.label ?? ''),
-      severity: (['info', 'warning', 'danger'].includes(String(item.severity))
-        ? String(item.severity)
-        : 'info') as InboxRiskFlag['severity'],
-      hint: item.hint != null ? String(item.hint) : undefined,
-      acknowledged: item.acknowledged === true,
-    }))
-    .filter((flag) => flag.id.length > 0);
+    .map((item) => parseRiskFlag(item))
+    .filter((flag): flag is InboxRiskFlag => flag != null);
+}
+
+function mapContractSummary(raw: OpportunityDetail['contractSummary']): ContractSummary | undefined {
+  if (!raw) return undefined;
+  return {
+    id: raw.id ?? undefined,
+    opportunityId: raw.opportunityId,
+    status: raw.status,
+    source: raw.source,
+    sourceFilename: raw.sourceFilename ?? undefined,
+    emailAttachmentId: raw.emailAttachmentId ?? undefined,
+    emailMessageId: raw.emailMessageId ?? undefined,
+    documentType: raw.documentType ?? undefined,
+    summary: raw.summary ?? undefined,
+    deliverables: raw.deliverables ?? [],
+    usageRights: raw.usageRights ?? [],
+    deadlines: raw.deadlines ?? [],
+    riskFlags: parseRiskFlags(raw.riskFlags),
+    confidence: raw.confidence ?? undefined,
+    extractionSource: raw.extractionSource ?? undefined,
+    promptVersion: raw.promptVersion ?? undefined,
+    persisted: raw.persisted ?? raw.status === 'COMPLETE',
+    errorMessage: raw.errorMessage ?? undefined,
+    createdAtISO: raw.createdAtISO,
+    updatedAtISO: raw.updatedAtISO,
+  };
 }
 
 export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: OpportunityTimeline): InboxThreadDetail {
@@ -184,6 +246,7 @@ export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: Opp
     attentionCount: detail.attentionCount ?? undefined,
     classificationSource: detail.classificationSource ?? undefined,
     briefExtractionSource: detail.briefExtractionSource ?? undefined,
+    contractSummary: mapContractSummary(detail.contractSummary),
     suggestedDraftIds: {
       aiReply: suggested.aiReply ?? (shouldUseBackendApi() ? '' : mockFallback.aiReply),
       quote: suggested.quote ?? (shouldUseBackendApi() ? '' : mockFallback.quote),

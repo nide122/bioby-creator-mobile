@@ -21,6 +21,7 @@ export default function OnboardingIndexScreen() {
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
   const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
+  const rateCardStepFinished = useSessionStore((s) => s.rateCardStepFinished);
 
   useEffect(() => {
     if (!rootNavigationState?.key || !authReady) return;
@@ -48,6 +49,10 @@ export default function OnboardingIndexScreen() {
       router.replace('/onboarding/email' as Href);
       return;
     }
+    if (!rateCardStepFinished) {
+      router.replace('/onboarding/pricing-setup' as Href);
+      return;
+    }
     router.replace('/onboarding/complete' as Href);
   }, [
     authReady,
@@ -58,6 +63,7 @@ export default function OnboardingIndexScreen() {
     complianceAcceptedAt,
     inboxFilterStepFinished,
     emailWizardFinished,
+    rateCardStepFinished,
     router,
   ]);
 

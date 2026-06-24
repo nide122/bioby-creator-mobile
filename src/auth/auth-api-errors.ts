@@ -13,6 +13,8 @@ const AUTH_API_ERROR_KEYS: Record<string, string> = {
   API_NOT_CONFIGURED: 'auth.apiErrors.API_NOT_CONFIGURED',
   MISSING_GOOGLE_CREDENTIAL: 'auth.apiErrors.MISSING_GOOGLE_CREDENTIAL',
   MISSING_MS_CREDENTIAL: 'auth.apiErrors.MISSING_MS_CREDENTIAL',
+  GOOGLE_TOKEN_EXCHANGE_FAILED: 'auth.apiErrors.GOOGLE_TOKEN_EXCHANGE_FAILED',
+  OAUTH_NOT_CONFIGURED: 'auth.apiErrors.OAUTH_NOT_CONFIGURED',
 };
 
 export function resolveAuthApiErrorMessage(error: unknown, fallbackKey: string): string {

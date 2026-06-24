@@ -192,6 +192,130 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return JSON.parse(text) as T;
 }
 
+type MultipartRequestOptions = {
+  method?: string;
+  auth?: boolean;
+  retryOnUnauthorized?: boolean;
+  suppressSessionExpiry?: boolean;
+};
+
+/** Multipart upload (e.g. contract PDF). Do not set Content-Type — fetch adds boundary. */
+export async function apiMultipartRequest<T>(
+  path: string,
+  formData: FormData,
+  options: MultipartRequestOptions = {},
+): Promise<T> {
+  const base = getApiBaseUrl();
+  if (!base) {
+    throw new ApiError(0, 'API_NOT_CONFIGURED', 'EXPO_PUBLIC_API_BASE_URL is not set');
+  }
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Accept-Language': apiLanguageHeader(),
+  };
+
+  const refreshBeforeRequest = options.auth !== false ? await getRefreshToken() : null;
+  if (options.auth !== false) {
+    const token = await resolveAccessToken();
+    if (!token) {
+      if (refreshBeforeRequest) {
+        if (!options.suppressSessionExpiry) {
+          await expireSession();
+        }
+        throw new ApiError(401, 'TOKEN_EXPIRED', 'Session expired');
+      }
+      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const hadAccessToken = Boolean(headers.Authorization);
+  const hadCredentials = hadAccessToken || Boolean(refreshBeforeRequest);
+
+  const response = await fetch(`${base}${path}`, {
+    method: options.method ?? 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (response.status === 401 && options.retryOnUnauthorized !== false && options.auth !== false) {
+    const payload = await readErrorBody(response);
+    const authError = buildApiError(401, payload);
+
+    if (shouldAttemptTokenRefresh(authError)) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        return apiMultipartRequest<T>(path, formData, { ...options, retryOnUnauthorized: false });
+      }
+      if (!options.suppressSessionExpiry) {
+        await expireSession();
+      }
+      throw new ApiError(
+        401,
+        authError.code === 'UNAUTHORIZED' ? 'TOKEN_EXPIRED' : authError.code,
+        authError.message || 'Session expired',
+      );
+    }
+
+    throw authError;
+  }
+
+  if (!response.ok) {
+    const payload = await readErrorBody(response);
+    const error = buildApiError(response.status, payload);
+    if (options.auth !== false && shouldExpireSession(error, hadCredentials) && !options.suppressSessionExpiry) {
+      await expireSession();
+    }
+    throw error;
+  }
+
+  const text = await response.text();
+  if (!text.trim()) {
+    return undefined as T;
+  }
+  return JSON.parse(text) as T;
+}
+
+export async function apiDownloadBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const base = getApiBaseUrl();
+  if (!base) {
+    throw new ApiError(0, 'API_NOT_CONFIGURED', 'EXPO_PUBLIC_API_BASE_URL is not set');
+  }
+
+  const headers: Record<string, string> = {
+    Accept: '*/*',
+    'Accept-Language': apiLanguageHeader(),
+  };
+
+  const refreshBeforeRequest = options.auth !== false ? await getRefreshToken() : null;
+  if (options.auth !== false) {
+    const token = await resolveAccessToken();
+    if (!token) {
+      if (refreshBeforeRequest) {
+        if (!options.suppressSessionExpiry) {
+          await expireSession();
+        }
+        throw new ApiError(401, 'TOKEN_EXPIRED', 'Session expired');
+      }
+      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${base}${path}`, {
+    method: options.method ?? 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    const payload = await readErrorBody(response);
+    throw buildApiError(response.status, payload);
+  }
+
+  return response.blob();
+}
+
 async function tryRefreshSession(): Promise<boolean> {
   if (refreshSessionPromise) {
     return refreshSessionPromise;

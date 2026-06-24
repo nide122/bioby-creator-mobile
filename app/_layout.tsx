@@ -76,6 +76,7 @@ function RootLayoutNav() {
           <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen name="ops" options={{ headerShown: false }} />
           <Stack.Screen name="deal" options={{ headerShown: false }} />
+          <Stack.Screen name="brand" options={{ headerShown: false }} />
           <Stack.Screen name="battle-reports" options={{ headerShown: false }} />
           <Stack.Screen name="drafts" options={{ headerShown: false }} />
           <Stack.Screen name="proposal" options={{ headerShown: false }} />

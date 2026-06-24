@@ -199,9 +199,6 @@ export async function fetchMockRateCardPackages(): Promise<RateCardPackage[]> {
 
 export async function upsertMockRateCardPackages(packages: RateCardPackage[]): Promise<RateCardPackage[]> {
   await mockDelay(180);
-  if (packages.length === 0) {
-    throw new Error('rate_card_packages_required');
-  }
   RATE_CARD_PACKAGES = structuredClone(packages);
   return structuredClone(RATE_CARD_PACKAGES);
 }
@@ -253,4 +250,9 @@ export async function importMockBattleReportToMediaKit(
     MEDIA_KIT_DOCUMENT.cases = [...existing, caseCard];
   }
   return structuredClone(MEDIA_KIT_DOCUMENT);
+}
+
+/** Web E2E / dev: replace mock rate-card packages without a full app reset. */
+export function setMockRateCardPackagesForTest(packages: RateCardPackage[]): void {
+  RATE_CARD_PACKAGES = structuredClone(packages);
 }

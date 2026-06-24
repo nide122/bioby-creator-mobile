@@ -43,6 +43,10 @@ export type DecisionCard = {
   sourceHref?: string;
   /** 机会类决策卡对应的价值档 — 用于高价值/需谈判配色 */
   leadValueBand?: LeadValueBand;
+  /** P 档 — 优先于 leadValueBand 展示 */
+  inboxPriority?: InboxPriority;
+  /** Contract risks surfaced on opportunity decision cards. */
+  contractRiskFlags?: InboxRiskFlag[];
   actions: DecisionAction[];
 };
 
@@ -105,6 +109,18 @@ export type InboxEmailCategory =
 
 export type LeadValueBand = 'high_value' | 'needs_negotiation' | 'archived';
 
+/** Inbox priority tier — aligned with backend InboxPriority wire values. */
+export type InboxPriority = 'p0' | 'p1' | 'p2' | 'p3';
+
+export type PriorityBreakdown = {
+  brandFit: number;
+  budgetValue: number;
+  timelineUrgency: number;
+  relationshipValue: number;
+  effort: number;
+  risk: number;
+};
+
 export type InboxMessageStats = {
   total: number;
   received: number;
@@ -122,18 +138,25 @@ export type InboxThread = {
   preview: string;
   updatedAtISO: string;
   brandName: string;
+  brandId?: string;
   /** AI 自动分类结果 */
   category: InboxEmailCategory;
   /** 行动档 — 对齐后端 ActionTier */
   actionTier?: 'DECIDE_NOW' | 'DEVELOP' | 'AUTO_HANDLED';
-  /** 价值档 — 对齐后端 LeadValueBand */
+  /** 价值档 — 对齐后端 LeadValueBand（过渡期） */
   leadValueBand?: LeadValueBand;
+  /** P0–P3 优先级（PR-P3） */
+  inboxPriority?: InboxPriority;
+  priorityScore?: number | null;
+  priorityBreakdown?: PriorityBreakdown | null;
   classificationSortScore?: number;
   /** 可解释分类/分档理由 */
   actionReasons?: { code: string; message: string }[];
   /** 预算区间展示文案（摘录自信号，非成交价承诺） */
   budgetLabel?: string;
   riskLabel?: string;
+  /** Primary contract risk from brief extraction (list API). */
+  contractRiskPreview?: InboxRiskFlag;
   ownerLabel?: string;
   nextActionLabel?: string;
   /** Number of source emails grouped into this opportunity/thread. */
@@ -144,6 +167,8 @@ export type InboxThread = {
   signals?: string[];
   /** 分类阶段摘要（LLM 或规则） */
   classificationSummary?: string;
+  /** 多封邮件线程尚无线程级分类 snapshot（历史数据待 backfill） */
+  classificationPending?: boolean;
   classificationSignals?: string[];
   /** Creator 已在服务端纠偏分类 */
   userCorrected?: boolean;
@@ -166,6 +191,7 @@ export type InboxMessage = {
   subject?: string;
   direction?: InboxMessageDirection;
   read?: boolean;
+  attachmentCount?: number;
 };
 
 export type InboxRiskSeverity = 'info' | 'warning' | 'danger';
@@ -203,13 +229,51 @@ export type InboxThreadDetail = InboxThread & {
   postingSchedule?: string;
   classificationSource?: AiProcessingSource;
   briefExtractionSource?: AiProcessingSource;
+  contractSummary?: ContractSummary;
+};
+
+export type DocumentKind =
+  | 'CONTRACT'
+  | 'CREATOR_BRIEF'
+  | 'INVOICE'
+  | 'PROPOSAL'
+  | 'MEDIA_KIT'
+  | 'CORRESPONDENCE'
+  | 'OTHER';
+
+export type ContractSummary = {
+  id?: string | null;
+  opportunityId: string;
+  status: 'DRAFT' | 'PENDING' | 'COMPLETE' | 'FAILED';
+  source: 'EMAIL_ATTACHMENT' | 'UPLOAD';
+  sourceFilename?: string | null;
+  emailAttachmentId?: string | null;
+  emailMessageId?: string | null;
+  documentType?: DocumentKind | null;
+  summary?: string | null;
+  deliverables?: string[];
+  usageRights?: string[];
+  deadlines?: string[];
+  riskFlags?: InboxRiskFlag[];
+  confidence?: number | null;
+  extractionSource?: string | null;
+  promptVersion?: string | null;
+  persisted?: boolean;
+  errorMessage?: string | null;
+  createdAtISO?: string;
+  updatedAtISO?: string;
 };
 
 export type DealSummary = {
   id: string;
+  brandId?: string;
   brandPlaceholder: string;
   title: string;
+  /** Associated opportunity thread when the deal was escalated from inbox. */
+  opportunityThreadId?: string;
   escrowPhase: EscrowLifecyclePhase;
+  /** Server-authored payment status; falls back to phase mapping when absent. */
+  paymentStatusLabel?: string;
   /** 下一可执行节点（降低空等感） */
   nextMilestone?: string;
   /** 与 Qualified Creator Result 相关的摘要提示 */
@@ -254,6 +318,9 @@ export type DraftDetail = DraftSummary & {
   approvedAtISO?: string;
   /** 同商机下的合作单 ID（API） */
   linkedDealId?: string;
+  generationSource?: 'llm' | 'rules';
+  replyPurpose?: string;
+  emailSubject?: string;
 };
 
 export type PaymentLineItem = {

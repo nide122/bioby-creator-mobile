@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useAuthSessionReady } from '@/src/hooks/use-auth-session-ready';
 import { useSessionStore } from '@/src/stores/session-store';
 
-export type OnboardingRouteStep = 'profile' | 'consent' | 'inbox-filter' | 'email' | 'complete';
+export type OnboardingRouteStep = 'profile' | 'consent' | 'inbox-filter' | 'email' | 'pricing-setup' | 'complete';
 
 /**
  * Redirects when prerequisites are missing. Waits for JWT / session rehydrate before treating the user as logged out.
@@ -23,6 +23,7 @@ export function useOnboardingRouteGuard(
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
   const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
+  const rateCardStepFinished = useSessionStore((s) => s.rateCardStepFinished);
 
   useEffect(() => {
     if (!rootNavigationState?.key || !authReady) return;
@@ -65,12 +66,20 @@ export function useOnboardingRouteGuard(
       return;
     }
 
+    if (step === 'pricing-setup') return;
+
+    if (!rateCardStepFinished) {
+      router.replace('/onboarding/pricing-setup' as Href);
+      return;
+    }
+
     if (step === 'complete') return;
   }, [
     authReady,
     complianceAcceptedAt,
     inboxFilterStepFinished,
     emailWizardFinished,
+    rateCardStepFinished,
     isAuthenticated,
     onboardingComplete,
     profileBasics,

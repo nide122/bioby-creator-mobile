@@ -17,12 +17,15 @@ export function formatCooldownLabel(seconds: number, t: Translate, keyPrefix: st
 }
 
 export function parseProfileSummaryRateLimitCooldown(error: unknown): number | null {
-  if (
-    typeof error === 'object' &&
-    error != null &&
-    'code' in error &&
-    (error as { code?: string }).code === 'PROFILE_SUMMARY_RATE_LIMITED'
-  ) {
+  return parseRateLimitCooldown(error, 'PROFILE_SUMMARY_RATE_LIMITED');
+}
+
+export function parseReplyDraftRateLimitCooldown(error: unknown): number | null {
+  return parseRateLimitCooldown(error, 'REPLY_DRAFT_RATE_LIMITED');
+}
+
+function parseRateLimitCooldown(error: unknown, code: string): number | null {
+  if (typeof error === 'object' && error != null && 'code' in error && (error as { code?: string }).code === code) {
     const retryAfter = (error as { retryAfterSeconds?: number }).retryAfterSeconds;
     return retryAfter != null && retryAfter > 0 ? retryAfter : null;
   }

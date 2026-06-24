@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
@@ -14,20 +14,37 @@ import {
 import { migrateLegacyProfileBasics } from '@/src/lib/creator-profile-aggregate';
 import { resolveMediaKitAboutTags } from '@/src/lib/media-kit-preview';
 import { resolveMediaKitPreviewPlatforms } from '@/src/lib/platform-matrix-sync';
-import { invalidateTenantScopedQueries, useTenantQueryKey, useTenantScopedQueryEnabled } from '@/src/lib/tenant-query';
+import {
+  getActiveTenantPublicId,
+  invalidateTenantScopedQueries,
+  tenantQueryKey,
+  useTenantQueryKey,
+  useTenantScopedQueryEnabled,
+} from '@/src/lib/tenant-query';
 import { mergeMediaKitPreviewPublicProofs } from '@/src/lib/public-proof';
 import { usePublicProofCatalog } from '@/src/hooks/use-trust-metrics';
 import { useSessionStore } from '@/src/stores/session-store';
 import type { MediaKitDocument, RateCardPackage } from '@/src/types/domain';
 
+export function rateCardPackagesQueryKey(): unknown[] {
+  return tenantQueryKey(getActiveTenantPublicId(), 'growth', 'rate-cards', { api: shouldUseBackendApi() });
+}
+
+export function patchRateCardPackagesCache(
+  queryClient: QueryClient,
+  packages: RateCardPackage[],
+): void {
+  queryClient.setQueryData(rateCardPackagesQueryKey(), packages);
+}
+
 export function useRateCardPackages() {
-  const apiMode = shouldUseBackendApi();
-  const queryKey = useTenantQueryKey('growth', 'rate-cards', { api: apiMode });
+  const queryKey = rateCardPackagesQueryKey();
   const enabled = useTenantScopedQueryEnabled();
   return useQuery({
     queryKey,
     queryFn: fetchRateCardPackages,
     enabled,
+    staleTime: 0,
   });
 }
 
@@ -101,7 +118,8 @@ export function useUpsertRateCardPackages() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (packages: RateCardPackage[]) => upsertRateCardPackages(packages),
-    onSuccess: async () => {
+    onSuccess: async (updatedPackages) => {
+      patchRateCardPackagesCache(queryClient, updatedPackages);
       await invalidateTenantScopedQueries(queryClient);
     },
   });

@@ -122,9 +122,13 @@ function HubRowBase({
           {title}
         </Text>
         {subtitle ? (
-          <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
-            {subtitle}
-          </Text>
+          typeof subtitle === 'string' ? (
+            <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
+              {subtitle}
+            </Text>
+          ) : (
+            subtitle
+          )
         ) : null}
       </View>
       <View style={[hubListStyles.trailing, tall && detailFooter && hubListStyles.trailingTall]}>

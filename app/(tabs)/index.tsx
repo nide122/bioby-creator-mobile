@@ -24,8 +24,11 @@ import {
   HubScreen,
   SettingsGroup,
   Badge,
+  hubListStyles,
 } from '@/components/product';
 import { LeadValueBandIconShell } from '@/components/inbox/LeadValueBandChrome';
+import { InboxPriorityIconShell } from '@/components/inbox/InboxPriorityChrome';
+import { RiskBanner } from '@/components/inbox/RiskBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { calendarLocaleTagForLanguage } from '@/src/i18n';
@@ -38,7 +41,9 @@ import type { AiActionLogEntry, DecisionAction, DecisionCard, DecisionCategory }
 import {
   resolveDecisionCardBandAccent,
   resolveDecisionCardBorderAccent,
+  resolveDecisionCardPriority,
 } from '@/src/lib/decision-card-visuals';
+import { contractWarningSeverity } from '@/src/lib/contract-warning';
 import { parseDecisionSourceHint } from '@/src/lib/decision-card-content';
 import {
   formatLocalizedDecisionQueuePreviewLines,
@@ -46,6 +51,7 @@ import {
   localizeDecisionHeadline,
 } from '@/src/lib/decision-card-i18n';
 import { leadValueBandBadgeTone } from '@/src/lib/lead-value-band-visuals';
+import { inboxPriorityBadgeTone } from '@/src/lib/inbox-priority-visuals';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────
 
@@ -170,16 +176,19 @@ function UndoDecisionBanner({
 function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
   const { t } = useTranslation();
   const categoryLabels = useDecisionCategoryLabels();
-  const { leadValueBandLabel } = useDomainLabels();
+  const { leadValueBandLabel, inboxPriorityLabel } = useDomainLabels();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const cfg = categoryLabels[card.category];
   const bandAccent = resolveDecisionCardBandAccent(card, theme);
+  const displayPriority = resolveDecisionCardPriority(card);
   const { display } = getLocalizedDecisionPresentation(card, t);
 
   return (
     <View style={styles.categoryRow}>
-      {bandAccent && card.leadValueBand ? (
+      {bandAccent && displayPriority ? (
+        <InboxPriorityIconShell priority={displayPriority} icon={cfg.icon} />
+      ) : bandAccent && card.leadValueBand ? (
         <LeadValueBandIconShell band={card.leadValueBand} icon={cfg.icon} />
       ) : (
         <View style={[styles.categoryIcon, { backgroundColor: cfg.color + '18' }]}>
@@ -187,7 +196,9 @@ function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
         </View>
       )}
       <Badge tone="neutral" label={cfg.label} />
-      {card.leadValueBand && card.leadValueBand !== 'archived' ? (
+      {displayPriority ? (
+        <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+      ) : card.leadValueBand && card.leadValueBand !== 'archived' ? (
         <Badge tone={leadValueBandBadgeTone(card.leadValueBand)} label={leadValueBandLabel[card.leadValueBand]} />
       ) : null}
       {display.urgencyLabel ? <Badge tone="warning" label={display.urgencyLabel} /> : null}
@@ -455,6 +466,9 @@ function SwipeableDecisionCard({
         <DecisionCardMetaRow card={card} />
 
         <DecisionCardIdentityBlock card={card} />
+        {card.contractRiskFlags && contractWarningSeverity(card.contractRiskFlags) ? (
+          <RiskBanner flags={card.contractRiskFlags} compact />
+        ) : null}
         <DecisionCardNextStepRow card={card} />
         <DecisionCardWhyNowBlock card={card} />
         <DecisionCardSourceRow card={card} />
@@ -548,6 +562,18 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
               item.leadValueBand && item.leadValueBand !== 'archived'
                 ? leadValueBandLabel[item.leadValueBand]
                 : cfg.label;
+            const queueRiskFlags = item.contractRiskFlags ?? [];
+            const subtitleContent =
+              queueRiskFlags.length > 0 ? (
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
+                    {previewLines.subtitle}
+                  </Text>
+                  <RiskBanner flags={queueRiskFlags} compact />
+                </View>
+              ) : (
+                previewLines.subtitle
+              );
             return (
               <HubListRow
                 key={item.id}
@@ -558,7 +584,7 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
                 }
                 icon={bandAccent ? undefined : cfg.icon}
                 title={previewLines.title}
-                subtitle={previewLines.subtitle}
+                subtitle={subtitleContent}
                 detail={detail}
                 detailAccent={bandAccent?.detailAccent}
                 onPress={() => {
@@ -658,20 +684,45 @@ function DoneState({
       ) : null}
 
       <SettingsGroup title={t('today.aiLogTitle')}>
-        {aiActionLog.slice(0, 5).map((entry) => (
-          <HubListRow
-            key={entry.id}
-            icon="receipt-outline"
-            title={entry.title}
-            subtitle={new Date(entry.occurredAtISO).toLocaleTimeString(timeTag, {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-            onPress={() => {
-              if (entry.sourceHref) router.push(entry.sourceHref as Href);
-            }}
-          />
-        ))}
+        {aiActionLog.slice(0, 5).map((entry) => {
+          const riskSubtitle =
+            entry.kind === 'risk_flagged' && entry.description ? (
+              <View style={{ gap: spacing.xs }}>
+                <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]}>
+                  {new Date(entry.occurredAtISO).toLocaleTimeString(timeTag, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+                <RiskBanner
+                  flags={[
+                    {
+                      id: entry.id,
+                      label: entry.description,
+                      severity: 'warning',
+                    },
+                  ]}
+                  compact
+                />
+              </View>
+            ) : (
+              new Date(entry.occurredAtISO).toLocaleTimeString(timeTag, {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            );
+          return (
+            <HubListRow
+              key={entry.id}
+              icon="receipt-outline"
+              title={entry.title}
+              subtitle={riskSubtitle}
+              onPress={() => {
+                if (entry.sourceHref) router.push(entry.sourceHref as Href);
+              }}
+            />
+          );
+        })}
       </SettingsGroup>
 
       <HubLinkGroup

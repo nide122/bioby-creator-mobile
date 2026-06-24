@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import i18n from '@/src/i18n';
-import type { InboxEmailCategory, InboxThread, InboxThreadDetail } from '@/src/types/domain';
+import type { InboxEmailCategory, InboxPriority, InboxThread, InboxThreadDetail } from '@/src/types/domain';
 
 type ClassificationCorrection = {
   category: InboxEmailCategory;
@@ -41,6 +41,16 @@ export const useInboxCorrectionStore = create<InboxCorrectionState>((set) => ({
   clearAllCorrections: () => set({ classificationByThreadId: {} }),
 }));
 
+function priorityForCorrectedCategory(category: InboxEmailCategory): InboxPriority | undefined {
+  if (category === 'spam' || category === 'personal' || category === 'other') {
+    return 'p3';
+  }
+  if (category === 'commercial' || category === 'pr_sample' || category === 'media') {
+    return 'p2';
+  }
+  return undefined;
+}
+
 export function applyInboxClassificationCorrection<T extends InboxThread>(
   thread: T,
   corrections: Record<string, ClassificationCorrection>
@@ -48,6 +58,7 @@ export function applyInboxClassificationCorrection<T extends InboxThread>(
   const correction = corrections[thread.id];
   if (!correction) return thread;
   const correctedAsCommercial = correction.category === 'commercial';
+  const correctedPriority = priorityForCorrectedCategory(correction.category);
 
   return {
     ...thread,
@@ -58,6 +69,15 @@ export function applyInboxClassificationCorrection<T extends InboxThread>(
     nextActionLabel: correctedAsCommercial
       ? (thread.nextActionLabel ?? 'Review as paid collab')
       : i18n.t('inboxScreen.reclassifiedNote'),
+    inboxPriority: correctedPriority ?? thread.inboxPriority,
+    leadValueBand:
+      correctedPriority === 'p3'
+        ? 'archived'
+        : correctedPriority === 'p2'
+          ? 'needs_negotiation'
+          : correctedAsCommercial
+            ? thread.leadValueBand
+            : 'archived',
   };
 }
 

@@ -63,6 +63,10 @@ type SessionState = {
   emailWizardFinished: boolean;
   /** User skipped inbox setup. */
   emailSkipped: boolean;
+  /** Rate card onboarding step completed or skipped. */
+  rateCardStepFinished: boolean;
+  /** User skipped rate card setup during onboarding. */
+  rateCardSkipped: boolean;
   /** Connected deal inbox; MVP stores connection status only. */
   mailboxConnection: MailboxConnection | null;
   /** Free workspace is assigned by default; kept for future paid-plan migration. */
@@ -102,6 +106,10 @@ type SessionState = {
   completeEmailWizard: (mailbox?: string) => void;
   /** Inbox setup skipped for later. */
   skipEmailWizard: () => void;
+  /** Rate card setup completed during onboarding. */
+  completeRateCardStep: () => void;
+  /** Rate card setup skipped during onboarding. */
+  skipRateCardStep: () => void;
   acknowledgePlan: () => void;
   /** Caller should ensure required steps are complete. */
   finalizeOnboarding: () => void;
@@ -138,6 +146,8 @@ const initialSession = {
   inboxFilterStepFinished: false,
   emailWizardFinished: false,
   emailSkipped: false,
+  rateCardStepFinished: false,
+  rateCardSkipped: false,
   mailboxConnection: null as MailboxConnection | null,
   planAcknowledged: false,
   onboardingComplete: false,
@@ -224,6 +234,8 @@ const sessionStateCreator: (
       inboxFilterStepFinished: true,
       emailWizardFinished: true,
       emailSkipped: false,
+      rateCardStepFinished: true,
+      rateCardSkipped: false,
       mailboxConnection: {
         email: 'brand@demo.bioby.ai',
         method: 'smtp',
@@ -256,11 +268,29 @@ const sessionStateCreator: (
       mailboxConnection: null,
     }),
 
+  completeRateCardStep: () =>
+    set({
+      rateCardStepFinished: true,
+      rateCardSkipped: false,
+    }),
+
+  skipRateCardStep: () =>
+    set({
+      rateCardStepFinished: true,
+      rateCardSkipped: true,
+    }),
+
   acknowledgePlan: () => set({ planAcknowledged: true }),
 
   finalizeOnboarding: () => {
     const s = get();
-    if (!s.profileBasics || !s.complianceAcceptedAt || !s.inboxFilterStepFinished || !s.emailWizardFinished) {
+    if (
+      !s.profileBasics ||
+      !s.complianceAcceptedAt ||
+      !s.inboxFilterStepFinished ||
+      !s.emailWizardFinished ||
+      !s.rateCardStepFinished
+    ) {
       return;
     }
     set({ onboardingComplete: true, planAcknowledged: true });
@@ -286,6 +316,8 @@ const sessionStateCreator: (
       inboxFilterStepFinished: false,
       emailWizardFinished: false,
       emailSkipped: false,
+      rateCardStepFinished: false,
+      rateCardSkipped: false,
       mailboxConnection: null,
       planAcknowledged: false,
       onboardingComplete: false,
@@ -321,6 +353,8 @@ export const useSessionStore = persistSessionOnWeb
           inboxFilterStepFinished: s.inboxFilterStepFinished,
           emailWizardFinished: s.emailWizardFinished,
           emailSkipped: s.emailSkipped,
+          rateCardStepFinished: s.rateCardStepFinished,
+          rateCardSkipped: s.rateCardSkipped,
           mailboxConnection: s.mailboxConnection,
           planAcknowledged: s.planAcknowledged,
           onboardingComplete: s.onboardingComplete,

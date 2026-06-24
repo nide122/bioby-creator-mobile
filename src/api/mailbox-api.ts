@@ -1,4 +1,5 @@
-import { apiRequest } from '@/src/api/api-client';
+import { apiRequest, apiDownloadBlob } from '@/src/api/api-client';
+import { mapContractSummary } from '@/src/api/contract-summary-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import type { MailboxConnectionResponse } from '@/src/api/account-api';
 
@@ -199,6 +200,14 @@ export async function retryFailedMailboxWritebackJobs(limit?: number): Promise<M
   });
 }
 
+export type EmailAttachment = {
+  id: string;
+  filename: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  inline?: boolean;
+};
+
 export type EmailMessageDetail = {
   id: string;
   subject: string;
@@ -210,10 +219,20 @@ export type EmailMessageDetail = {
   bodyHtml: string;
   sentAtISO?: string | null;
   receivedAtISO?: string | null;
+  attachments?: EmailAttachment[];
+  documentSummary?: import('@/src/api/contract-summary-api').ContractSummary | null;
 };
 
 export async function fetchEmailMessage(messageId: string): Promise<EmailMessageDetail> {
-  return apiRequest<EmailMessageDetail>(`/api/v1/mailbox/messages/${messageId}`);
+  const result = await apiRequest<EmailMessageDetail>(`/api/v1/mailbox/messages/${messageId}`);
+  return {
+    ...result,
+    documentSummary: result.documentSummary ? mapContractSummary(result.documentSummary) : null,
+  };
+}
+
+export async function downloadEmailAttachment(messageId: string, attachmentId: string): Promise<Blob> {
+  return apiDownloadBlob(`/api/v1/mailbox/messages/${messageId}/attachments/${attachmentId}`);
 }
 
 export type MailboxLabelWritebackInput = {

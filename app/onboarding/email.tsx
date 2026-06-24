@@ -139,7 +139,7 @@ export default function EmailOnboardingScreen() {
       router.replace('/account' as Href);
       return;
     }
-    router.push('/onboarding/complete' as Href);
+    router.push('/onboarding/pricing-setup' as Href);
   };
 
   const selectPreset = (key: MailboxPresetKey) => {

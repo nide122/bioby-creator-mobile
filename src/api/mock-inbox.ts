@@ -17,12 +17,22 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
     category: 'commercial',
     actionTier: 'DEVELOP',
     leadValueBand: 'high_value',
+    inboxPriority: 'p1',
+    priorityScore: 72,
+    priorityBreakdown: {
+      brandFit: 24,
+      budgetValue: 28,
+      timelineUrgency: 10,
+      relationshipValue: 0,
+      effort: 5,
+      risk: 0,
+    },
     classificationSortScore: 920,
     pipelinePhase: 'INQUIRY',
     budgetLabel: '$2.8k – $4.5k',
     riskLabel: 'Medium risk · Claims review',
     ownerLabel: 'You',
-    nextActionLabel: 'Confirm rights before quote',
+    nextActionLabel: 'inboxPriority.nextAction.sendQuote',
     leadStage: 'draft_ready',
     signals: ['Disclosure: #ad + pinned comment', 'Script revisions capped at 2 rounds', 'Target publish: May 25'],
     riskFlags: [
@@ -73,11 +83,21 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
     category: 'commercial',
     actionTier: 'DECIDE_NOW',
     leadValueBand: 'needs_negotiation',
+    inboxPriority: 'p0',
+    priorityScore: 68,
+    priorityBreakdown: {
+      brandFit: 15,
+      budgetValue: 8,
+      timelineUrgency: 30,
+      relationshipValue: 15,
+      effort: 10,
+      risk: 15,
+    },
     classificationSortScore: 780,
     budgetLabel: 'Budget unclear',
     riskLabel: 'High risk · Broad usage',
     ownerLabel: 'You',
-    nextActionLabel: 'Confirm prepay & usage',
+    nextActionLabel: 'inboxPriority.nextAction.replyToday',
     leadStage: 'negotiating',
     pipelinePhase: 'NEGOTIATION',
     signals: ['Broad usage scope', 'Brand typically replies within 36h'],
@@ -106,6 +126,7 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
         id: 'm1',
         sentAtISO: now,
         fromLabel: 'TrailPeak Gear · Partnership',
+        direction: 'inbound',
         snippet:
           'We are planning a year-round camping light push and may need remix and paid social edit rights. Please share your rate structure.',
       },
@@ -113,6 +134,7 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
         id: 'm2',
         sentAtISO: now,
         fromLabel: 'AI summary',
+        direction: 'inbound',
         snippet:
           'Negotiating; budget still open. Ask about prepay first and quote base delivery, long-term usage, and remix edits separately.',
       },
@@ -127,8 +149,10 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
     category: 'pr_sample',
     actionTier: 'AUTO_HANDLED',
     leadValueBand: 'archived',
+    inboxPriority: 'p2',
+    priorityScore: 18,
     leadStage: 'new',
-    nextActionLabel: 'Optional reply',
+    nextActionLabel: 'inboxPriority.nextAction.reviewWhenFree',
     signals: [],
     riskFlags: [],
     recommendedActions: [],
@@ -151,8 +175,10 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
     category: 'media',
     actionTier: 'AUTO_HANDLED',
     leadValueBand: 'archived',
+    inboxPriority: 'p2',
+    priorityScore: 20,
     leadStage: 'new',
-    nextActionLabel: 'Reply if interested',
+    nextActionLabel: 'inboxPriority.nextAction.reviewWhenFree',
     signals: [],
     riskFlags: [],
     recommendedActions: [],
@@ -175,8 +201,10 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
     category: 'spam',
     actionTier: 'AUTO_HANDLED',
     leadValueBand: 'archived',
+    inboxPriority: 'p3',
+    priorityScore: 5,
     leadStage: 'new',
-    nextActionLabel: 'Ignore',
+    nextActionLabel: undefined,
     signals: [],
     riskFlags: [],
     recommendedActions: [],
@@ -199,9 +227,14 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
 };
 
 function threadSummaryFromDetail(detail: InboxThreadDetail): InboxThread {
-  const { messages: _m, riskFlags: _r, recommendedActions: _a, suggestedDraftIds: _s, ...rest } = detail;
+  const { messages: _m, riskFlags, recommendedActions: _a, suggestedDraftIds: _s, ...rest } = detail;
+  const primary =
+    riskFlags.find((flag) => flag.severity === 'danger') ??
+    riskFlags.find((flag) => flag.severity === 'warning') ??
+    riskFlags[0];
   return {
     ...rest,
+    contractRiskPreview: primary,
     messageCount: rest.messageCount ?? detail.messages.length,
   };
 }
@@ -223,6 +256,18 @@ export async function fetchMockInboxThreadDetail(threadId: string): Promise<Inbo
 
 export function getMockInboxThreadBrandHint(threadId: string): string | undefined {
   return MOCK_INBOX_THREAD_DETAILS[threadId]?.brandName;
+}
+
+export function getMockInboxThreadReplyContext(threadId: string) {
+  const detail = MOCK_INBOX_THREAD_DETAILS[threadId];
+  if (!detail) return undefined;
+  return {
+    brandName: detail.brandName,
+    cooperationTitle: detail.subject,
+    budgetLabel: detail.budgetLabel,
+    deliverables: detail.deliverables?.length ? detail.deliverables.join(', ') : undefined,
+    postingSchedule: detail.postingSchedule,
+  };
 }
 
 /** AI 今日处理摘要（mock，未来由后端推送） */

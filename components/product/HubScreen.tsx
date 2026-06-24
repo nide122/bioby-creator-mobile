@@ -16,6 +16,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { HubListRow } from '@/components/product/HubList';
 import { SettingsGroup } from '@/components/product/SettingsGroup';
 import { TextField } from '@/components/product/TextField';
+import { InlineCountBadge } from './InlineCountBadge';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 
@@ -231,6 +232,7 @@ export function HubNoticeStrip({
 
 /** Compact inline notice (connect inbox, etc.) */
 export function HubBanner({
+  testID,
   tone = 'warning',
   title,
   body,
@@ -238,7 +240,9 @@ export function HubBanner({
   onPrimary,
   secondaryLabel,
   onSecondary,
+  primaryTestID,
 }: {
+  testID?: string;
   tone?: 'warning' | 'info';
   title: string;
   body?: string;
@@ -246,6 +250,7 @@ export function HubBanner({
   onPrimary: () => void;
   secondaryLabel?: string;
   onSecondary?: () => void;
+  primaryTestID?: string;
 }) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -253,13 +258,16 @@ export function HubBanner({
   const bg = tone === 'warning' ? '#F59E0B12' : theme.primary + '12';
 
   return (
-    <View style={[hubStyles.banner, { borderColor: accent + '55', backgroundColor: bg }]}>
+    <View
+      testID={testID}
+      style={[hubStyles.banner, { borderColor: accent + '55', backgroundColor: bg }]}>
       <View style={hubStyles.bannerCopy}>
         <Text style={[hubStyles.bannerTitle, { color: theme.foreground }]}>{title}</Text>
         {body ? <Text style={[hubStyles.bannerBody, { color: theme.mutedForeground }]}>{body}</Text> : null}
       </View>
       <View style={hubStyles.bannerActions}>
         <Pressable
+          testID={primaryTestID}
           accessibilityRole="button"
           onPress={onPrimary}
           style={[hubStyles.bannerPrimary, { backgroundColor: theme.primary }]}>
@@ -392,9 +400,11 @@ export function FilterChipRow<T extends string>({
               {item.label}
             </Text>
             {item.count !== undefined ? (
-              <Text style={[hubStyles.filterCount, { color: active ? theme.primary : theme.foregroundEyebrow }]}>
-                {item.count}
-              </Text>
+              <InlineCountBadge
+                count={item.count}
+                backgroundColor={active ? theme.primary + '28' : theme.secondary}
+                color={active ? theme.primary : theme.foreground}
+              />
             ) : null}
           </Pressable>
         );
@@ -535,5 +545,4 @@ export const hubStyles = StyleSheet.create({
     gap: spacing.xs,
   },
   filterLabel: { fontSize: fontSize.caption, fontWeight: '700' },
-  filterCount: { fontSize: fontSize.caption, fontWeight: '800', fontVariant: ['tabular-nums'] },
 });

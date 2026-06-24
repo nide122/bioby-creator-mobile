@@ -48,6 +48,9 @@ export type DraftDetailDto = DraftListItemDto & {
   body: string;
   sourceThreadId?: string | null;
   linkedDealId?: string | null;
+  generationSource?: string | null;
+  replyPurpose?: string | null;
+  emailSubject?: string | null;
 };
 
 export function mapDraftDetail(dto: DraftDetailDto): DraftDetail {
@@ -57,5 +60,8 @@ export function mapDraftDetail(dto: DraftDetailDto): DraftDetail {
     sourceThreadId: dto.sourceThreadId ?? undefined,
     approvedAtISO: dto.approvedAtISO ?? undefined,
     linkedDealId: dto.linkedDealId ?? undefined,
+    generationSource: dto.generationSource === 'llm' || dto.generationSource === 'rules' ? dto.generationSource : undefined,
+    replyPurpose: dto.replyPurpose ?? undefined,
+    emailSubject: dto.emailSubject ?? undefined,
   };
 }

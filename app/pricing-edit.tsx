@@ -14,6 +14,7 @@ import {
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import {
   getTextInputProps,
@@ -28,8 +29,8 @@ import {
   isPackageFormValid,
   RateCardPackageStructuredFields,
 } from '@/components/pricing/RateCardPackageFields';
-import { alertAction } from '@/src/lib/app-dialog';
-import { useRateCardPackages, useUpsertRateCardPackages } from '@/src/hooks/use-growth';
+import { alertAction, confirmAction } from '@/src/lib/app-dialog';
+import { useRateCardPackages, rateCardPackagesQueryKey, useUpsertRateCardPackages } from '@/src/hooks/use-growth';
 import type { RateCardPackage } from '@/src/types/domain';
 
 function createRateCardPackageId(): string {
@@ -97,6 +98,18 @@ function paramFlag(value: string | string[] | undefined): boolean {
 function paramString(value: string | string[] | undefined): string | undefined {
   const raw = Array.isArray(value) ? value[0] : value;
   return raw?.trim() || undefined;
+}
+
+function excludeDeletedPackage(
+  packages: RateCardPackage[],
+  target: RateCardPackage,
+  packageIdParam?: string,
+): RateCardPackage[] {
+  return packages.filter((item) => {
+    if (item.id === target.id) return false;
+    if (packageIdParam && item.id === packageIdParam) return false;
+    return true;
+  });
 }
 
 export default function PricingEditScreen() {
@@ -184,12 +197,16 @@ export default function PricingEditScreen() {
 
   const onDelete = async () => {
     if (!pkg || !rateCardQuery.data || isNew) return;
+    const confirmed = await confirmAction({
+      title: t('pricingEditScreen.deleteConfirmTitle'),
+      message: t('pricingEditScreen.deleteConfirmBody', { name: pkg.name.trim() || t('pricingEditScreen.titleEdit') }),
+      confirmLabel: t('pricingEditScreen.removePackage'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    });
+    if (!confirmed) return;
     try {
-      const remaining = rateCardQuery.data.filter((item) => item.id !== pkg.id).map(normalizePackage);
-      if (remaining.length === 0) {
-        void alertAction(t('pricingEditScreen.deleteBlockedTitle'), t('pricingEditScreen.deleteBlockedBody'));
-        return;
-      }
+      const remaining = excludeDeletedPackage(rateCardQuery.data, pkg, packageId).map(normalizePackage);
       await saveMutation.mutateAsync(remaining);
       if (router.canGoBack()) router.back();
       else router.replace('/pricing' as Href);
@@ -214,7 +231,7 @@ export default function PricingEditScreen() {
         description={t('pricingEditScreen.retryDesc')}>
         <QueryRetryCard
           message={rateCardQuery.error?.message ?? t('pricingEditScreen.emptyFallback')}
-          onRetry={() => queryClient.invalidateQueries({ queryKey: ['growth', 'rate-cards'] })}
+          onRetry={() => queryClient.invalidateQueries({ queryKey: rateCardPackagesQueryKey() })}
         />
       </PlaceholderScreen>
     );
@@ -354,8 +371,13 @@ function PackageEditForm({ pkg, theme, t, onUpdate, onSetRecommended, onDelete }
           <Switch value={pkg.recommended === true} onValueChange={onSetRecommended} trackColor={{ true: theme.primary }} />
         </View>
         {onDelete ? (
-          <Pressable accessibilityRole="button" onPress={onDelete} style={styles.removeRow}>
-            <Text style={{ color: theme.mutedForeground, fontSize: fontSize.caption }}>{t('pricingEditScreen.removePackage')}</Text>
+          <Pressable
+            testID="pricing-edit-delete-package"
+            accessibilityRole="button"
+            onPress={onDelete}
+            style={[styles.deleteRow, { borderColor: '#FDA4AF55', backgroundColor: '#2A101208' }]}>
+            <Ionicons name="trash-outline" size={16} color="#FDA4AF" />
+            <Text style={styles.deleteLabel}>{t('pricingEditScreen.removePackage')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -377,7 +399,18 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
   toggleLabel: { fontSize: fontSize.body, fontWeight: '600' },
   toggleHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
-  removeRow: { alignSelf: 'flex-start', marginTop: spacing.sm },
+  deleteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    minHeight: layout.touchMin - 6,
+    paddingHorizontal: spacing.md,
+  },
+  deleteLabel: { color: '#FDA4AF', fontSize: fontSize.bodySmall, fontWeight: '700' },
   saveHint: {
     fontSize: fontSize.caption,
     lineHeight: lineHeight.body,

@@ -31,7 +31,7 @@ describe('session-store', () => {
     expect(s.mailboxConnection?.email).toBeTruthy();
   });
 
-  it('finalizeOnboarding requires profile, compliance, and email wizard', () => {
+  it('finalizeOnboarding requires profile, compliance, inbox filter, email, and rate card steps', () => {
     useSessionStore.getState().signInDemo('creator@example.com');
     useSessionStore.getState().finalizeOnboarding();
     expect(useSessionStore.getState().onboardingComplete).toBe(false);
@@ -42,7 +42,12 @@ describe('session-store', () => {
       platforms: ['TikTok'],
     });
     useSessionStore.getState().acceptCompliance('agent_assist');
+    useSessionStore.getState().completeInboxFilterStep('standard');
     useSessionStore.getState().completeEmailWizard('inbox@example.com');
+    useSessionStore.getState().finalizeOnboarding();
+    expect(useSessionStore.getState().onboardingComplete).toBe(false);
+
+    useSessionStore.getState().completeRateCardStep();
     useSessionStore.getState().finalizeOnboarding();
 
     expect(useSessionStore.getState().onboardingComplete).toBe(true);

@@ -140,7 +140,9 @@ function applySort(
       if (countDelta !== 0) return countDelta * direction;
     }
     if (sortBy === 'CLASSIFICATION_SCORE') {
-      const scoreDelta = (a.classificationSortScore ?? 0) - (b.classificationSortScore ?? 0);
+      const scoreA = a.priorityScore ?? a.classificationSortScore ?? 0;
+      const scoreB = b.priorityScore ?? b.classificationSortScore ?? 0;
+      const scoreDelta = scoreA - scoreB;
       if (scoreDelta !== 0) return scoreDelta * direction;
     }
     const timeDelta = new Date(a.updatedAtISO).getTime() - new Date(b.updatedAtISO).getTime();

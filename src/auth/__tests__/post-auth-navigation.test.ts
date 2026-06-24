@@ -36,9 +36,25 @@ describe('getOnboardingResumeRoute', () => {
         platforms: ['TikTok'],
       },
       complianceAcceptedAt: '2026-06-09T12:00:00.000Z',
+      inboxFilterStepFinished: true,
       emailWizardFinished: false,
     });
     expect(getOnboardingResumeRoute()).toBe('/onboarding/email');
+  });
+
+  it('returns pricing setup when rate card step is pending', () => {
+    useSessionStore.setState({
+      profileBasics: {
+        displayName: 'Mia',
+        niche: 'Skincare',
+        platforms: ['TikTok'],
+      },
+      complianceAcceptedAt: '2026-06-09T12:00:00.000Z',
+      inboxFilterStepFinished: true,
+      emailWizardFinished: true,
+      rateCardStepFinished: false,
+    });
+    expect(getOnboardingResumeRoute()).toBe('/onboarding/pricing-setup');
   });
 });
 

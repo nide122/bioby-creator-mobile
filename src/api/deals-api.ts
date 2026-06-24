@@ -36,6 +36,7 @@ export async function fetchDealPacket(dealId: string): Promise<DealPacketView> {
     title: string;
     brandPlaceholder: string;
     packet: unknown;
+    fulfillmentStatus?: unknown;
   }>(`/api/v1/deals/${dealId}/packet`);
   return mapDealPacketDto(dto);
 }

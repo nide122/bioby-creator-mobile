@@ -23,6 +23,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="consent" options={{ title: t('stacks.permissions') }} />
       <Stack.Screen name="inbox-filter" options={{ title: t('stacks.inboxFilter') }} />
       <Stack.Screen name="email" options={{ title: t('stacks.inboxSetup') }} />
+      <Stack.Screen name="pricing-setup" options={{ title: t('stacks.pricingSetup') }} />
       <Stack.Screen name="complete" options={{ title: t('stacks.ready'), headerLeft: () => null }} />
     </Stack>
   );

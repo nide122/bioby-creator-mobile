@@ -34,14 +34,19 @@ import {
   SettingsBlock,
   SettingsGroup,
   SettingsRow,
+  hubListStyles,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { BrandNameLink } from '@/components/brands/BrandNameLink';
 import { LeadValueBandIconShell, LeadValueBandSectionHeader } from '@/components/inbox/LeadValueBandChrome';
+import { InboxPriorityIconShell, InboxPrioritySectionHeader } from '@/components/inbox/InboxPriorityChrome';
+import { RiskBanner } from '@/components/inbox/RiskBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { useTranslation } from 'react-i18next';
 
-import type { InboxEmailCategory, InboxThread, LeadValueBand } from '@/src/types/domain';
+import type { InboxEmailCategory, InboxPriority, InboxThread, LeadValueBand } from '@/src/types/domain';
+import { shouldShowInboxRateCardBanner } from '@/src/lib/inbox-rate-card-banner';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import {
   registerMailboxSubscription,
@@ -56,7 +61,7 @@ import {
 import { useMailboxConnection } from '@/src/hooks/use-mailbox-connection';
 import { useMailboxSyncStatus } from '@/src/hooks/use-mailbox-sync-status';
 import { useInboxThreads, useAiDailySummary } from '@/src/hooks/use-inbox-threads';
-import { useRateCardPackages } from '@/src/hooks/use-growth';
+import { useRateCardPackages, rateCardPackagesQueryKey } from '@/src/hooks/use-growth';
 import { useAuthSessionReady } from '@/src/hooks/use-auth-session-ready';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { resolveMailboxPushMissingReason, resolveMailboxRepairError } from '@/src/lib/mailbox-push-i18n';
@@ -74,8 +79,19 @@ import {
   threadUsesRulesProcessing,
 } from '@/src/lib/ai-processing-labels';
 import { inboxRiskReasons } from '@/src/lib/inbox-risk-badges';
+import { localizedVisibleRiskLabel } from '@/src/lib/inbox-detail-labels';
+import { contractWarningSeverity, listContractWarningFlags, isContractRiskLabel } from '@/src/lib/contract-warning';
 import { formatExceptionalBudgetLabel } from '@/src/lib/exceptional-budget-label';
 import { countPriorityLeadValueBands, resolvePriorityLeadValueBand } from '@/src/lib/priority-lead-value-band';
+import { isInboxPriorityUiEnabled } from '@/src/lib/inbox-priority-feature';
+import { translateInboxNextAction } from '@/src/lib/inbox-next-action-labels';
+import { inboxPriorityAccent } from '@/src/lib/inbox-priority-visuals';
+import {
+  countArchivedInboxPriority,
+  countInboxPriorities,
+  groupThreadsByInboxPriority,
+  resolveDisplayInboxPriority,
+} from '@/src/lib/resolve-inbox-priority';
 import { leadValueBandAccent } from '@/src/lib/lead-value-band-visuals';
 import {
   commercialProgressDetailAccent,
@@ -653,20 +669,23 @@ function InboxSyncProgressCard({
 function InboxRateCardBanner() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [dismissed, setDismissed] = useState(false);
   const rateCard = useRateCardPackages();
 
-  if (!shouldUseBackendApi() || dismissed || rateCard.isPending) return null;
-  if ((rateCard.data?.length ?? 0) > 0) return null;
+  if (!shouldShowInboxRateCardBanner({
+    isPending: rateCard.isPending,
+    packageCount: rateCard.data?.length ?? 0,
+  })) {
+    return null;
+  }
 
   return (
     <HubBanner
+      testID="inbox-rate-card-banner"
+      primaryTestID="inbox-rate-card-banner-cta"
       title={t('inboxScreen.rateCardMissingTitle')}
       body={t('inboxScreen.rateCardMissingBody')}
       primaryLabel={t('inboxScreen.rateCardMissingCta')}
-      onPrimary={() => router.push('/pricing' as Href)}
-      secondaryLabel={t('inboxScreen.later')}
-      onSecondary={() => setDismissed(true)}
+      onPrimary={() => router.push('/pricing-edit?new=1' as Href)}
     />
   );
 }
@@ -1184,9 +1203,11 @@ function CommercialTrailingMeta({
 function InboxThreadHubRow({
   item,
   onPress,
+  priorityUiEnabled = false,
 }: {
   item: InboxThread;
   onPress: () => void;
+  priorityUiEnabled?: boolean;
 }) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -1195,8 +1216,9 @@ function InboxThreadHubRow({
     useDomainLabels();
   const correctedLocal = useInboxCorrectionStore((s) => !!s.classificationByThreadId[item.id]);
   const corrected = correctedLocal || !!item.userCorrected;
-  const showCommercialMeta = item.category === 'commercial' || !!item.leadValueBand;
+  const displayPriority = resolveDisplayInboxPriority(item);
   const priorityBand = resolvePriorityLeadValueBand(item);
+  const showCommercialMeta = item.category === 'commercial' || !!item.leadValueBand || !!displayPriority;
   const progressLabel =
     item.category === 'commercial'
       ? resolveCommercialProgressLabel(item, {
@@ -1212,29 +1234,61 @@ function InboxThreadHubRow({
   const progressPill =
     isCommercialRow && progressLabel ? commercialProgressPillColors(item, theme) : null;
 
-  const subtitleParts = [item.brandName];
-  if (isCommercialRow) {
-    if (item.nextActionLabel) subtitleParts.push(item.nextActionLabel);
-  } else if (item.nextActionLabel) {
-    subtitleParts.push(item.nextActionLabel);
+  const subtitleParts: string[] = [];
+  const localizedNextAction = translateInboxNextAction(t, item.nextActionLabel);
+  if (priorityUiEnabled && localizedNextAction) {
+    subtitleParts.push(localizedNextAction);
+  } else if (isCommercialRow) {
+    if (localizedNextAction) subtitleParts.push(localizedNextAction);
+  } else if (localizedNextAction) {
+    subtitleParts.push(localizedNextAction);
   } else if (item.preview) {
     subtitleParts.push(item.preview);
   }
-  if (!isCommercialRow) {
+  if (isCommercialRow) {
+    const visibleRisk = localizedVisibleRiskLabel(t, item.riskLabel, item.budgetLabel);
+    if (visibleRisk && isContractRiskLabel(visibleRisk)) subtitleParts.push(visibleRisk);
+    else if (priorityBand === 'high_value') {
+      inboxRiskReasons(item.actionReasons).forEach((reason) => subtitleParts.push(reason.message));
+    }
+  } else if (!priorityUiEnabled) {
     if (item.riskLabel && showCommercialMeta) subtitleParts.push(item.riskLabel);
     else if (item.exceptionalBudget || item.budgetFloorRatio != null) {
       const exceptionalLabel = formatExceptionalBudgetLabel(item.budgetFloorRatio, t);
       if (exceptionalLabel) subtitleParts.push(exceptionalLabel);
     } else if (priorityBand === 'high_value') {
       inboxRiskReasons(item.actionReasons).forEach((reason) => subtitleParts.push(reason.message));
-    } else if (item.actionReasons?.[0]?.message && showCommercialMeta) {
-      subtitleParts.push(item.actionReasons[0].message);
     }
+  } else if (item.riskLabel && showCommercialMeta) {
+    subtitleParts.push(item.riskLabel);
+  } else if (item.exceptionalBudget || item.budgetFloorRatio != null) {
+    const exceptionalLabel = formatExceptionalBudgetLabel(item.budgetFloorRatio, t);
+    if (exceptionalLabel) subtitleParts.push(exceptionalLabel);
+  } else if (item.actionReasons?.[0]?.message && showCommercialMeta) {
+    subtitleParts.push(item.actionReasons[0].message);
   }
   if (corrected) subtitleParts.push(t('inboxScreen.userCorrected'));
   if (threadUsesRulesProcessing(item)) subtitleParts.push(t('inboxScreen.threadRulesLabel'));
 
-  const metaLine = subtitleParts.join(' · ');
+  const metaLineSuffix = subtitleParts.length > 0 ? subtitleParts.join(' · ') : null;
+  const listRiskFlags = listContractWarningFlags(item, t);
+  const subtitleContent =
+    listRiskFlags.length > 0 ? (
+      <View style={{ gap: spacing.xs }}>
+        <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
+          <BrandNameLink brandId={item.brandId} label={item.brandName} />
+          {metaLineSuffix ? ` · ${metaLineSuffix}` : ''}
+        </Text>
+        <RiskBanner flags={listRiskFlags} compact />
+      </View>
+    ) : metaLineSuffix ? (
+      <Text style={{ color: theme.mutedForeground }}>
+        <BrandNameLink brandId={item.brandId} label={item.brandName} />
+        {` · ${metaLineSuffix}`}
+      </Text>
+    ) : (
+      <BrandNameLink brandId={item.brandId} label={item.brandName} />
+    );
 
   const detail = isCommercialRow && progressPill ? (
     <CommercialTrailingMeta
@@ -1245,6 +1299,8 @@ function InboxThreadHubRow({
     />
   ) : isCommercialRow ? (
     item.budgetLabel
+  ) : priorityUiEnabled ? (
+    item.budgetLabel
   ) : !showCommercialMeta ? (
     inboxCategoryLabel[item.category]
   ) : (
@@ -1253,22 +1309,65 @@ function InboxThreadHubRow({
 
   const detailAccent = isCommercialRow
     ? false
-    : leadValueBandAccent(priorityBand ?? item.leadValueBand, theme).detailAccent;
+    : priorityUiEnabled
+      ? inboxPriorityAccent(displayPriority, theme).detailAccent
+      : leadValueBandAccent(priorityBand ?? item.leadValueBand, theme).detailAccent;
+
+  const iconElement = priorityUiEnabled ? (
+    <InboxPriorityIconShell priority={displayPriority} icon={inboxThreadIcon(item.category)} />
+  ) : (
+    <LeadValueBandIconShell band={priorityBand ?? item.leadValueBand} icon={inboxThreadIcon(item.category)} />
+  );
 
   return (
     <HubListRow
       testID={`inbox-thread-${item.id}`}
-        iconElement={
-          <LeadValueBandIconShell band={priorityBand ?? item.leadValueBand} icon={inboxThreadIcon(item.category)} />
-        }
+      iconElement={iconElement}
       title={item.subject}
-      subtitle={metaLine}
+      subtitle={subtitleContent}
       detail={detail}
       detailAccent={detailAccent}
       detailFooter={messageStatsFooter}
       detailFooterAccent={unreadHighlight}
       onPress={onPress}
     />
+  );
+}
+
+function InboxPrioritySection({
+  priority,
+  items,
+  count,
+  onOpen,
+}: {
+  priority: InboxPriority;
+  items: InboxThread[];
+  count?: number;
+  onOpen: (item: InboxThread) => void;
+}) {
+  const { inboxPriorityLabel } = useDomainLabels();
+  const priorityUiEnabled = true;
+
+  if (items.length === 0) return null;
+
+  return (
+    <View style={styles.bandSection}>
+      <InboxPrioritySectionHeader
+        priority={priority}
+        label={inboxPriorityLabel[priority]}
+        count={count ?? items.length}
+      />
+      <SettingsGroup insetDividers>
+        {items.map((item) => (
+          <InboxThreadHubRow
+            key={item.id}
+            item={item}
+            priorityUiEnabled={priorityUiEnabled}
+            onPress={() => onOpen(item)}
+          />
+        ))}
+      </SettingsGroup>
+    </View>
   );
 }
 
@@ -1637,6 +1736,12 @@ export default function InboxScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void queryClient.refetchQueries({ queryKey: rateCardPackagesQueryKey() });
+    }, [queryClient]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
       shouldRestoreScrollRef.current = useInboxViewStore.getState().scrollY > 0;
       if (inbox.isPending || inbox.error) return;
       restoreScrollY();
@@ -1707,8 +1812,21 @@ export default function InboxScreen() {
   const highValueThreads = allThreads.filter((thread) => resolvePriorityLeadValueBand(thread) === 'high_value');
   const followUpThreads = allThreads.filter((thread) => resolvePriorityLeadValueBand(thread) === 'needs_negotiation');
   const priorityBandCounts = countPriorityLeadValueBands(allThreads);
-  const archivedBandCount = valueBandCounts.archived ?? 0;
-  const hasPriorityThreads = highValueThreads.length + followUpThreads.length > 0;
+  const priorityUiEnabled = isInboxPriorityUiEnabled(allThreads);
+  const inboxPriorityGroups = useMemo(
+    () => (priorityUiEnabled ? groupThreadsByInboxPriority(allThreads) : null),
+    [allThreads, priorityUiEnabled]
+  );
+  const inboxPriorityCounts = useMemo(
+    () => (priorityUiEnabled ? countInboxPriorities(allThreads) : null),
+    [allThreads, priorityUiEnabled]
+  );
+  const archivedBandCount = priorityUiEnabled
+    ? countArchivedInboxPriority(allThreads)
+    : (valueBandCounts.archived ?? 0);
+  const hasPriorityThreads = priorityUiEnabled
+    ? (inboxPriorityCounts?.p0 ?? 0) + (inboxPriorityCounts?.p1 ?? 0) + (inboxPriorityCounts?.p2 ?? 0) > 0
+    : highValueThreads.length + followUpThreads.length > 0;
 
   const openThread = (item: InboxThread) => router.push(`/inbox/${item.id}` as Href);
   const allModeCategories: InboxEmailCategory[] =
@@ -1782,22 +1900,51 @@ export default function InboxScreen() {
           <InboxInlineLoading />
         ) : viewMode === 'priority' ? (
           <>
-            <LeadValueBandSection
-              band="high_value"
-              items={highValueThreads}
-              count={priorityBandCounts.high_value}
-              onOpen={openThread}
-            />
-            <LeadValueBandSection
-              band="needs_negotiation"
-              items={followUpThreads}
-              count={priorityBandCounts.needs_negotiation}
-              onOpen={openThread}
-            />
+            {priorityUiEnabled ? (
+              <>
+                <InboxPrioritySection
+                  priority="p0"
+                  items={inboxPriorityGroups?.p0 ?? []}
+                  count={inboxPriorityCounts?.p0}
+                  onOpen={openThread}
+                />
+                <InboxPrioritySection
+                  priority="p1"
+                  items={inboxPriorityGroups?.p1 ?? []}
+                  count={inboxPriorityCounts?.p1}
+                  onOpen={openThread}
+                />
+                <InboxPrioritySection
+                  priority="p2"
+                  items={inboxPriorityGroups?.p2 ?? []}
+                  count={inboxPriorityCounts?.p2}
+                  onOpen={openThread}
+                />
+              </>
+            ) : (
+              <>
+                <LeadValueBandSection
+                  band="high_value"
+                  items={highValueThreads}
+                  count={priorityBandCounts.high_value}
+                  onOpen={openThread}
+                />
+                <LeadValueBandSection
+                  band="needs_negotiation"
+                  items={followUpThreads}
+                  count={priorityBandCounts.needs_negotiation}
+                  onOpen={openThread}
+                />
+              </>
+            )}
             {!hasPriorityThreads ? (
               <EmptyStateCard
-                title={t('inboxScreen.emptyCommercialTitle')}
-                description={t('inboxScreen.emptyCommercialDesc')}
+                title={
+                  priorityUiEnabled ? t('inboxScreen.emptyPriorityTitle') : t('inboxScreen.emptyCommercialTitle')
+                }
+                description={
+                  priorityUiEnabled ? t('inboxScreen.emptyPriorityDesc') : t('inboxScreen.emptyCommercialDesc')
+                }
                 primaryAction={{
                   label: t('inboxScreen.viewAllMail'),
                   onPress: () => handleViewModeChange('all'),

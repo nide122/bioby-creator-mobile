@@ -6,6 +6,7 @@ import { useBattleReports } from '@/src/hooks/use-battle-reports';
 import { useDrafts } from '@/src/hooks/use-drafts';
 import { useMediaKitDocument, useRateCardPackages } from '@/src/hooks/use-growth';
 import { useDisputes } from '@/src/hooks/use-money';
+import { useReplyTemplates } from '@/src/hooks/use-reply-templates';
 import { useTrustMetrics } from '@/src/hooks/use-trust-metrics';
 import {
   assessMediaKitCompletion,
@@ -25,6 +26,7 @@ export function useAssetsHubSummaries() {
   const disputes = useDisputes();
   const trustMetrics = useTrustMetrics();
   const mediaKitDocument = useMediaKitDocument();
+  const replyTemplates = useReplyTemplates();
   const profileDisplayName = useSessionStore((s) => s.profileBasics?.displayName);
   const isDraftApproved = useDraftApprovalStore((s) => s.isDraftApproved);
 
@@ -37,6 +39,7 @@ export function useAssetsHubSummaries() {
       if (item.requiresApproval) return !isDraftApproved(item.id);
       return false;
     }).length;
+    const templateCount = replyTemplates.templates.length;
     const packageCount = rateCard.data?.length ?? 0;
     const openDisputes =
       disputes.data?.filter((item) => item.state !== 'resolved').length ?? 0;
@@ -57,6 +60,7 @@ export function useAssetsHubSummaries() {
         rateCard.isPending ||
         disputes.isPending ||
         mediaKitLoading ||
+        replyTemplates.isLoading ||
         (shouldUseBackendApi() && trustMetrics.isPending),
       onTimeRate,
       shareableCount,
@@ -70,6 +74,10 @@ export function useAssetsHubSummaries() {
           ? t('assetsScreen.summaries.packages', { count: packageCount })
           : undefined,
       proposalDetail: t('assetsScreen.summaries.sampleReady'),
+      replyTemplatesDetail:
+        templateCount > 0
+          ? t('assetsScreen.summaries.replyTemplatesCount', { count: templateCount })
+          : t('assetsScreen.summaries.replyTemplatesEmpty'),
       battleReportsDetail:
         shareableCount > 0
           ? t('assetsScreen.summaries.shareableCount', { count: shareableCount })
@@ -98,6 +106,8 @@ export function useAssetsHubSummaries() {
     profileDisplayName,
     rateCard.data,
     rateCard.isPending,
+    replyTemplates.isLoading,
+    replyTemplates.templates,
     trustMetrics.data,
     trustMetrics.isPending,
     t,

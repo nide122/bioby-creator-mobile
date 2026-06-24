@@ -8,6 +8,7 @@ export function getOnboardingResumeRoute(): Href {
   if (!state.profileBasics) return '/onboarding/profile';
   if (!state.complianceAcceptedAt) return '/onboarding/consent';
   if (!state.emailWizardFinished) return '/onboarding/email';
+  if (!state.rateCardStepFinished) return '/onboarding/pricing-setup';
   return '/onboarding/complete';
 }
 

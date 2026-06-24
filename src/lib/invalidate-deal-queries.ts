@@ -9,6 +9,13 @@ export function invalidateDealClosureArtifacts(queryClient: QueryClient) {
   void queryClient.invalidateQueries({ queryKey: tenantQueryKey(tenantId, 'trust') });
 }
 
+/** Invalidate Today decision queue after fulfillment phase changes. */
+export function invalidateDecisionQueueQueries(queryClient: QueryClient) {
+  const tenantId = getActiveTenantPublicId();
+  void queryClient.invalidateQueries({ queryKey: tenantQueryKey(tenantId, 'decisions') });
+  void queryClient.invalidateQueries({ queryKey: ['decisions'] });
+}
+
 /** Invalidate deal list, detail, and packet after fulfillment mutations. */
 export function invalidateDealWorkspaceQueries(queryClient: QueryClient, dealId: string) {
   const tenantId = getActiveTenantPublicId();
@@ -17,6 +24,7 @@ export function invalidateDealWorkspaceQueries(queryClient: QueryClient, dealId:
   void queryClient.invalidateQueries({ queryKey: tenantQueryKey(tenantId, 'deals', 'packet', dealId) });
   void queryClient.invalidateQueries({ queryKey: tenantQueryKey(tenantId, 'payments') });
   void queryClient.invalidateQueries({ queryKey: tenantQueryKey(tenantId, 'disputes') });
+  invalidateDecisionQueueQueries(queryClient);
 }
 
 /** Invalidate the tenant-scoped deal list (after accept/decline mutations). */

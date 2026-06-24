@@ -1,5 +1,6 @@
 export { Badge } from './Badge';
 export type { BadgeTone } from './Badge';
+export { InlineCountBadge } from './InlineCountBadge';
 export { BulletList } from './BulletList';
 export { EmptyStateCard } from './EmptyStateCard';
 export type { EmptyStateAction } from './EmptyStateCard';

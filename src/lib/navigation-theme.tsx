@@ -1,10 +1,11 @@
 import { HeaderBackButton } from '@react-navigation/elements';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import { type Href, useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import type { ComponentProps } from 'react';
 
 import type { ThemePalette } from '@/constants/tokens';
+import { navigateReturnTo, resolveReturnTarget, inboxThreadHref } from '@/src/lib/open-brand-detail';
 
 type StackHeaderBackProps = ComponentProps<typeof HeaderBackButton> & {
   canGoBack?: boolean;
@@ -19,19 +20,45 @@ type StackHeaderBackProps = ComponentProps<typeof HeaderBackButton> & {
 export function StackHeaderBack(props: StackHeaderBackProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useGlobalSearchParams<{ source?: string | string[] }>();
+  const searchParams = useLocalSearchParams<{
+    source?: string | string[];
+    threadId?: string | string[];
+    returnTo?: string | string[];
+    parentReturnTo?: string | string[];
+    directReturn?: string | string[];
+  }>();
   const { canGoBack, onPress, ...rest } = props;
 
   const fallbackHref = getStackBackFallbackHref(pathname, searchParams);
   const goBack = () => {
+    const parentReturnTo = searchParamValue(searchParams?.parentReturnTo);
+    const navigateBack = (target: Href | string) => {
+      if (typeof target === 'string') {
+        navigateReturnTo(router, target, parentReturnTo);
+        return;
+      }
+      if (typeof router.canDismiss === 'function' && router.canDismiss()) {
+        router.dismissTo(target);
+        return;
+      }
+      router.replace(target);
+    };
     // Refresh leaves `/onboarding` index under the current step; router.back() hits the
     // dispatcher and it immediately replace-forwards — feels like back does nothing once.
     if (fallbackHref && shouldPreferExplicitOnboardingBack(pathname)) {
-      router.replace(fallbackHref);
+      navigateBack(fallbackHref);
+      return;
+    }
+    if (fallbackHref && shouldPreferExplicitInboxMessageBack(pathname)) {
+      navigateBack(fallbackHref);
       return;
     }
     if (fallbackHref && shouldPreferExplicitInboxThreadBack(pathname)) {
-      router.replace(fallbackHref);
+      navigateBack(fallbackHref);
+      return;
+    }
+    if (fallbackHref && shouldPreferExplicitBrandBack(pathname, searchParams)) {
+      navigateBack(fallbackHref);
       return;
     }
     if (router.canGoBack()) {
@@ -62,12 +89,26 @@ export function StackHeaderBack(props: StackHeaderBackProps) {
   return null;
 }
 
-type StackBackSearchParams = { source?: string | string[] };
+type StackBackSearchParams = {
+  source?: string | string[];
+  threadId?: string | string[];
+  returnTo?: string | string[];
+  parentReturnTo?: string | string[];
+  directReturn?: string | string[];
+};
 
 function searchParamValue(value: string | string[] | undefined): string | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value)) return value[0];
   return undefined;
+}
+
+/**
+ * Inbox message detail should return to the parent thread, not router.back() into the previous tab.
+ */
+export function shouldPreferExplicitInboxMessageBack(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean);
+  return parts[0] === 'inbox' && parts[1] === 'message' && parts.length === 3;
 }
 
 /**
@@ -77,6 +118,11 @@ function searchParamValue(value: string | string[] | undefined): string | undefi
 export function shouldPreferExplicitInboxThreadBack(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean);
   return parts[0] === 'inbox' && parts.length === 2;
+}
+
+export function shouldPreferExplicitBrandBack(pathname: string, searchParams?: StackBackSearchParams): boolean {
+  const parts = pathname.split('/').filter(Boolean);
+  return parts[0] === 'brand' && parts.length === 2 && !!searchParamValue(searchParams?.returnTo);
 }
 
 /** Onboarding linear steps should not use router.back() — the stack often hides `/onboarding` index. */
@@ -107,6 +153,46 @@ export function getStackBackFallbackHref(
   }
 
   const parts = pathname.split('/').filter(Boolean);
+  const returnTo = searchParamValue(searchParams?.returnTo);
+  const parentReturnTo = searchParamValue(searchParams?.parentReturnTo);
+
+  if (parts[0] === 'inbox' && parts[1] === 'message' && parts[2]) {
+    const threadId = searchParamValue(searchParams?.threadId);
+    const directReturn = searchParamValue(searchParams?.directReturn) === '1';
+
+    if (returnTo && directReturn) {
+      return resolveReturnTarget(returnTo, parentReturnTo);
+    }
+    if (threadId) {
+      if (returnTo || parentReturnTo) {
+        return inboxThreadHref(threadId, { returnTo, parentReturnTo });
+      }
+      return `/inbox/${threadId}` as Href;
+    }
+    if (returnTo) {
+      return resolveReturnTarget(returnTo, parentReturnTo);
+    }
+    return '/inbox' as Href;
+  }
+
+  if (parts[0] === 'inbox' && parts.length === 2) {
+    if (returnTo) {
+      return resolveReturnTarget(returnTo, parentReturnTo);
+    }
+    return '/inbox' as Href;
+  }
+
+  if (parts[0] === 'deal' && parts.length === 2 && returnTo) {
+    return resolveReturnTarget(returnTo, parentReturnTo);
+  }
+
+  if (parts[0] === 'brand' && parts.length === 2) {
+    if (returnTo) {
+      return returnTo as Href;
+    }
+    return null;
+  }
+
   if (parts.length <= 1) return null;
 
   if (parts[0] === 'deal' && parts[1]) {

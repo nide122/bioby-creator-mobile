@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { DraftKind, EscrowLifecyclePhase, InboxEmailCategory, InboxLeadStage, LeadValueBand, OpportunityPipelinePhase } from '@/src/types/domain';
+import type { DraftKind, EscrowLifecyclePhase, InboxEmailCategory, InboxLeadStage, InboxPriority, LeadValueBand, OpportunityPipelinePhase } from '@/src/types/domain';
 
 export function useDomainLabels() {
   const { t } = useTranslation();
@@ -38,6 +38,16 @@ export function useDomainLabels() {
       personal: t('labels.inboxCategory.personal'),
       spam: t('labels.inboxCategory.spam'),
       other: t('labels.inboxCategory.other'),
+    }),
+    [t]
+  );
+
+  const inboxPriorityLabel = useMemo(
+    (): Record<InboxPriority, string> => ({
+      p0: t('labels.inboxPriority.p0'),
+      p1: t('labels.inboxPriority.p1'),
+      p2: t('labels.inboxPriority.p2'),
+      p3: t('labels.inboxPriority.p3'),
     }),
     [t]
   );
@@ -83,6 +93,7 @@ export function useDomainLabels() {
     escrowLifecycleLabel,
     inboxLeadStageLabel,
     inboxCategoryLabel,
+    inboxPriorityLabel,
     leadValueBandLabel,
     draftKindLabel,
     opportunityPipelinePhaseLabel,

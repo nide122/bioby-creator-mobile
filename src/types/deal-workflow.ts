@@ -45,4 +45,21 @@ export type DealPacketView = {
   title: string;
   brandPlaceholder: string;
   packet: DealPacketContent;
+  fulfillmentStatus?: DealFulfillmentStatusView;
+};
+
+export type DealFulfillmentStatusPhase = 'done' | 'active' | 'waiting' | 'blocked';
+
+export type DealFulfillmentStatusBlock = {
+  id: 'payment' | 'revision' | 'brandReview' | string;
+  phase: DealFulfillmentStatusPhase;
+  statusKey: string;
+  nextStepKey: string;
+  revisionCount?: number | null;
+};
+
+export type DealFulfillmentStatusView = {
+  payment: DealFulfillmentStatusBlock;
+  revision: DealFulfillmentStatusBlock;
+  brandReview: DealFulfillmentStatusBlock;
 };

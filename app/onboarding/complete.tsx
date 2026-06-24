@@ -25,6 +25,8 @@ export default function OnboardingCompleteScreen() {
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
   const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
+  const rateCardStepFinished = useSessionStore((s) => s.rateCardStepFinished);
+  const rateCardSkipped = useSessionStore((s) => s.rateCardSkipped);
   const agentSendMode = useSessionStore((s) => s.agentSendMode);
   const creatorFocusMode = useSessionStore((s) => s.creatorFocusMode);
   const colorScheme = useColorScheme() ?? 'light';
@@ -49,6 +51,10 @@ export default function OnboardingCompleteScreen() {
     }
     if (!emailWizardFinished) {
       router.replace('/onboarding/email' as Href);
+      return;
+    }
+    if (!rateCardStepFinished) {
+      router.replace('/onboarding/pricing-setup' as Href);
       return;
     }
     finalizeOnboarding();
@@ -143,6 +149,25 @@ export default function OnboardingCompleteScreen() {
           {emailSkipped
             ? t('onboardingCompleteScreen.emailSkippedSecondary')
             : t('onboardingCompleteScreen.emailConnectedSecondary')}
+        </Text>
+      </SectionCard>
+
+      <SectionCard
+        title={
+          rateCardSkipped
+            ? t('onboardingCompleteScreen.rateCardSkippedTitle')
+            : t('onboardingCompleteScreen.rateCardConfiguredTitle')
+        }
+        emphasis={rateCardSkipped}>
+        <Text style={[styles.meta, { color: theme.foreground }]}>
+          {rateCardSkipped
+            ? t('onboardingCompleteScreen.rateCardSkippedPrimary')
+            : t('onboardingCompleteScreen.rateCardConfiguredPrimary')}
+        </Text>
+        <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+          {rateCardSkipped
+            ? t('onboardingCompleteScreen.rateCardSkippedSecondary')
+            : t('onboardingCompleteScreen.rateCardConfiguredSecondary')}
         </Text>
       </SectionCard>
 

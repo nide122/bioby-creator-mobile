@@ -3,11 +3,17 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
 import { enterDemoWorkspace } from '@/src/auth/enter-demo-workspace';
+import { setMockRateCardPackagesForTest } from '@/src/api/mock-growth';
+import { queryClient } from '@/src/lib/query-client';
+import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
+import type { RateCardPackage } from '@/src/types/domain';
 
 declare global {
   interface Window {
     /** Web dev / Playwright: client-side navigation without full reload. */
     __BIOBY_DEV_NAVIGATE__?: (path: string) => void;
+    /** Web dev / Playwright: seed mock rate-card packages and refresh queries. */
+    __BIOBY_DEV_SET_RATE_CARDS__?: (packages: RateCardPackage[]) => Promise<void>;
   }
 }
 
@@ -46,8 +52,14 @@ export function DevTestSeed() {
       router.push(path as Href);
     };
 
+    window.__BIOBY_DEV_SET_RATE_CARDS__ = async (packages) => {
+      setMockRateCardPackagesForTest(packages);
+      await invalidateTenantScopedQueries(queryClient);
+    };
+
     return () => {
       delete window.__BIOBY_DEV_NAVIGATE__;
+      delete window.__BIOBY_DEV_SET_RATE_CARDS__;
     };
   }, [router]);
 

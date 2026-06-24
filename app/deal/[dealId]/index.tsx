@@ -22,6 +22,8 @@ import {
   type BadgeTone,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { DealStatusStrip } from '@/components/deals/DealStatusStrip';
+import { DealTermsWithContractSection } from '@/components/deals/DealTermsWithContractSection';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
@@ -32,10 +34,13 @@ import { ApiError } from '@/src/api/api-client';
 import { alertAction } from '@/src/lib/app-dialog';
 import { invalidateDealListQueries, invalidateDealWorkspaceQueries, refetchDealWorkspaceQueries } from '@/src/lib/invalidate-deal-queries';
 import { localizeDealSummaryCopy } from '@/src/lib/deal-copy-i18n';
+import { resolveFulfillmentStatus } from '@/src/lib/deal-fulfillment-status';
 import { cooperationLeadLine, shouldShowCooperationBrandEyebrow } from '@/src/lib/cooperation-display-name';
 import { getActiveTenantPublicId, tenantQueryKey } from '@/src/lib/tenant-query';
 import { useDealWorkspaceFocusRefresh, useDealWorkspaceRefresh } from '@/src/hooks/use-deal-refresh';
 import { useDealDetail } from '@/src/hooks/use-deals';
+import { useDealPacket } from '@/src/hooks/use-deal-packet';
+import { useDealTermsAndContract } from '@/src/hooks/use-deal-terms-and-contract';
 
 function escrowTone(phase: EscrowLifecyclePhase): BadgeTone {
   switch (phase) {
@@ -92,6 +97,8 @@ export default function DealOverviewScreen() {
   const theme = palette[colorScheme];
 
   const query = useDealDetail(safeId);
+  const packetQuery = useDealPacket(safeId);
+  const termsContract = useDealTermsAndContract(query.data);
   const { refreshing, onRefresh } = useDealWorkspaceRefresh(safeId);
   useDealWorkspaceFocusRefresh(safeId);
   const [actionPending, setActionPending] = useState(false);
@@ -219,6 +226,11 @@ export default function DealOverviewScreen() {
 
   const deal = query.data;
   const dealCopy = localizeDealSummaryCopy(deal, t);
+  const fulfillmentStatus = resolveFulfillmentStatus(
+    deal,
+    packetQuery.data?.packet,
+    packetQuery.data?.fulfillmentStatus,
+  );
   const primary = primaryNextFor(deal);
   const decisionTitle =
     deal.escrowPhase === 'awaiting_prepay'
@@ -338,6 +350,17 @@ export default function DealOverviewScreen() {
           </Pressable>
         )}
       </View>
+
+      <DealStatusStrip dealId={deal.id} status={fulfillmentStatus} />
+
+      <DealTermsWithContractSection
+        loading={termsContract.loading}
+        termLines={termsContract.termLines}
+        deliverableLines={termsContract.deliverableLines}
+        usageRights={termsContract.usageRights}
+        showContractBlock={termsContract.showContractBlock}
+        contractCardProps={termsContract.contractCardProps}
+      />
 
       {deal.source === 'recommended' ? (
         <SectionCard title={t('dealDetailScreen.whyRecommendedTitle')} subtitle={t('dealDetailScreen.whyRecommendedSubtitle')}>

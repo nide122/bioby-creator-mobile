@@ -30,8 +30,17 @@ export const MOCK_DECISIONS: DecisionCard[] = [
     urgencyNote: 'Needs attention today',
     interruptReason: 'Claims need pre-review before quote.',
     leadValueBand: 'high_value',
+    inboxPriority: 'p1',
     sourceHint: 'Inbox · 2 short videos | Claims need pre-review',
     sourceHref: '/inbox/thread-skincare',
+    contractRiskFlags: [
+      {
+        id: 'rf-claims',
+        label: 'Claims may need pre-review',
+        severity: 'warning',
+        hint: 'Add compliance review window.',
+      },
+    ],
     actions: [
       { id: 'open', label: 'Open thread', style: 'primary', href: '/inbox/thread-skincare' },
       { id: 'later', label: 'Snooze', style: 'ghost' },
@@ -44,8 +53,17 @@ export const MOCK_DECISIONS: DecisionCard[] = [
     headline: 'Decide on TrailPeak Gear pitch',
     aiNote: 'Broad usage and prepay still unclear — negotiate before committing dates.',
     leadValueBand: 'needs_negotiation',
+    inboxPriority: 'p0',
     sourceHint: 'Inbox · Outdoor gear · long-term usage ask',
     sourceHref: '/inbox/thread-hardware',
+    contractRiskFlags: [
+      {
+        id: 'rf-broad',
+        label: 'Broad usage requested',
+        severity: 'danger',
+        hint: 'Split base deliverables from extended usage add-ons.',
+      },
+    ],
     actions: [
       { id: 'open', label: 'Open thread', style: 'primary', href: '/inbox/thread-hardware' },
       { id: 'later', label: 'Snooze', style: 'ghost' },

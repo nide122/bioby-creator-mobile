@@ -18,6 +18,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
 import { primeMockGrowthQueryFailure } from '@/src/api/mock-growth';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
+import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { useAssetsHubSummaries } from '@/src/hooks/use-assets-hub-summaries';
 
@@ -36,6 +37,7 @@ export default function AssetsScreen() {
       queryClient.invalidateQueries({ queryKey: ['drafts'] }),
       queryClient.invalidateQueries({ queryKey: ['trust'] }),
       queryClient.invalidateQueries({ queryKey: ['disputes'] }),
+      invalidateTenantScopedQueries(queryClient),
     ]);
   }, [queryClient]);
   const { refreshing, onRefresh } = useTabRefresh(refreshAssets);
@@ -115,6 +117,14 @@ export default function AssetsScreen() {
           subtitle={t('assetsScreen.rows.proposal.subtitle')}
           detail={hub.proposalDetail}
           onPress={() => router.push('/proposal/sample' as Href)}
+        />
+        <AssetRow
+          testID="assets-row-reply-templates"
+          icon="chatbubble-ellipses-outline"
+          title={t('assetsScreen.rows.replyTemplates.title')}
+          subtitle={t('assetsScreen.rows.replyTemplates.subtitle')}
+          detail={hub.replyTemplatesDetail}
+          onPress={() => router.push('/settings/reply-templates' as Href)}
         />
       </SettingsGroup>
 

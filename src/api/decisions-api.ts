@@ -1,7 +1,7 @@
 import { apiRequest } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { fetchMockDecisions } from '@/src/api/mock-decisions';
-import { asLeadValueBand } from '@/src/api/opportunity-mappers';
+import { asLeadValueBand, asInboxPriority, parseRiskFlags } from '@/src/api/opportunity-mappers';
 import type { DecisionAction, DecisionCard, DecisionCategory } from '@/src/types/domain';
 
 type DecisionActionDto = {
@@ -22,7 +22,10 @@ type DecisionCardDto = {
   amountLabel?: string | null;
   sourceHint?: string | null;
   sourceHref?: string | null;
+  /** @deprecated Prefer inboxPriority. Kept for legacy clients. */
   leadValueBand?: string | null;
+  inboxPriority?: 'p0' | 'p1' | 'p2' | 'p3' | null;
+  contractRiskFlags?: unknown;
   actions: DecisionActionDto[];
 };
 
@@ -56,6 +59,8 @@ function mapCard(dto: DecisionCardDto): DecisionCard {
     sourceHint: dto.sourceHint ?? undefined,
     sourceHref: dto.sourceHref ?? undefined,
     leadValueBand: asLeadValueBand(dto.leadValueBand),
+    inboxPriority: asInboxPriority(dto.inboxPriority ?? undefined),
+    contractRiskFlags: parseRiskFlags(dto.contractRiskFlags),
     actions: (dto.actions ?? []).map(
       (a): DecisionAction => ({
         id: a.id,

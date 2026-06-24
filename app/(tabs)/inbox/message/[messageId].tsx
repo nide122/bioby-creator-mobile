@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createElement, type CSSProperties, useEffect, useRef } from 'react';
+import { createElement, type CSSProperties, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -11,10 +11,17 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing, type ThemePalette } from '@/constants/tokens';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { fetchEmailMessage } from '@/src/api/mailbox-api';
+import type { EmailAttachment } from '@/src/api/mailbox-api';
 import { fetchOpportunityThreadDetail } from '@/src/api/opportunities-api';
+import { ApiError } from '@/src/api/api-client';
+import { alertAction } from '@/src/lib/app-dialog';
+import { ContractSummaryCard } from '@/components/deals/ContractSummaryCard';
+import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-editor';
+import { EmailAttachmentsList } from '@/components/mail/EmailAttachmentsList';
 import { invalidateTenantScopedQueries, useTenantQueryKey, useTenantScopedQueryEnabled } from '@/src/lib/tenant-query';
 import { calendarLocaleTagForLanguage } from '@/src/i18n';
 import { stripQuotedEmailContent, stripQuotedPlainText } from '@/src/lib/email-body';
+import { useReturnToBackNavigation } from '@/src/lib/use-return-to-back-navigation';
 
 const UNSAFE_BLOCK_TAG_RE = /<\s*(script|style|head|title|iframe|object|embed|form|textarea|select|option|noscript)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi;
 const UNSAFE_VOID_TAG_RE = /<\s*(script|style|iframe|object|embed|form|input|button|meta|link|base)\b[^>]*\/?\s*>/gi;
@@ -349,9 +356,19 @@ export default function InboxMessageDetailScreen() {
   const theme = palette[colorScheme];
   const dateLocale = calendarLocaleTagForLanguage(i18n.language);
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ messageId?: string | string[]; threadId?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    messageId?: string | string[];
+    threadId?: string | string[];
+    returnTo?: string | string[];
+    parentReturnTo?: string | string[];
+    directReturn?: string | string[];
+  }>();
   const messageId = Array.isArray(params.messageId) ? params.messageId[0] : params.messageId;
   const threadId = Array.isArray(params.threadId) ? params.threadId[0] : params.threadId;
+  const returnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const parentReturnTo = Array.isArray(params.parentReturnTo) ? params.parentReturnTo[0] : params.parentReturnTo;
+  const directReturn = (Array.isArray(params.directReturn) ? params.directReturn[0] : params.directReturn) === '1';
+  useReturnToBackNavigation(directReturn ? returnTo : null, directReturn ? parentReturnTo : null);
   const apiMode = shouldUseBackendApi();
   const canFetchRemote = apiMode && !!messageId && /^\d+$/.test(messageId);
   const tenantQueryEnabled = useTenantScopedQueryEnabled();
@@ -362,9 +379,80 @@ export default function InboxMessageDetailScreen() {
     queryKey: mailboxMessageKey,
     queryFn: () => fetchEmailMessage(messageId as string),
     enabled: canFetchRemote && tenantQueryEnabled,
+    staleTime: 0,
   });
 
   const syncedReadRef = useRef<string | null>(null);
+  const [summarizingAttachmentId, setSummarizingAttachmentId] = useState<string | null>(null);
+
+  const threadDetailQuery = useQuery({
+    queryKey: inboxThreadKey,
+    queryFn: () => fetchOpportunityThreadDetail(threadId as string),
+    enabled: canFetchRemote && !!threadId && tenantQueryEnabled,
+  });
+
+  const contractForMessage =
+    threadDetailQuery.data?.contractSummary?.emailMessageId === messageId
+      ? threadDetailQuery.data.contractSummary
+      : null;
+
+  const contractEditor = useContractSummaryEditor({
+    opportunityId: threadId,
+    saved: contractForMessage,
+    emailMessageId: messageId,
+    emailQueryKey: mailboxMessageKey,
+    queryClient,
+    threadQueryKey: inboxThreadKey,
+  });
+
+  const summarizePdfAttachment = async (attachment: EmailAttachment) => {
+    if (!threadId || !messageId) {
+      void alertAction(t('contractSummary.title'), t('contractSummary.missingThread'));
+      return;
+    }
+    setSummarizingAttachmentId(attachment.id);
+    try {
+      await contractEditor.parseFromAttachment(messageId, attachment.id);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    } finally {
+      setSummarizingAttachmentId(null);
+    }
+  };
+
+  const saveContractSummary = async () => {
+    try {
+      await contractEditor.saveDraft();
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    }
+  };
+  const saveDocumentSummary = async () => {
+    if (!messageId) return;
+    try {
+      await contractEditor.saveDocumentDraft(messageId);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    }
+  };
   useEffect(() => {
     if (!canFetchRemote || !remoteQuery.isSuccess || !remoteQuery.data || !messageId) return;
     if (remoteQuery.data.direction === 'outbound') return;
@@ -407,6 +495,12 @@ export default function InboxMessageDetailScreen() {
       );
     }
     const email = remoteQuery.data;
+    const savedDocument = email.documentSummary ?? null;
+    const showDraftCard =
+      !!contractEditor.draft ||
+      contractEditor.parsing ||
+      !!summarizingAttachmentId ||
+      contractEditor.unsaved;
     const rawHtml = email.bodyHtml?.trim();
     const stripped = stripQuotedEmailContent(email.bodyText, rawHtml);
     const htmlBody = stripped.html ?? undefined;
@@ -430,6 +524,42 @@ export default function InboxMessageDetailScreen() {
             {senderLabel}
             {when ? ` · ${when}` : ''}
           </Text>
+          {email.attachments && email.attachments.length > 0 ? (
+            <EmailAttachmentsList
+              messageId={email.id}
+              attachments={email.attachments}
+              onSummarizePdf={threadId ? summarizePdfAttachment : undefined}
+              summarizingAttachmentId={summarizingAttachmentId}
+            />
+          ) : null}
+          {savedDocument && !showDraftCard ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <ContractSummaryCard summary={savedDocument} editable={false} headerStyle="attachmentFilename" />
+            </View>
+          ) : null}
+          {contractForMessage && !showDraftCard ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <ContractSummaryCard summary={contractForMessage} editable={false} headerStyle="attachmentFilename" />
+            </View>
+          ) : null}
+          {showDraftCard ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <ContractSummaryCard
+                summary={contractEditor.displayed}
+                loading={contractEditor.parsing || !!summarizingAttachmentId}
+                saving={contractEditor.saving}
+                savingTarget={contractEditor.savingTarget}
+                unsaved={contractEditor.unsaved}
+                editable={!!contractEditor.displayed && contractEditor.displayed.status !== 'FAILED'}
+                saveLayout="email"
+                headerStyle="attachmentFilename"
+                onChange={contractEditor.patchDraft}
+                onSaveDocument={() => void saveDocumentSummary()}
+                onSaveContract={() => void saveContractSummary()}
+                onCancel={contractEditor.cancelDraft}
+              />
+            </View>
+          ) : null}
           {htmlBody ? (
             <EmailHtmlBody fallbackText={body} html={htmlBody} theme={theme} />
           ) : (

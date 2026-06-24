@@ -29,20 +29,28 @@ import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { getMockInboxThreadBrandHint } from '@/src/api/mock-inbox';
-import { approveDraftOnServer, sendNativeMailboxDraft, syncDraftToNativeMailbox, type RemoteDraftSyncResult } from '@/src/api/drafts-api';
+import { approveDraftOnServer, sendNativeMailboxDraft, syncDraftToNativeMailbox, type GeneratedReplyDraft, type RemoteDraftSyncResult } from '@/src/api/drafts-api';
 import { syncMailbox } from '@/src/api/mailbox-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { alertAction } from '@/src/lib/app-dialog';
 import { useDraftDetail } from '@/src/hooks/use-drafts';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { useMailboxConnection } from '@/src/hooks/use-mailbox-connection';
+import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
+import { useRateCardPackages } from '@/src/hooks/use-growth';
+import { buildReplyTemplateContext } from '@/src/lib/reply-template-context';
 import {
   mailboxSendFlowReady,
   normalizeMailboxDraftProviderError,
   resolveMailboxDraftError,
 } from '@/src/lib/mailbox-draft-i18n';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
+import { ReplyDraftGeneratorSheet } from '@/components/drafts/ReplyDraftGeneratorSheet';
+import { ReplyTemplatePicker } from '@/src/components/reply-templates/ReplyTemplatePicker';
+import { renderReplyTemplateForSend } from '@/src/lib/reply-template-render';
+import type { RenderReplyTemplateInput } from '@/src/types/reply-template';
 import { useDraftApprovalStore } from '@/src/stores/draft-approval-store';
+import { useSessionStore } from '@/src/stores/session-store';
 
 export default function DraftDetailScreen() {
   const { t, i18n } = useTranslation();
@@ -63,6 +71,8 @@ export default function DraftDetailScreen() {
   const approvedAtLocal = useDraftApprovalStore((s) => (draftId ? s.approvedAtById[draftId] : undefined));
 
   const query = useDraftDetail(draftId);
+  const threadQuery = useInboxThreadDetail(threadId);
+  const rateCardQuery = useRateCardPackages();
   const mailbox = useMailboxConnection();
   const mailboxCapabilities = mailbox.data?.capabilities;
   const mailboxSendReady = mailboxSendFlowReady(
@@ -78,6 +88,8 @@ export default function DraftDetailScreen() {
   const [draftSyncFlash, setDraftSyncFlash] = useState<'saved' | 'updated' | null>(null);
   const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
   const [approveLoading, setApproveLoading] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
 
   useEffect(() => {
     if (query.data?.body) {
@@ -97,11 +109,68 @@ export default function DraftDetailScreen() {
     }, [mailbox.refetch]),
   );
 
+  const profileBasics = useSessionStore((s) => s.profileBasics);
+
   const brandHint = useMemo(() => {
     if (shouldUseBackendApi()) return query.data?.sourceBrandHint;
     if (threadId) return getMockInboxThreadBrandHint(threadId);
     return query.data?.sourceBrandHint;
   }, [threadId, query.data?.sourceBrandHint]);
+
+  const templateRenderContext = useMemo((): RenderReplyTemplateInput => {
+    const thread = threadQuery.data;
+    const base = buildReplyTemplateContext({
+      opportunityId: threadId,
+      thread: thread ?? (brandHint ? { brandName: brandHint, subject: query.data?.title } : undefined),
+      creatorName: profileBasics?.displayName?.trim() || t('auth.creatorFallback'),
+      rateCardPackages: rateCardQuery.data,
+    });
+    if (!base.brandName && brandHint) {
+      return { ...base, brandName: brandHint };
+    }
+    if (!base.cooperationTitle && query.data?.title) {
+      return { ...base, cooperationTitle: query.data.title };
+    }
+    return base;
+  }, [
+    brandHint,
+    profileBasics?.displayName,
+    query.data?.title,
+    rateCardQuery.data,
+    threadId,
+    threadQuery.data,
+    t,
+  ]);
+
+  const resolveBodyForSend = useCallback(
+    (draftBody: string) => renderReplyTemplateForSend(draftBody, templateRenderContext),
+    [templateRenderContext],
+  );
+
+  const onInsertTemplate = useCallback((rendered: string) => {
+    setBody((current) => {
+      const trimmed = current.trim();
+      if (!trimmed) return rendered;
+      return `${trimmed}\n\n${rendered}`;
+    });
+  }, []);
+
+  const onAiGenerated = useCallback(
+    (result: GeneratedReplyDraft) => {
+      if (!result.draft) return;
+      if (result.draft.id !== draftId) {
+        router.replace(`/drafts/${result.draft.id}?threadId=${encodeURIComponent(threadId ?? '')}` as Href);
+        return;
+      }
+      setBody(result.draft.body);
+      void queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      void queryClient.invalidateQueries({ queryKey: ['draft', draftId] });
+    },
+    [draftId, queryClient, router, threadId],
+  );
+
+  const generationSource = query.data?.generationSource;
+  const emailSubject = query.data?.emailSubject;
 
   if (!draftId) {
     return (
@@ -200,7 +269,10 @@ export default function DraftDetailScreen() {
     setRemoteDraftLoading(true);
     setRemoteDraftError(null);
     try {
-      const result = await syncDraftToNativeMailbox(draftId, { bodyText: body });
+      const result = await syncDraftToNativeMailbox(draftId, {
+        bodyText: resolveBodyForSend(body),
+        subject: emailSubject ?? undefined,
+      });
       setRemoteDraftResult(result);
       if (result?.errorMessage) {
         setRemoteDraftError(normalizeMailboxDraftProviderError(result.errorMessage, t));
@@ -239,19 +311,16 @@ export default function DraftDetailScreen() {
       if (result?.errorMessage) {
         setRemoteDraftError(normalizeMailboxDraftProviderError(result.errorMessage, t));
       } else if (result?.status === 'SENT') {
-        void Promise.all([
-          invalidateTenantScopedQueries(queryClient),
-          syncMailbox({ lookback: 'INCREMENTAL' }).then(() => {
-            void queryClient.invalidateQueries({ queryKey: ['inbox'] });
-            void queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] });
-            void queryClient.invalidateQueries({ queryKey: ['decisions'] });
-          }),
-        ]).then(() => {
-          if (detail.kind === 'quote') {
-            void alertAction(t('draftDetail.sentQuoteNextTitle'), t('draftDetail.sentQuoteNextBody'));
-          } else if (threadId) {
-            void alertAction(t('draftDetail.sentReplyNextTitle'), t('draftDetail.sentReplyNextBody'));
-          }
+        if (detail.kind === 'quote') {
+          void alertAction(t('draftDetail.sentQuoteNextTitle'), t('draftDetail.sentQuoteNextBody'));
+        } else if (threadId) {
+          void alertAction(t('draftDetail.sentReplyNextTitle'), t('draftDetail.sentReplyNextBody'));
+        }
+        void invalidateTenantScopedQueries(queryClient);
+        void syncMailbox({ lookback: 'INCREMENTAL' }).then(() => {
+          void queryClient.invalidateQueries({ queryKey: ['inbox'] });
+          void queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] });
+          void queryClient.invalidateQueries({ queryKey: ['decisions'] });
         });
       }
     } catch (error) {
@@ -323,6 +392,7 @@ export default function DraftDetailScreen() {
         : t('draftDetail.nativeDraftCreateCta');
 
   return (
+    <>
     <HubScreen eyebrow={t('tabs.assets')} title={decisionTitle} lead={headerSubtitle}>
       <View style={styles.row}>
         <Badge tone="mint" label={draftKindLabel[detail.kind]} />
@@ -393,6 +463,7 @@ export default function DraftDetailScreen() {
                       {t('draftDetail.recheckCta')}
                     </Text>
                   </Pressable>
+                  <View style={styles.confirmActionsSpacer} />
                   <Pressable
                     accessibilityRole="button"
                     disabled={approveLoading}
@@ -481,6 +552,38 @@ export default function DraftDetailScreen() {
             {remoteDraftError ? (
               <Text style={[styles.commentMeta, { color: '#DC2626' }]}>{remoteDraftError}</Text>
             ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.composeToolbar}>
+          {threadId ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowAiGenerator(true)}
+              style={[styles.secondary, styles.composeToolbarButton, { borderColor: theme.border }]}>
+              <Text style={[styles.secondaryLabel, { color: theme.primary }]}>{t('replyDraftGenerator.openCta')}</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowTemplatePicker(true)}
+            style={[styles.secondary, styles.composeToolbarButton, { borderColor: theme.border }]}>
+            <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>{t('draftDetail.insertTemplateCta')}</Text>
+          </Pressable>
+        </View>
+        {generationSource ? (
+          <Text style={[styles.generationSource, { color: theme.mutedForeground }]}>
+            {generationSource === 'llm'
+              ? t('replyDraftGenerator.sourceLlm')
+              : t('replyDraftGenerator.sourceRules')}
+          </Text>
+        ) : null}
+        {emailSubject ? (
+          <View style={[styles.subjectCard, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+            <Text style={[styles.subjectLabel, { color: theme.foregroundSubtitle }]}>
+              {t('replyDraftGenerator.subjectLabel')}
+            </Text>
+            <Text style={[styles.subjectValue, { color: theme.foreground }]}>{emailSubject}</Text>
           </View>
         ) : null}
 
@@ -589,6 +692,23 @@ export default function DraftDetailScreen() {
         ]}
       />
     </HubScreen>
+    <ReplyTemplatePicker
+      visible={showTemplatePicker}
+      onClose={() => setShowTemplatePicker(false)}
+      onInsert={onInsertTemplate}
+      renderContext={templateRenderContext}
+    />
+    <ReplyDraftGeneratorSheet
+      visible={showAiGenerator}
+      opportunityId={threadId}
+      rateCardPackages={rateCardQuery.data}
+      locale={i18n.language}
+      overwriteDraftId={draftId}
+      hasExistingBody={!!body.trim()}
+      onClose={() => setShowAiGenerator(false)}
+      onGenerated={onAiGenerated}
+    />
+    </>
   );
 }
 
@@ -608,21 +728,22 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
   },
-  confirmActions: { flexDirection: 'row', gap: spacing.sm },
+  confirmActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  confirmActionsSpacer: { flex: 1 },
   confirmPrimary: {
-    flex: 1,
     borderRadius: radii.md,
     minHeight: layout.touchMin,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
   confirmSecondary: {
-    flex: 1,
     borderRadius: radii.md,
     borderWidth: 1,
     minHeight: layout.touchMin,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
   commentMeta: { fontSize: fontSize.caption, fontWeight: '600' },
   commentBody: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
@@ -642,6 +763,36 @@ const styles = StyleSheet.create({
     minHeight: layout.touchMin,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  composeToolbar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  composeToolbarButton: {
+    flexGrow: 1,
+    flexBasis: '48%',
+    paddingHorizontal: spacing.md,
+  },
+  generationSource: {
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
+  },
+  subjectCard: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    gap: spacing.xxs,
+  },
+  subjectLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  subjectValue: {
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.bodyRelaxed,
   },
   ghost: {
     borderRadius: radii.md,

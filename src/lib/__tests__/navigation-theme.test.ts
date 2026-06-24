@@ -1,8 +1,11 @@
 import {
   getStackBackFallbackHref,
+  shouldPreferExplicitBrandBack,
+  shouldPreferExplicitInboxMessageBack,
   shouldPreferExplicitInboxThreadBack,
   shouldPreferExplicitOnboardingBack,
 } from '../navigation-theme';
+import { resolveReturnTarget } from '../open-brand-detail';
 
 describe('shouldPreferExplicitOnboardingBack', () => {
   it('is true for linear onboarding steps except profile', () => {
@@ -17,6 +20,17 @@ describe('shouldPreferExplicitOnboardingBack', () => {
   });
 });
 
+describe('shouldPreferExplicitInboxMessageBack', () => {
+  it('is true for inbox message detail routes', () => {
+    expect(shouldPreferExplicitInboxMessageBack('/inbox/message/81')).toBe(true);
+  });
+
+  it('is false for thread detail and inbox list', () => {
+    expect(shouldPreferExplicitInboxMessageBack('/inbox/42')).toBe(false);
+    expect(shouldPreferExplicitInboxMessageBack('/inbox')).toBe(false);
+  });
+});
+
 describe('shouldPreferExplicitInboxThreadBack', () => {
   it('is true for thread detail routes', () => {
     expect(shouldPreferExplicitInboxThreadBack('/inbox/42')).toBe(true);
@@ -24,6 +38,25 @@ describe('shouldPreferExplicitInboxThreadBack', () => {
 
   it('is false for inbox list', () => {
     expect(shouldPreferExplicitInboxThreadBack('/inbox')).toBe(false);
+  });
+});
+
+describe('shouldPreferExplicitBrandBack', () => {
+  it('is true when brand detail has returnTo', () => {
+    expect(shouldPreferExplicitBrandBack('/brand/5', { returnTo: '/inbox' })).toBe(true);
+  });
+
+  it('is false without returnTo', () => {
+    expect(shouldPreferExplicitBrandBack('/brand/5')).toBe(false);
+  });
+});
+
+describe('resolveReturnTarget', () => {
+  it('re-attaches parent returnTo when navigating back to brand', () => {
+    expect(resolveReturnTarget('/brand/5', '/inbox')).toEqual({
+      pathname: '/brand/[brandId]',
+      params: { brandId: '5', returnTo: '/inbox' },
+    });
   });
 });
 
@@ -57,6 +90,60 @@ describe('getStackBackFallbackHref', () => {
 
     it('inbox thread detail returns inbox list', () => {
       expect(getStackBackFallbackHref('/inbox/42')).toBe('/inbox');
+    });
+
+    it('inbox thread detail returns returnTo when provided', () => {
+      expect(getStackBackFallbackHref('/inbox/42', { returnTo: '/brand/5' })).toBe('/brand/5');
+    });
+
+    it('inbox thread detail restores brand context with parentReturnTo', () => {
+      expect(getStackBackFallbackHref('/inbox/42', { returnTo: '/brand/5', parentReturnTo: '/inbox' })).toEqual({
+        pathname: '/brand/[brandId]',
+        params: { brandId: '5', returnTo: '/inbox' },
+      });
+    });
+
+    it('inbox message detail returns returnTo when directReturn is set', () => {
+      expect(
+        getStackBackFallbackHref('/inbox/message/81', {
+          threadId: '53',
+          returnTo: '/brand/5',
+          parentReturnTo: '/inbox',
+          directReturn: '1',
+        }),
+      ).toEqual({
+        pathname: '/brand/[brandId]',
+        params: { brandId: '5', returnTo: '/inbox' },
+      });
+    });
+
+    it('inbox message detail returns parent thread when opened from thread detail', () => {
+      expect(
+        getStackBackFallbackHref('/inbox/message/81', {
+          threadId: '53',
+          returnTo: '/brand/5',
+          parentReturnTo: '/inbox',
+        }),
+      ).toEqual({
+        pathname: '/inbox/[threadId]',
+        params: { threadId: '53', returnTo: '/brand/5', parentReturnTo: '/inbox' },
+      });
+    });
+
+    it('inbox message detail returns returnTo when provided without thread context', () => {
+      expect(getStackBackFallbackHref('/inbox/message/81', { returnTo: '/brand/5' })).toBe('/brand/5');
+    });
+
+    it('inbox message detail returns parent thread when threadId is present without returnTo', () => {
+      expect(getStackBackFallbackHref('/inbox/message/81', { threadId: '53' })).toBe('/inbox/53');
+    });
+
+    it('inbox message detail falls back to inbox list without threadId', () => {
+      expect(getStackBackFallbackHref('/inbox/message/81')).toBe('/inbox');
+    });
+
+    it('brand detail returns upstream returnTo', () => {
+      expect(getStackBackFallbackHref('/brand/5', { returnTo: '/inbox' })).toBe('/inbox');
     });
   });
 });

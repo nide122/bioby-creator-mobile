@@ -12,6 +12,7 @@ export type OpportunityMessageStats = {
 
 export type OpportunityListItem = {
   id: string;
+  brandId?: string | null;
   brandName: string;
   subject: string;
   preview: string;
@@ -20,8 +21,19 @@ export type OpportunityListItem = {
   actionTier: string;
   actionReasons?: { code: string; message: string }[];
   leadStage: string;
+  /** @deprecated Prefer inboxPriority. Kept for legacy clients. */
   leadValueBand?: string;
   classificationSortScore?: number;
+  inboxPriority?: 'p0' | 'p1' | 'p2' | 'p3';
+  priorityScore?: number | null;
+  priorityBreakdown?: {
+    brandFit: number;
+    budgetValue: number;
+    timelineUrgency: number;
+    relationshipValue: number;
+    effort: number;
+    risk: number;
+  } | null;
   budgetLabel?: string | null;
   riskLabel?: string | null;
   nextActionLabel?: string | null;
@@ -35,6 +47,10 @@ export type OpportunityListItem = {
   exceptionalBudget?: boolean | null;
   pipelinePhase?: string | null;
   dealEscrowPhase?: string | null;
+  contractRiskPreview?: unknown;
+  /** Multi-email thread awaiting thread-level classification backfill. */
+  classificationPending?: boolean;
+  threadEvaluationAtISO?: string | null;
 };
 
 export type OpportunityListPage = {
@@ -64,6 +80,30 @@ export type OpportunityDetail = OpportunityListItem & {
   postingSchedule?: string | null;
   packages?: Array<{ deliverable: string; budgetLabel?: string | null; currency?: string | null }>;
   attentionCount?: number | null;
+  contractSummary?: ContractSummaryView | null;
+};
+
+export type ContractSummaryView = {
+  id?: string | null;
+  opportunityId: string;
+  status: 'DRAFT' | 'PENDING' | 'COMPLETE' | 'FAILED';
+  persisted?: boolean;
+  source: 'EMAIL_ATTACHMENT' | 'UPLOAD';
+  sourceFilename?: string | null;
+  emailAttachmentId?: string | null;
+  emailMessageId?: string | null;
+  documentType?: DocumentKind | null;
+  summary?: string | null;
+  deliverables?: string[];
+  usageRights?: string[];
+  deadlines?: string[];
+  riskFlags?: unknown;
+  confidence?: number | null;
+  extractionSource?: string | null;
+  promptVersion?: string | null;
+  errorMessage?: string | null;
+  createdAtISO?: string;
+  updatedAtISO?: string;
 };
 
 export type BriefView = {
