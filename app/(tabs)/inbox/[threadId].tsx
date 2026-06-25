@@ -46,6 +46,7 @@ import {
 import { createDraftForOpportunity, type GeneratedReplyDraft } from '@/src/api/drafts-api';
 import { resolveOpportunityReplyDraftId, isResolvableReplyDraftId } from '@/src/lib/opportunity-reply-draft';
 import { ApiError } from '@/src/api/api-client';
+import { contractSummaryErrorMessage } from '@/src/lib/contract-summary-error';
 import { restoreSession } from '@/src/api/auth-api';
 import { hasStoredSession } from '@/src/auth/token-storage';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
@@ -255,13 +256,10 @@ export default function InboxThreadDetailScreen() {
     try {
       await contractEditor.saveDraft();
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : t('contractSummary.failed');
-      void alertAction(t('contractSummary.title'), message);
+      void alertAction(
+        t('contractSummary.title'),
+        contractSummaryErrorMessage(error, t),
+      );
     }
   };
 
@@ -296,13 +294,10 @@ export default function InboxThreadDetailScreen() {
       if (!picked) return;
       await contractEditor.parseFromUpload(picked);
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : t('contractSummary.failed');
-      void alertAction(t('contractSummary.title'), message);
+      void alertAction(
+        t('contractSummary.title'),
+        contractSummaryErrorMessage(error, t),
+      );
     }
   };
 

@@ -30,7 +30,7 @@ import type { EmailAttachment } from '@/src/api/mailbox-api';
 import { ApiError } from '@/src/api/api-client';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { EmailAttachmentsList, EmailAttachmentBadge } from '@/components/mail/EmailAttachmentsList';
-import { isPdfAttachment } from '@/components/mail/email-attachment-utils';
+import { isParseableDocumentAttachment } from '@/components/mail/email-attachment-utils';
 import { DealTermsWithContractSection } from '@/components/deals/DealTermsWithContractSection';
 import { DealStatusStrip } from '@/components/deals/DealStatusStrip';
 import { resolveFulfillmentStatus } from '@/src/lib/deal-fulfillment-status';
@@ -167,8 +167,8 @@ export function DealSidePanel({ deal, onClose }: Props) {
     [thread?.messages]
   );
   const timelineStats = messageStatsFromMessages(timelineItems);
-  const selectedMessagePdfAttachments = useMemo(
-    () => (emailQuery.data?.attachments ?? []).filter(isPdfAttachment),
+  const selectedMessageParseableAttachments = useMemo(
+    () => (emailQuery.data?.attachments ?? []).filter(isParseableDocumentAttachment),
     [emailQuery.data?.attachments]
   );
   const contractForSelectedMessage = useMemo(
@@ -440,7 +440,7 @@ export function DealSidePanel({ deal, onClose }: Props) {
                                     messageId={selectedMessage.id}
                                     attachments={emailQuery.data.attachments}
                                     onSummarizePdf={
-                                      matchedThreadId && selectedMessagePdfAttachments.length > 0
+                                      matchedThreadId && selectedMessageParseableAttachments.length > 0
                                         ? summarizePdfAttachment
                                         : undefined
                                     }

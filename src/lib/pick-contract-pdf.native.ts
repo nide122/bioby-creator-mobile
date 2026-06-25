@@ -2,11 +2,13 @@ export { buildContractPdfFormData, type PickedContractPdf } from '@/src/lib/pick
 
 import * as DocumentPicker from 'expo-document-picker';
 
+import { PARSEABLE_DOCUMENT_ACCEPT } from '@/components/mail/email-attachment-utils';
+
 import type { PickedContractPdf } from '@/src/lib/pick-contract-pdf.shared';
 
 export async function pickContractPdf(): Promise<PickedContractPdf | null> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: 'application/pdf',
+    type: PARSEABLE_DOCUMENT_ACCEPT.split(','),
     copyToCacheDirectory: true,
     multiple: false,
   });

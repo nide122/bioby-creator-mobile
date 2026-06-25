@@ -11,7 +11,7 @@ import type { ContractSummary } from '@/src/types/domain';
 import type { ContractSummary as ApiContractSummary } from '@/src/api/contract-summary-api';
 import type { EmailAttachment } from '@/src/api/mailbox-api';
 import { downloadEmailAttachment } from '@/src/api/mailbox-api';
-import { dedupeVisibleAttachments, isPdfAttachment } from '@/components/mail/email-attachment-utils';
+import { dedupeVisibleAttachments, isParseableDocumentAttachment } from '@/components/mail/email-attachment-utils';
 
 export type EmailAttachmentSummaryHandlers = {
   documentSummaries: ApiContractSummary[];
@@ -179,7 +179,7 @@ export function EmailAttachmentsList({
         {visible.map((attachment) => {
           const parsingThisAttachment =
             summaryHandlers?.isAttachmentParsing?.(attachment.id) ?? false;
-          const showSummary = summaryHandlers && isPdfAttachment(attachment) && attachmentHasSummary(attachment.id, summaryHandlers);
+          const showSummary = summaryHandlers && isParseableDocumentAttachment(attachment) && attachmentHasSummary(attachment.id, summaryHandlers);
           return (
             <View key={attachment.id} style={styles.rowWrap}>
               <Pressable
@@ -208,7 +208,7 @@ export function EmailAttachmentsList({
                   <AttachmentSummaryBlock attachment={attachment} handlers={summaryHandlers} />
                 </View>
               ) : null}
-              {onSummarizePdf && isPdfAttachment(attachment) ? (
+              {onSummarizePdf && isParseableDocumentAttachment(attachment) ? (
                 <Pressable
                   accessibilityRole="button"
                   disabled={parsingThisAttachment}
