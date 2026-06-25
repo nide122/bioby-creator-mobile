@@ -68,7 +68,7 @@ type RequestOptions = {
 };
 
 let expireSessionPromise: Promise<void> | null = null;
-let refreshSessionPromise: Promise<boolean> | null = null;
+let refreshSessionPromise: Promise<RefreshOutcome> | null = null;
 
 async function expireSession(): Promise<void> {
   if (!expireSessionPromise) {
@@ -106,14 +106,72 @@ function normalizeAccessToken(raw: string | null | undefined): string | null {
   return trimmed.replace(/^Bearer\s+/i, '').trim() || null;
 }
 
+function decodeJwtExpiryMs(token: string): number | null {
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const payload = JSON.parse(globalThis.atob(padded)) as { exp?: unknown };
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function accessTokenNeedsRefresh(token: string, skewMs = 60_000): boolean {
+  const expiryMs = decodeJwtExpiryMs(token);
+  if (expiryMs == null) return false;
+  return expiryMs <= Date.now() + skewMs;
+}
+
+function isTransientRefreshFailure(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return true;
+    if (error.status >= 500) return true;
+    if (error.code === 'API_NOT_CONFIGURED' || error.code === 'REQUEST_FAILED') return true;
+    return false;
+  }
+  return true;
+}
+
+function isDefinitiveAuthFailure(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+  if (NON_SESSION_401_CODES.has(error.code)) return false;
+  return isSessionExpiryApiError(error);
+}
+
+type RefreshOutcome = 'refreshed' | 'auth_failed' | 'transient_failed';
+
+type AccessTokenResolution = {
+  token: string | null;
+  refreshOutcome: RefreshOutcome | null;
+};
+
 /** Use stored access token, or refresh once before the first authenticated request. */
-async function resolveAccessToken(): Promise<string | null> {
+async function resolveAccessToken(): Promise<AccessTokenResolution> {
   const existing = normalizeAccessToken(await getAccessToken());
-  if (existing) return existing;
-  if (!(await getRefreshToken())) return null;
+  if (existing) {
+    if (!accessTokenNeedsRefresh(existing)) {
+      return { token: existing, refreshOutcome: null };
+    }
+    const refreshed = await tryRefreshSession();
+    if (refreshed === 'refreshed') {
+      return { token: normalizeAccessToken(await getAccessToken()), refreshOutcome: refreshed };
+    }
+    if (refreshed === 'transient_failed') {
+      return { token: existing, refreshOutcome: refreshed };
+    }
+    return { token: null, refreshOutcome: refreshed };
+  }
+  if (!(await getRefreshToken())) {
+    return { token: null, refreshOutcome: null };
+  }
   const refreshed = await tryRefreshSession();
-  if (!refreshed) return null;
-  return normalizeAccessToken(await getAccessToken());
+  if (refreshed !== 'refreshed') {
+    return { token: null, refreshOutcome: refreshed };
+  }
+  return { token: normalizeAccessToken(await getAccessToken()), refreshOutcome: refreshed };
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -132,8 +190,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   const refreshBeforeRequest = options.auth !== false ? await getRefreshToken() : null;
   if (options.auth !== false) {
-    const token = await resolveAccessToken();
+    const { token, refreshOutcome } = await resolveAccessToken();
     if (!token) {
+      if (refreshBeforeRequest && refreshOutcome === 'auth_failed') {
+        if (!options.suppressSessionExpiry) {
+          await expireSession();
+        }
+        throw new ApiError(401, 'TOKEN_EXPIRED', 'Session expired');
+      }
+      if (refreshBeforeRequest && refreshOutcome === 'transient_failed') {
+        throw new ApiError(0, 'REQUEST_FAILED', 'Unable to refresh session');
+      }
       if (refreshBeforeRequest) {
         if (!options.suppressSessionExpiry) {
           await expireSession();
@@ -160,10 +227,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
     if (shouldAttemptTokenRefresh(authError)) {
       const refreshed = await tryRefreshSession();
-      if (refreshed) {
+      if (refreshed === 'refreshed') {
         return apiRequest<T>(path, { ...options, retryOnUnauthorized: false });
       }
-      if (!options.suppressSessionExpiry) {
+      if (refreshed === 'auth_failed' && !options.suppressSessionExpiry) {
         await expireSession();
       }
       throw new ApiError(
@@ -217,8 +284,17 @@ export async function apiMultipartRequest<T>(
 
   const refreshBeforeRequest = options.auth !== false ? await getRefreshToken() : null;
   if (options.auth !== false) {
-    const token = await resolveAccessToken();
+    const { token, refreshOutcome } = await resolveAccessToken();
     if (!token) {
+      if (refreshBeforeRequest && refreshOutcome === 'auth_failed') {
+        if (!options.suppressSessionExpiry) {
+          await expireSession();
+        }
+        throw new ApiError(401, 'TOKEN_EXPIRED', 'Session expired');
+      }
+      if (refreshBeforeRequest && refreshOutcome === 'transient_failed') {
+        throw new ApiError(0, 'REQUEST_FAILED', 'Unable to refresh session');
+      }
       if (refreshBeforeRequest) {
         if (!options.suppressSessionExpiry) {
           await expireSession();
@@ -245,10 +321,10 @@ export async function apiMultipartRequest<T>(
 
     if (shouldAttemptTokenRefresh(authError)) {
       const refreshed = await tryRefreshSession();
-      if (refreshed) {
+      if (refreshed === 'refreshed') {
         return apiMultipartRequest<T>(path, formData, { ...options, retryOnUnauthorized: false });
       }
-      if (!options.suppressSessionExpiry) {
+      if (refreshed === 'auth_failed' && !options.suppressSessionExpiry) {
         await expireSession();
       }
       throw new ApiError(
@@ -290,8 +366,17 @@ export async function apiDownloadBlob(path: string, options: RequestOptions = {}
 
   const refreshBeforeRequest = options.auth !== false ? await getRefreshToken() : null;
   if (options.auth !== false) {
-    const token = await resolveAccessToken();
+    const { token, refreshOutcome } = await resolveAccessToken();
     if (!token) {
+      if (refreshBeforeRequest && refreshOutcome === 'auth_failed') {
+        if (!options.suppressSessionExpiry) {
+          await expireSession();
+        }
+        throw new ApiError(401, 'TOKEN_EXPIRED', 'Session expired');
+      }
+      if (refreshBeforeRequest && refreshOutcome === 'transient_failed') {
+        throw new ApiError(0, 'REQUEST_FAILED', 'Unable to refresh session');
+      }
       if (refreshBeforeRequest) {
         if (!options.suppressSessionExpiry) {
           await expireSession();
@@ -308,6 +393,28 @@ export async function apiDownloadBlob(path: string, options: RequestOptions = {}
     headers,
   });
 
+  if (response.status === 401 && options.retryOnUnauthorized !== false && options.auth !== false) {
+    const payload = await readErrorBody(response);
+    const authError = buildApiError(401, payload);
+
+    if (shouldAttemptTokenRefresh(authError)) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed === 'refreshed') {
+        return apiDownloadBlob(path, { ...options, retryOnUnauthorized: false });
+      }
+      if (refreshed === 'auth_failed' && !options.suppressSessionExpiry) {
+        await expireSession();
+      }
+      throw new ApiError(
+        401,
+        authError.code === 'UNAUTHORIZED' ? 'TOKEN_EXPIRED' : authError.code,
+        authError.message || 'Session expired',
+      );
+    }
+
+    throw authError;
+  }
+
   if (!response.ok) {
     const payload = await readErrorBody(response);
     throw buildApiError(response.status, payload);
@@ -316,7 +423,7 @@ export async function apiDownloadBlob(path: string, options: RequestOptions = {}
   return response.blob();
 }
 
-async function tryRefreshSession(): Promise<boolean> {
+async function tryRefreshSession(): Promise<RefreshOutcome> {
   if (refreshSessionPromise) {
     return refreshSessionPromise;
   }
@@ -327,9 +434,9 @@ async function tryRefreshSession(): Promise<boolean> {
   return refreshSessionPromise;
 }
 
-async function refreshSessionOnce(): Promise<boolean> {
+async function refreshSessionOnce(): Promise<RefreshOutcome> {
   const refresh = await getRefreshToken();
-  if (!refresh) return false;
+  if (!refresh) return 'auth_failed';
   try {
     const session = await apiRequest<AuthSession>('/api/v1/auth/refresh', {
       method: 'POST',
@@ -339,11 +446,13 @@ async function refreshSessionOnce(): Promise<boolean> {
     });
     const stillCurrent = (await getRefreshToken()) === refresh;
     if (!stillCurrent) {
-      return Boolean(await getAccessToken());
+      return (await getAccessToken()) ? 'refreshed' : 'auth_failed';
     }
     await setAuthTokens(session.accessToken, session.refreshToken);
-    return true;
-  } catch {
-    return false;
+    return 'refreshed';
+  } catch (error) {
+    if (isDefinitiveAuthFailure(error)) return 'auth_failed';
+    if (isTransientRefreshFailure(error)) return 'transient_failed';
+    return 'auth_failed';
   }
 }

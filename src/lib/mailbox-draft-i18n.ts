@@ -35,6 +35,14 @@ export function mailboxCanSend(capabilities: string[] | undefined | null): boole
   return (capabilities ?? []).includes('SEND');
 }
 
+export function mailboxDraftFlowReady(
+  capabilities: string[] | undefined | null,
+  reconsentRequired?: boolean,
+): boolean {
+  if (reconsentRequired) return false;
+  return mailboxCanWriteNativeDrafts(capabilities);
+}
+
 export function mailboxSendFlowReady(
   capabilities: string[] | undefined | null,
   reconsentRequired?: boolean,

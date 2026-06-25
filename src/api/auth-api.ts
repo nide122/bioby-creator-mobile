@@ -1,4 +1,4 @@
-import { apiRequest } from '@/src/api/api-client';
+import { apiRequest, isSessionExpiryApiError, ApiError } from '@/src/api/api-client';
 import type { AuthSession } from '@/src/api/auth-types';
 import { clearAuthTokens, getAccessToken, getRefreshToken, setAuthTokens } from '@/src/auth/token-storage';
 
@@ -51,9 +51,12 @@ export async function restoreSession(): Promise<AuthSession | null> {
     }
     await setAuthTokens(session.accessToken, session.refreshToken);
     return session;
-  } catch {
+  } catch (error) {
     const stillCurrent = (await getRefreshToken()) === refresh;
-    if (stillCurrent) {
+    if (!stillCurrent) {
+      return null;
+    }
+    if (error instanceof ApiError && isSessionExpiryApiError(error)) {
       await clearAuthTokens();
     }
     return null;

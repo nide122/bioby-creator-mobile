@@ -50,6 +50,7 @@ import { buildReplyTemplateContext } from '@/src/lib/reply-template-context';
 import { inboxMessageHref } from '@/src/lib/open-brand-detail';
 import { cooperationLeadLine, isEmailLikeLabel } from '@/src/lib/cooperation-display-name';
 import {
+  mailboxDraftFlowReady,
   mailboxSendFlowReady,
   normalizeMailboxDraftProviderError,
   resolveMailboxDraftError,
@@ -82,6 +83,7 @@ export default function DraftDetailScreen() {
   const rateCardQuery = useRateCardPackages();
   const mailbox = useMailboxConnection();
   const mailboxCapabilities = mailbox.data?.capabilities;
+  const mailboxDraftReady = mailboxDraftFlowReady(mailboxCapabilities, mailbox.data?.reconsentRequired);
   const mailboxSendReady = mailboxSendFlowReady(mailboxCapabilities, mailbox.data?.reconsentRequired);
 
   const [body, setBody] = useState('');
@@ -245,13 +247,28 @@ export default function DraftDetailScreen() {
     }
   };
 
-  const onSyncRemoteDraft = async () => {
+  const syncRemoteDraft = async (): Promise<RemoteDraftSyncResult | null> => {
+    if (!draftId) return null;
+    const result = await syncDraftToNativeMailbox(draftId, {
+      bodyText: resolveBodyForSend(body),
+      subject: emailSubject ?? undefined,
+    });
+    setRemoteDraftResult(result);
+    if (result?.errorMessage) {
+      setRemoteDraftError(normalizeMailboxDraftProviderError(result.errorMessage, t));
+    } else if (result?.remoteDraftId) {
+      void invalidateTenantScopedQueries(queryClient);
+    }
+    return result;
+  };
+
+    const onSyncRemoteDraft = async () => {
     if (!draftId || remoteDraftLoading || remoteDraftSending) return;
     if (!shouldUseBackendApi()) {
       void alertAction(t('draftDetail.nativeDraftUnavailableTitle'), t('draftDetail.nativeDraftUnavailableBody'));
       return;
     }
-    if (!mailboxSendReady) {
+    if (!mailboxDraftReady) {
       setRemoteDraftError(t('draftDetail.nativeDraftScopeMissingBody'));
       return;
     }
@@ -259,16 +276,19 @@ export default function DraftDetailScreen() {
     setRemoteDraftLoading(true);
     setRemoteDraftError(null);
     try {
-      const result = await syncDraftToNativeMailbox(draftId, {
-        bodyText: resolveBodyForSend(body),
-        subject: emailSubject ?? undefined,
-      });
-      setRemoteDraftResult(result);
+      const result = await syncRemoteDraft();
       if (result?.errorMessage) {
-        setRemoteDraftError(normalizeMailboxDraftProviderError(result.errorMessage, t));
-      } else if (result?.remoteDraftId) {
+        const message = normalizeMailboxDraftProviderError(result.errorMessage, t);
+        setRemoteDraftError(message);
+        void alertAction(t('draftDetail.nativeDraftErrorTitle'), message);
+        return;
+      }
+      if (result?.remoteDraftId) {
         setDraftSyncFlash(wasUpdate ? 'updated' : 'saved');
-        void invalidateTenantScopedQueries(queryClient);
+        void alertAction(
+          wasUpdate ? t('draftDetail.nativeDraftUpdatedTitle') : t('draftDetail.nativeDraftSyncedTitle'),
+          wasUpdate ? t('draftDetail.nativeDraftUpdatedBody') : t('draftDetail.nativeDraftSyncedBody'),
+        );
       }
     } catch (error) {
       const message = resolveMailboxDraftError(error, t);
@@ -281,10 +301,6 @@ export default function DraftDetailScreen() {
 
   const onSendRemoteDraft = async () => {
     if (!draftId || remoteDraftLoading || remoteDraftSending) return;
-    if (!remoteDraftResult?.remoteDraftId) {
-      void alertAction(t('draftDetail.nativeDraftSendMissingTitle'), t('draftDetail.nativeDraftSendMissingBody'));
-      return;
-    }
     if (!mailboxSendReady) {
       setRemoteDraftError(t('draftDetail.nativeDraftScopeMissingBody'));
       return;
@@ -292,10 +308,34 @@ export default function DraftDetailScreen() {
     setRemoteDraftSending(true);
     setRemoteDraftError(null);
     try {
+      let latestRemoteDraft = remoteDraftResult;
+      const needsSyncBeforeSend =
+        !latestRemoteDraft?.remoteDraftId || latestRemoteDraft.status === 'SENT';
+      if (needsSyncBeforeSend) {
+        setRemoteDraftLoading(true);
+        try {
+          latestRemoteDraft = await syncRemoteDraft();
+        } finally {
+          setRemoteDraftLoading(false);
+        }
+        if (latestRemoteDraft?.errorMessage) {
+          const message = normalizeMailboxDraftProviderError(latestRemoteDraft.errorMessage, t);
+          setRemoteDraftError(message);
+          void alertAction(t('draftDetail.nativeDraftErrorTitle'), message);
+          return;
+        }
+        if (!latestRemoteDraft?.remoteDraftId) {
+          void alertAction(t('draftDetail.nativeDraftSendMissingTitle'), t('draftDetail.nativeDraftSendMissingBody'));
+          return;
+        }
+        setDraftSyncFlash(latestRemoteDraft.status === 'SENT' ? 'updated' : 'saved');
+      }
       const result = await sendNativeMailboxDraft(draftId);
       setRemoteDraftResult(result);
       if (result?.errorMessage) {
-        setRemoteDraftError(normalizeMailboxDraftProviderError(result.errorMessage, t));
+        const message = normalizeMailboxDraftProviderError(result.errorMessage, t);
+        setRemoteDraftError(message);
+        void alertAction(t('draftDetail.nativeDraftSendErrorTitle'), message);
       } else if (result?.status === 'SENT') {
         if (effectiveThreadId) {
           void alertAction(t('draftDetail.sentReplyNextTitle'), t('draftDetail.sentReplyNextBody'));
@@ -320,9 +360,10 @@ export default function DraftDetailScreen() {
     router.push('/onboarding/email?source=draft-send' as Href);
   };
 
-  const remoteDraftSent = remoteDraftResult?.status === 'SENT';
   const canSyncRemoteDraft =
-    shouldUseBackendApi() && mailboxSendReady && !remoteDraftLoading && !remoteDraftSending && !remoteDraftSent;
+    shouldUseBackendApi() && mailboxDraftReady && !remoteDraftLoading && !remoteDraftSending;
+  const canSendRemoteDraft =
+    shouldUseBackendApi() && mailboxSendReady && !remoteDraftLoading && !remoteDraftSending;
   const nativeDraftSyncCta = remoteDraftLoading
     ? null
     : draftSyncFlash === 'updated'
@@ -414,28 +455,52 @@ export default function DraftDetailScreen() {
           </View>
 
           {shouldUseBackendApi() ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('draftDetail.nativeDraftCtaA11y')}
-              disabled={!canSyncRemoteDraft}
-              onPress={onSyncRemoteDraft}
-              style={[
-                styles.actionButton,
-                styles.actionPrimary,
-                {
-                  backgroundColor: canSyncRemoteDraft ? theme.primary : theme.border,
-                  opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
-                },
-              ]}>
-              {remoteDraftLoading ? (
-                <ActivityIndicator color={theme.primaryForeground} />
-              ) : (
-                <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>{nativeDraftSyncCta}</Text>
-              )}
-            </Pressable>
+            <View style={styles.mailboxActionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('draftDetail.nativeDraftCtaA11y')}
+                disabled={!canSyncRemoteDraft}
+                onPress={onSyncRemoteDraft}
+                style={[
+                  styles.mailboxActionButton,
+                  styles.actionSecondary,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: canSyncRemoteDraft ? theme.background : theme.secondary,
+                    opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
+                  },
+                ]}>
+                {remoteDraftLoading ? (
+                  <ActivityIndicator color={theme.primary} />
+                ) : (
+                  <Text style={[styles.actionLabel, { color: theme.foreground }]}>{nativeDraftSyncCta}</Text>
+                )}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('draftDetail.nativeDraftSendCtaA11y')}
+                disabled={!canSendRemoteDraft}
+                onPress={onSendRemoteDraft}
+                style={[
+                  styles.mailboxActionButton,
+                  styles.actionPrimary,
+                  {
+                    backgroundColor: canSendRemoteDraft ? theme.primary : theme.border,
+                    opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
+                  },
+                ]}>
+                {remoteDraftSending ? (
+                  <ActivityIndicator color={theme.primaryForeground} />
+                ) : (
+                  <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>
+                    {t('draftDetail.nativeDraftSendCta')}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           ) : null}
 
-          {!mailboxSendReady && shouldUseBackendApi() ? (
+          {!mailboxDraftReady && shouldUseBackendApi() ? (
             <Pressable
               accessibilityRole="button"
               onPress={onReconnectMailbox}
@@ -446,28 +511,6 @@ export default function DraftDetailScreen() {
 
           {remoteDraftError ? (
             <Text style={[styles.inlineError, { color: '#DC2626' }]}>{remoteDraftError}</Text>
-          ) : null}
-
-          {remoteDraftResult?.remoteDraftId && !remoteDraftSent && shouldUseBackendApi() ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('draftDetail.nativeDraftSendCtaA11y')}
-              disabled={!canSyncRemoteDraft}
-              onPress={onSendRemoteDraft}
-              style={[
-                styles.actionButton,
-                styles.actionSecondary,
-                {
-                  borderColor: theme.border,
-                  opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
-                },
-              ]}>
-              {remoteDraftSending ? (
-                <ActivityIndicator color={theme.primary} />
-              ) : (
-                <Text style={[styles.actionLabel, { color: theme.foreground }]}>{t('draftDetail.nativeDraftSendCta')}</Text>
-              )}
-            </Pressable>
           ) : null}
         </SectionCard>
 
@@ -568,6 +611,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
+  },
+  mailboxActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  mailboxActionButton: {
+    flex: 1,
+    borderRadius: radii.md,
+    minHeight: layout.touchMin,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
   },
   composeActionButton: {
     flexDirection: 'row',
