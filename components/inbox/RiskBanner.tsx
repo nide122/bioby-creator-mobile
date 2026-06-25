@@ -35,13 +35,33 @@ export function RiskBanner({
   const visuals = contractWarningVisuals(severity, theme);
   const sorted = sortContractWarningFlags(flags).map((flag) => localizeRiskFlag(flag, t));
 
-  if (compact || pinned) {
+  if (compact) {
     const label = primaryContractWarningLabel(sorted);
     if (!label) return null;
     return (
       <View
         style={[
-          pinned ? styles.pinned : styles.compact,
+          styles.compact,
+          {
+            borderColor: visuals.border,
+            backgroundColor: visuals.background,
+          },
+        ]}>
+        <Ionicons name={visuals.iconName} size={12} color={visuals.icon} style={styles.compactIcon} />
+        <Text style={[styles.compactText, { color: visuals.title }]} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    );
+  }
+
+  if (pinned) {
+    const label = primaryContractWarningLabel(sorted);
+    if (!label) return null;
+    return (
+      <View
+        style={[
+          styles.pinned,
           {
             borderColor: visuals.border,
             backgroundColor: visuals.background,
@@ -49,18 +69,16 @@ export function RiskBanner({
         ]}>
         <View style={[styles.rail, { backgroundColor: visuals.rail }]} />
         <View style={[styles.iconShell, { backgroundColor: visuals.iconBg }]}>
-          <Ionicons name={visuals.iconName} size={pinned ? 15 : 13} color={visuals.icon} />
+          <Ionicons name={visuals.iconName} size={15} color={visuals.icon} />
         </View>
         <View style={styles.compactCopy}>
-          {pinned ? (
-            <Text style={[styles.pinnedEyebrow, { color: visuals.muted }]}>
-              {t('inboxThreadDetail.contractWarning.title')}
-            </Text>
-          ) : null}
-          <Text style={[pinned ? styles.pinnedText : styles.compactText, { color: visuals.title }]} numberOfLines={pinned ? 3 : 2}>
+          <Text style={[styles.pinnedEyebrow, { color: visuals.muted }]}>
+            {t('inboxThreadDetail.contractWarning.title')}
+          </Text>
+          <Text style={[styles.pinnedText, { color: visuals.title }]} numberOfLines={3}>
             {label}
           </Text>
-          {pinned && showAckRequired ? (
+          {showAckRequired ? (
             <Text style={[styles.pinnedAck, { color: visuals.body }]}>
               {t('inboxThreadDetail.contractWarning.ackRequired')}
             </Text>
@@ -196,13 +214,18 @@ const styles = StyleSheet.create({
   },
   compact: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs + 2,
-    overflow: 'hidden',
+    borderRadius: 999,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.sm + 2,
+    paddingVertical: 3,
+    maxWidth: '100%',
+  },
+  compactIcon: {
+    flexShrink: 0,
   },
   pinned: {
     flexDirection: 'row',
@@ -218,6 +241,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   compactText: {
+    flexShrink: 1,
     fontSize: fontSize.caption,
     fontWeight: '600',
     lineHeight: lineHeight.body,

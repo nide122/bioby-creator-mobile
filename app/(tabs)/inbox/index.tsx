@@ -25,9 +25,7 @@ import {
   HubBanner,
   HubCallout,
   HubListRow,
-  HubNavRow,
   HubScreen,
-  HubStaticRow,
   HubSearchField,
   QueryRetryCard,
   SegmentedControl,
@@ -98,7 +96,6 @@ import {
   resolveCommercialProgressLabel,
 } from '@/src/lib/opportunity-progress-label';
 import { useSessionStore } from '@/src/stores/session-store';
-import { useAgentTrainingRules } from '@/src/hooks/use-agent-training';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
 import {
   useInboxViewStore,
@@ -1017,98 +1014,6 @@ function InboxInlineLoading() {
   );
 }
 
-function AgentTrainingRulesCard() {
-  const { t } = useTranslation();
-  const { inboxCategoryLabel } = useDomainLabels();
-  const { rules, clearRules } = useAgentTrainingRules();
-
-  if (!shouldUseBackendApi() || rules.length === 0) return null;
-
-  return (
-    <SettingsGroup title={t('inboxScreen.agentRulesTitle')} insetDividers={false}>
-      <HubNavRow
-        title={t('inboxScreen.agentRulesHint', { count: rules.length })}
-        detail={t('inboxScreen.learningClear')}
-        onPress={() => void clearRules()}
-      />
-      {rules.slice(0, 3).map((rule) => (
-        <HubStaticRow
-          key={rule.id}
-          icon="sparkles-outline"
-          title={rule.title}
-          detail={inboxCategoryLabel[rule.category]}
-          detailAccent
-        />
-      ))}
-    </SettingsGroup>
-  );
-}
-
-function LearningRecordCard({
-  corrections,
-  threads,
-  onClear,
-  apiMode,
-}: {
-  corrections: Record<string, { category: InboxEmailCategory; correctedAtISO: string }>;
-  threads: InboxThread[];
-  onClear: () => void;
-  apiMode: boolean;
-}) {
-  const { t } = useTranslation();
-  const { inboxCategoryLabel } = useDomainLabels();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = palette[colorScheme];
-
-  const serverEntries = apiMode
-    ? threads
-        .filter((thread) => thread.userCorrected)
-        .map((thread) => ({
-          thread,
-          correction: {
-            category: thread.category,
-            correctedAtISO: thread.classificationCorrectedAtISO ?? thread.updatedAtISO,
-          },
-        }))
-    : [];
-
-  const localEntries = Object.entries(corrections)
-    .map(([threadId, correction]) => ({
-      thread: threads.find((item) => item.id === threadId),
-      correction,
-    }))
-    .filter((entry) => !!entry.thread);
-
-  const entries = apiMode ? serverEntries : localEntries;
-
-  if (entries.length === 0) return null;
-
-  return (
-    <SettingsGroup title={t('inboxScreen.learningTitle')} insetDividers={false}>
-      {!apiMode ? (
-        <HubNavRow
-          title={t('inboxScreen.learningHint', { count: entries.length })}
-          detail={t('inboxScreen.learningClear')}
-          onPress={onClear}
-        />
-      ) : (
-        <Text style={[styles.aiCardSub, { color: theme.mutedForeground }]}>
-          {t('inboxScreen.learningHint', { count: entries.length })}
-        </Text>
-      )}
-      {entries.slice(0, 3).map(({ thread, correction }) => (
-        <HubStaticRow
-          key={thread!.id}
-          icon="school-outline"
-          title={thread!.subject}
-          detail={inboxCategoryLabel[correction.category]}
-          detailAccent
-        />
-      ))}
-    </SettingsGroup>
-  );
-}
-
 // Thread list
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -1431,7 +1336,6 @@ export default function InboxScreen() {
   const queryClient = useQueryClient();
   const authReady = useAuthSessionReady();
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
-  useAgentTrainingRules();
   const viewMode = useInboxViewStore((s) => s.viewMode);
   const categoryFilter = useInboxViewStore((s) => s.categoryFilter);
   const timeRangeFilter = useInboxViewStore((s) => s.timeRangeFilter);
@@ -1467,8 +1371,6 @@ export default function InboxScreen() {
   const [lastSync, setLastSync] = useState<MailSyncResult | null>(null);
   const [repairAction, setRepairAction] = useState<'reconnect' | 'watch' | 'writeback' | null>(null);
   const [repairError, setRepairError] = useState<string | null>(null);
-  const corrections = useInboxCorrectionStore((s) => s.classificationByThreadId);
-  const clearAllCorrections = useInboxCorrectionStore((s) => s.clearAllCorrections);
   const lastSyncCompletedKey = lastSync?.endedAtISO ?? null;
 
   const restoreScrollY = useCallback(() => {
@@ -1616,7 +1518,6 @@ export default function InboxScreen() {
       invalidateTenantScopedQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['decisions'] }),
       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
-      queryClient.invalidateQueries({ queryKey: ['account', 'agent-training-rules'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'connection'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),
       queryClient.invalidateQueries({ queryKey: ['account', 'overview'] }),
@@ -1966,13 +1867,6 @@ export default function InboxScreen() {
           </>
         ) : (
           <>
-            <AgentTrainingRulesCard />
-            <LearningRecordCard
-              corrections={corrections}
-              threads={allThreads}
-              onClear={clearAllCorrections}
-              apiMode={shouldUseBackendApi()}
-            />
             <HubSearchField
               value={searchQuery}
               resultCount={searchableThreads.length}

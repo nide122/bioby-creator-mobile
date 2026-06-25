@@ -341,7 +341,7 @@ export function commercialAttentionFallback(
   recommendedActions: string[],
   attentionCount?: number
 ): boolean {
-  if (attentionCount != null && attentionCount > 0) {
+  if (attentionCount != null) {
     return false;
   }
   if (!isCommercial || !briefComplete) {
@@ -356,7 +356,7 @@ export function resolveAttentionCount(
   recommendedActions: string[],
   showFallback = false
 ): number {
-  if (attentionCount != null && attentionCount > 0) {
+  if (attentionCount != null) {
     return attentionCount;
   }
   const computed = riskFlags.length + meaningfulRecommendedActions(recommendedActions).length;

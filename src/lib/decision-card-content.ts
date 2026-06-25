@@ -38,6 +38,12 @@ export function resolveDecisionUrgencyLabel(card: DecisionCard): string | undefi
   return card.urgencyNote?.trim() || card.interruptReason?.trim() || undefined;
 }
 
+const GENERIC_DRAFT_HEADLINES = new Set([
+  'review quote draft',
+  'review follow-up draft',
+  'review reply draft',
+]);
+
 function headlineIsBrandOnlyAction(headline: string, brand: string): boolean {
   const normalizedHeadline = headline.trim().toLowerCase();
   const normalizedBrand = brand.trim().toLowerCase();
@@ -51,6 +57,10 @@ function headlineIsBrandOnlyAction(headline: string, brand: string): boolean {
   );
 }
 
+function headlineIsGenericDraftReview(headline: string): boolean {
+  return GENERIC_DRAFT_HEADLINES.has(headline.trim().toLowerCase());
+}
+
 export function resolveDecisionCardDisplay(card: DecisionCard): DecisionCardDisplay {
   const { detail: subjectFromSource } = parseDecisionSourceHint(card.sourceHint);
   const rawBrand = card.entityName.trim();
@@ -59,7 +69,12 @@ export function resolveDecisionCardDisplay(card: DecisionCard): DecisionCardDisp
   const headline = card.headline.trim();
   const subject = subjectFromSource || (headline && !headlineIsBrandOnlyAction(headline, brand) ? headline : undefined);
   const actionSummary =
-    subjectFromSource && headline && !headlineIsBrandOnlyAction(headline, brand) ? headline : undefined;
+    subjectFromSource &&
+    headline &&
+    !headlineIsBrandOnlyAction(headline, brand) &&
+    !headlineIsGenericDraftReview(headline)
+      ? headline
+      : undefined;
 
   return {
     brand,
@@ -72,9 +87,10 @@ export function resolveDecisionCardDisplay(card: DecisionCard): DecisionCardDisp
 
 export function formatDecisionQueuePreviewLines(card: DecisionCard): { title: string; subtitle: string } {
   const display = resolveDecisionCardDisplay(card);
-  const title = display.subject ?? display.actionSummary ?? display.brand;
+  const title = display.brand;
   const subtitleParts: string[] = [];
-  if (title !== display.brand) subtitleParts.push(display.brand);
+  if (display.subject) subtitleParts.push(display.subject);
+  else if (display.actionSummary) subtitleParts.push(display.actionSummary);
   if (display.primaryAction?.label) subtitleParts.push(display.primaryAction.label);
   if (display.urgencyLabel) subtitleParts.push(display.urgencyLabel);
   return {

@@ -235,16 +235,29 @@ async function resolveSuggestedDraftIds(
   mapped: InboxThreadDetail
 ): Promise<InboxThreadDetail> {
   const { aiReply, quote } = mapped.suggestedDraftIds;
-  if (isNumericDraftId(aiReply) && isNumericDraftId(quote)) {
-    return mapped;
+  if (isNumericDraftId(aiReply) || isNumericDraftId(quote)) {
+    const unified = isNumericDraftId(aiReply) ? aiReply : quote;
+    return {
+      ...mapped,
+      suggestedDraftIds: {
+        aiReply: unified ?? aiReply,
+        quote: isNumericDraftId(quote) ? quote : unified ?? quote,
+      },
+    };
   }
   const drafts = await apiRequest<DraftListItemDto[]>(`/api/v1/drafts?opportunityId=${threadId}`);
+  const pendingReply = drafts.find(
+    (d) =>
+      d.approvalState === 'pending' &&
+      ['ai_reply', 'quote', 'ack_and_schedule', 'clarify_budget', 'counter_offer'].includes(d.kind),
+  );
   const byKind = (kind: string) => drafts.find((d) => d.kind === kind)?.id;
+  const fallback = pendingReply?.id ?? byKind('ai_reply') ?? byKind('quote');
   return {
     ...mapped,
     suggestedDraftIds: {
-      aiReply: isNumericDraftId(aiReply) ? aiReply : (byKind('ai_reply') ?? aiReply),
-      quote: isNumericDraftId(quote) ? quote : (byKind('quote') ?? quote),
+      aiReply: isNumericDraftId(aiReply) ? aiReply : (fallback ?? aiReply),
+      quote: isNumericDraftId(quote) ? quote : (fallback ?? quote),
     },
   };
 }

@@ -1,8 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -27,7 +26,6 @@ import {
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { ReplyDraftGeneratorSheet } from '@/components/drafts/ReplyDraftGeneratorSheet';
-import { EmailAttachmentBadge } from '@/components/mail/EmailAttachmentsList';
 import { BrandNameLink } from '@/components/brands/BrandNameLink';
 import { ContractSummaryCard } from '@/components/deals/ContractSummaryCard';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -46,17 +44,16 @@ import {
   updateOpportunityClassification,
 } from '@/src/api/opportunities-api';
 import { createDraftForOpportunity, type GeneratedReplyDraft } from '@/src/api/drafts-api';
+import { resolveOpportunityReplyDraftId, isResolvableReplyDraftId } from '@/src/lib/opportunity-reply-draft';
 import { ApiError } from '@/src/api/api-client';
 import { restoreSession } from '@/src/api/auth-api';
 import { hasStoredSession } from '@/src/auth/token-storage';
-import { alertAction } from '@/src/lib/app-dialog';
+import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
 import { useRateCardPackages } from '@/src/hooks/use-growth';
 import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-editor';
 import { pickContractPdf } from '@/src/lib/pick-contract-pdf';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
-import { useAgentTrainingRules } from '@/src/hooks/use-agent-training';
-import { useAgentTrainingStore } from '@/src/stores/agent-training-store';
 import { getActiveTenantPublicId, invalidateTenantScopedQueries, tenantQueryKey, useTenantQueryKey } from '@/src/lib/tenant-query';
 import { useSessionStore } from '@/src/stores/session-store';
 import {
@@ -72,7 +69,6 @@ import {
   translateMissingField,
   translateRiskLabelText,
   visibleMissingFields,
-  visibleRiskFlags,
 } from '@/src/lib/inbox-detail-labels';
 import { inboxRiskReasons } from '@/src/lib/inbox-risk-badges';
 import { formatExceptionalBudgetLabel } from '@/src/lib/exceptional-budget-label';
@@ -82,7 +78,6 @@ import { isInboxPriorityUiEnabled } from '@/src/lib/inbox-priority-feature';
 import { translateInboxNextAction } from '@/src/lib/inbox-next-action-labels';
 import { resolveDisplayInboxPriority } from '@/src/lib/resolve-inbox-priority';
 import { resolvePriorityLeadValueBand } from '@/src/lib/priority-lead-value-band';
-import { stripQuotedPlainText } from '@/src/lib/email-body';
 import {
   briefConfirmBlocker,
   canProceedToConfirmBrief,
@@ -90,136 +85,17 @@ import {
   unacknowledgedDangerFlags,
 } from '@/src/lib/brief-confirm-eligibility';
 import { resolveOpportunityPathStep } from '@/src/lib/opportunity-path-step';
-import { formatThreadToggleLabel } from '@/src/lib/inbox-message-stats';
-import type { InboxMessageStats } from '@/src/types/domain';
 import { preferCooperationTitle } from '@/src/lib/cooperation-display-name';
 import {
   rulesProcessingScope,
   rulesScopeI18nKey,
 } from '@/src/lib/ai-processing-labels';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
-import { contractWarningSeverity } from '@/src/lib/contract-warning';
-
-// ─── 可折叠原文区 ──────────────────────────────────────────────────────────
-
-function isOutboundMessage(message: InboxMessage): boolean {
-  return message.direction === 'outbound';
-}
-
-function messageFromLabel(message: InboxMessage, t: (key: string) => string): string {
-  if (isOutboundMessage(message)) {
-    return t('inboxThreadDetail.youLabel');
-  }
-  return message.fromLabel;
-}
-
-function CollapsibleThread({
-  messages,
-  messageStats,
-  initiallyOpen = false,
-  dateLocale,
-  onOpenMessage,
-}: {
-  messages: InboxMessage[];
-  messageStats?: InboxMessageStats;
-  initiallyOpen?: boolean;
-  dateLocale: string;
-  onOpenMessage: (message: InboxMessage) => void;
-}) {
-  const { t } = useTranslation();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = palette[colorScheme];
-  const [open, setOpen] = useState(initiallyOpen);
-  const heightAnim = useRef(new Animated.Value(0)).current;
-
-  function toggle() {
-    Animated.timing(heightAnim, {
-      toValue: open ? 0 : 1,
-      duration: 220,
-      useNativeDriver: false,
-    }).start();
-    setOpen((v) => !v);
-  }
-
-  return (
-    <View style={[styles.threadBox, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-      <Pressable accessibilityRole="button" onPress={toggle} style={styles.threadToggleRow}>
-        <Ionicons name="mail-outline" size={14} color={theme.foregroundEyebrow} />
-        <Text style={[styles.threadToggleLabel, { color: theme.foregroundEyebrow }]}>
-          {formatThreadToggleLabel(messageStats, messages.length, t)}
-        </Text>
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={14}
-          color={theme.mutedForeground}
-        />
-      </Pressable>
-
-      {open && (
-        <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-          {messages.map((m) => {
-            const outbound = isOutboundMessage(m);
-            const unread = !outbound && m.read === false;
-            const snippet = stripQuotedPlainText(m.snippet) || m.snippet;
-            return (
-            <Pressable
-              key={m.id}
-              accessibilityRole="button"
-              onPress={() => onOpenMessage(m)}
-              style={({ pressed }) => [
-                styles.msgRow,
-                outbound ? styles.msgRowOutbound : styles.msgRowInbound,
-                {
-                  borderColor: outbound ? theme.accentMintStrong + '55' : theme.border,
-                  backgroundColor: outbound ? theme.accentMintSoft + 'CC' : theme.card,
-                },
-                pressed && { opacity: 0.88 },
-              ]}>
-              <View style={styles.msgRowTop}>
-                <View style={styles.msgMetaGroup}>
-                  <Ionicons
-                    name={outbound ? 'arrow-up-circle-outline' : 'mail-outline'}
-                    size={14}
-                    color={outbound ? theme.accentMintStrong : theme.foregroundEyebrow}
-                  />
-                  <Text style={[styles.msgMeta, { color: theme.foregroundEyebrow, flex: 1 }]}>
-                    {messageFromLabel(m, t)} ·{' '}
-                    {new Date(m.sentAtISO).toLocaleString(dateLocale, {
-                      month: 'numeric',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                  {unread ? (
-                    <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} accessibilityLabel={t('inboxThreadDetail.unreadA11y')} />
-                  ) : null}
-                </View>
-                {outbound ? (
-                  <View style={[styles.replyBadge, { borderColor: theme.accentMintStrong + '66', backgroundColor: theme.accentMintSoft }]}>
-                    <Text style={[styles.replyBadgeText, { color: theme.accentMintStrong }]}>
-                      {t('inboxThreadDetail.yourReplyBadge')}
-                    </Text>
-                  </View>
-                ) : null}
-                <Ionicons name="chevron-forward" size={14} color={theme.mutedForeground} />
-              </View>
-              <Text style={[styles.msgSnippet, { color: theme.foreground }]} numberOfLines={3}>
-                {snippet}
-              </Text>
-              {(m.attachmentCount ?? 0) > 0 ? (
-                <View style={{ alignSelf: 'flex-start', marginTop: spacing.xs }}>
-                  <EmailAttachmentBadge count={m.attachmentCount ?? 0} />
-                </View>
-              ) : null}
-            </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
+import { CollapsibleThread } from '@/components/inbox/CollapsibleThread';
+import {
+  contractWarningSeverity,
+  resolveThreadRiskPartitions,
+} from '@/src/lib/contract-warning';
 
 function AttentionItemRow({ text }: { text: string }) {
   const colorScheme = useColorScheme() ?? 'light';
@@ -332,52 +208,6 @@ function CategoryCorrectionPanel({
   );
 }
 
-function TrainingRulePrompt({
-  category,
-  brandName,
-}: {
-  category: InboxEmailCategory;
-  brandName: string;
-}) {
-  const { t } = useTranslation();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = palette[colorScheme];
-  const { rules, createRule } = useAgentTrainingRules();
-  const addRuleLocal = useAgentTrainingStore((s) => s.addRule);
-  const title = t(`inboxThreadDetail.trainingTitle.${category}`);
-  const description = t(`inboxThreadDetail.trainingDesc.${category}`, { brand: brandName });
-  const saved = rules.some((rule) => rule.category === category);
-
-  const rememberRule = () => {
-    const payload = { title, description, category };
-    if (shouldUseBackendApi()) {
-      void createRule(payload).catch(() => addRuleLocal(payload));
-      return;
-    }
-    addRuleLocal(payload);
-  };
-
-  return (
-    <View style={[styles.trainingPrompt, { borderColor: saved ? '#34D39940' : theme.border, backgroundColor: saved ? '#34D39910' : theme.card }]}>
-      <View style={styles.trainingHeader}>
-        <Ionicons name={saved ? 'checkmark-circle-outline' : 'school-outline'} size={15} color={saved ? '#34D399' : theme.primary} />
-        <Text style={[styles.trainingTitle, { color: saved ? '#34D399' : theme.foreground }]}>
-          {saved ? t('inboxThreadDetail.trainingSaved') : t('inboxThreadDetail.trainingPrompt')}
-        </Text>
-      </View>
-      <Text style={[styles.trainingDesc, { color: theme.mutedForeground }]}>{description}</Text>
-      {!saved ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={rememberRule}
-          style={[styles.trainingButton, { borderColor: theme.primary + '60' }]}>
-          <Text style={[styles.trainingButtonLabel, { color: theme.primary }]}>{t('inboxThreadDetail.trainingRemember')}</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
 // ─── 主屏 ──────────────────────────────────────────────────────────────────
 
 export default function InboxThreadDetailScreen() {
@@ -410,7 +240,6 @@ export default function InboxThreadDetailScreen() {
   const [draftActionLoading, setDraftActionLoading] = useState<DraftKind | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [localAckedRiskIds, setLocalAckedRiskIds] = useState<string[]>([]);
-  const [lastCorrectedCategory, setLastCorrectedCategory] = useState<InboxEmailCategory | null>(null);
   const [showAiGenerator, setShowAiGenerator] = useState(false);
 
   const query = useInboxThreadDetail(threadId);
@@ -435,6 +264,31 @@ export default function InboxThreadDetailScreen() {
       void alertAction(t('contractSummary.title'), message);
     }
   };
+
+  const deleteSavedContractSummary = async () => {
+    const ok = await confirmAction({
+      title: t('contractSummary.deleteConfirmTitle'),
+      message: t('contractSummary.deleteContractConfirmMessage'),
+      confirmLabel: t('contractSummary.deleteConfirmAction'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await contractEditor.deleteSavedContract();
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    }
+  };
+
+  const showDeleteSavedContract =
+    !!query.data?.contractSummary?.persisted && !contractEditor.unsaved && !contractEditor.draft;
 
   const uploadContractPdf = async () => {
     try {
@@ -512,16 +366,16 @@ export default function InboxThreadDetailScreen() {
       ? t('inboxThreadDetail.decisionTitleWithBudget')
       : t('inboxThreadDetail.decisionTitleNoBudget')
     : detail.subject;
-  const canOpenExistingDraft = (draftId: string) =>
-    !!draftId && (!apiMode || /^\d+$/.test(draftId));
-  const openOrCreateDraft = async (kind: DraftKind, suggestedDraftId?: string) => {
+  const replyDraftId = resolveOpportunityReplyDraftId(detail.suggestedDraftIds);
+  const canOpenExistingDraft = (draftId: string) => isResolvableReplyDraftId(draftId, apiMode);
+  const openReplyDraft = async () => {
     if (draftActionLoading) return;
-    if (suggestedDraftId && canOpenExistingDraft(suggestedDraftId)) {
-      router.push(`/drafts/${suggestedDraftId}?threadId=${encodeURIComponent(threadId)}` as Href);
+    if (replyDraftId && canOpenExistingDraft(replyDraftId)) {
+      router.push(`/drafts/${replyDraftId}?threadId=${encodeURIComponent(threadId)}` as Href);
       return;
     }
     if (!apiMode) return;
-    setDraftActionLoading(kind);
+    setDraftActionLoading('ai_reply');
     try {
       if (!(await hasStoredSession())) {
         clearLocalSession();
@@ -538,7 +392,7 @@ export default function InboxThreadDetailScreen() {
         router.replace('/welcome' as Href);
         return;
       }
-      const draft = await createDraftForOpportunity(detail.id, kind);
+      const draft = await createDraftForOpportunity(detail.id, 'ai_reply');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['drafts'] }),
         queryClient.invalidateQueries({ queryKey: ['decisions'] }),
@@ -567,11 +421,14 @@ export default function InboxThreadDetailScreen() {
     translateDetailSignal(t, signal)
   );
   const missingFields = visibleMissingFields(detail.missingFields, detail.budgetLabel);
-  const riskFlags = visibleRiskFlags(detail.riskFlags, detail.budgetLabel);
-  const effectiveRiskFlags = riskFlags.map((flag) =>
+  const { contractRisks, attentionFlags } = resolveThreadRiskPartitions(detail);
+  const effectiveContractRisks = contractRisks.map((flag) =>
     localAckedRiskIds.includes(flag.id) ? { ...flag, acknowledged: true } : flag
   );
-  const detailForConfirm = { ...detail, riskFlags: effectiveRiskFlags };
+  const effectiveAttentionFlags = attentionFlags.map((flag) =>
+    localAckedRiskIds.includes(flag.id) ? { ...flag, acknowledged: true } : flag
+  );
+  const detailForConfirm = { ...detail, riskFlags: effectiveContractRisks };
   const displayRiskLabel = localizedVisibleRiskLabel(t, detail.riskLabel, detail.budgetLabel);
   const priorityUiEnabled = isInboxPriorityUiEnabled([detail]);
   const displayPriority = resolveDisplayInboxPriority(detail);
@@ -583,21 +440,21 @@ export default function InboxThreadDetailScreen() {
   const showAttentionFallback = commercialAttentionFallback(
     isCommercial,
     detail.extractionStatus === 'COMPLETE',
-    effectiveRiskFlags,
+    effectiveAttentionFlags,
     detail.recommendedActions,
     detail.attentionCount
   );
-  const showContractWarning = isCommercial && contractWarningSeverity(effectiveRiskFlags) != null;
+  const showContractWarning = isCommercial && contractWarningSeverity(effectiveContractRisks) != null;
   const attentionList = buildAttentionList(
     detail.recommendedActions,
-    showContractWarning ? [] : effectiveRiskFlags,
+    effectiveAttentionFlags,
     t,
     showAttentionFallback ? t('inboxThreadDetail.attentionFallback') : null
   );
   const classificationSignals = filterSignalsApartFromAttention(detailSignals, attentionList);
   const attentionCount = resolveAttentionCount(
     detail.attentionCount,
-    effectiveRiskFlags,
+    effectiveAttentionFlags,
     detail.recommendedActions,
     showAttentionFallback
   );
@@ -635,7 +492,7 @@ export default function InboxThreadDetailScreen() {
   const readyToConfirm = apiMode && isCommercial && canProceedToConfirmBrief(detailForConfirm);
   const confirmBlockerRaw = apiMode && isCommercial ? briefConfirmBlocker(detailForConfirm) : null;
   const confirmBlocker = confirmBlockerRaw === 'danger_risks' ? null : confirmBlockerRaw;
-  const pendingDangerFlags = unacknowledgedDangerFlags(effectiveRiskFlags);
+  const pendingDangerFlags = unacknowledgedDangerFlags(effectiveContractRisks);
   const opportunityPathStep = resolveOpportunityPathStep(detail);
 
   const refreshThreadAndDeals = async () => {
@@ -746,12 +603,14 @@ export default function InboxThreadDetailScreen() {
 
   const stickyFooter = (
     <View style={[styles.stickyFooter, { borderColor: theme.border, backgroundColor: theme.background }]}>
-      <View style={[styles.footerNote, { backgroundColor: theme.secondary }]}>
-        <Ionicons name="lock-closed-outline" size={11} color={theme.foregroundEyebrow} />
-        <Text style={[styles.footerNoteText, { color: theme.foregroundEyebrow }]}>
-          {isCommercial ? t('inboxThreadDetail.footerCommercial') : t('inboxThreadDetail.footerNonCommercial')}
-        </Text>
-      </View>
+      {!isCommercial ? (
+        <View style={[styles.footerNote, { backgroundColor: theme.secondary }]}>
+          <Ionicons name="lock-closed-outline" size={11} color={theme.foregroundEyebrow} />
+          <Text style={[styles.footerNoteText, { color: theme.foregroundEyebrow }]}>
+            {t('inboxThreadDetail.footerNonCommercial')}
+          </Text>
+        </View>
+      ) : null}
       {isCommercial ? (
         <View style={{ gap: spacing.sm }}>
           {confirmedDeal && detail.dealId ? (
@@ -760,7 +619,7 @@ export default function InboxThreadDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('inboxThreadDetail.ctaSendEmailA11y')}
                 disabled={!!draftActionLoading}
-                onPress={() => void openOrCreateDraft('ai_reply', detail.suggestedDraftIds.aiReply)}
+                onPress={() => void openReplyDraft()}
                 style={({ pressed }) => [
                   styles.btnIcon,
                   { borderColor: theme.border, backgroundColor: theme.card },
@@ -809,34 +668,36 @@ export default function InboxThreadDetailScreen() {
                 {t('inboxThreadDetail.ctaConfirmBrief')}
               </Text>
             </Pressable>
-          ) : confirmBlocker && confirmBlocker !== 'already_confirmed' ? (
-            <View style={{ gap: spacing.sm }}>
-              <View style={[styles.confirmBlocker, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-                <Ionicons name="information-circle-outline" size={14} color={theme.foregroundEyebrow} />
-                <Text style={[styles.confirmBlockerText, { color: theme.foregroundSubtitle }]}>
-                  {t(`inboxThreadDetail.confirmBlocker.${confirmBlocker}`)}
-                </Text>
-              </View>
-              {confirmBlocker === 'lead_stage_draft_ready' &&
-              canOpenExistingDraft(detail.suggestedDraftIds.quote) ? (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => void openOrCreateDraft('quote', detail.suggestedDraftIds.quote)}
-                  style={({ pressed }) => [
-                    styles.btnSecondary,
-                    { borderColor: theme.primary + '60' },
-                    pressed && { opacity: 0.88 },
-                  ]}>
-                  <Ionicons name="pricetag-outline" size={16} color={theme.primary} />
-                  <Text style={[styles.btnSecondaryLabel, { color: theme.primary }]}>
-                    {t('inboxThreadDetail.openQuoteDraftCta')}
-                  </Text>
-                </Pressable>
-              ) : null}
+          ) : confirmBlocker && confirmBlocker !== 'already_confirmed' && confirmBlocker !== 'lead_stage_draft_ready' ? (
+            <View style={[styles.confirmBlocker, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+              <Ionicons name="information-circle-outline" size={14} color={theme.foregroundEyebrow} />
+              <Text style={[styles.confirmBlockerText, { color: theme.foregroundSubtitle }]}>
+                {t(`inboxThreadDetail.confirmBlocker.${confirmBlocker}`)}
+              </Text>
             </View>
           ) : null}
           {showDraftActions ? (
-            <View style={{ gap: spacing.sm }}>
+            <View style={styles.footerButtons}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={!!draftActionLoading || confirmLoading}
+                onPress={() => void openReplyDraft()}
+                android_ripple={{ color: `${theme.primary}33` }}
+                style={({ pressed }) => [
+                  styles.btnPrimary,
+                  { backgroundColor: theme.primary, flex: 1 },
+                  (!!draftActionLoading || confirmLoading) && styles.btnDisabled,
+                  pressed && { opacity: 0.92 },
+                ]}>
+                {draftActionLoading === 'ai_reply' ? (
+                  <ActivityIndicator color={theme.primaryForeground} />
+                ) : (
+                  <Ionicons name="mail-outline" size={16} color={theme.primaryForeground} />
+                )}
+                <Text style={[styles.btnPrimaryLabel, { color: theme.primaryForeground }]}>
+                  {t('inboxThreadDetail.ctaReplyEmail')}
+                </Text>
+              </Pressable>
               {apiMode ? (
                 <Pressable
                   accessibilityRole="button"
@@ -845,7 +706,7 @@ export default function InboxThreadDetailScreen() {
                   android_ripple={{ color: `${theme.primary}18` }}
                   style={({ pressed }) => [
                     styles.btnSecondary,
-                    { borderColor: theme.primary, backgroundColor: theme.secondary },
+                    { borderColor: theme.primary, backgroundColor: theme.secondary, flex: 1 },
                     (!!draftActionLoading || confirmLoading) && styles.btnDisabled,
                     pressed && { opacity: 0.88 },
                   ]}>
@@ -855,48 +716,6 @@ export default function InboxThreadDetailScreen() {
                   </Text>
                 </Pressable>
               ) : null}
-            <View style={styles.footerButtons}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!!draftActionLoading || confirmLoading}
-                onPress={() => void openOrCreateDraft('ai_reply', detail.suggestedDraftIds.aiReply)}
-                android_ripple={{ color: `${theme.primary}33` }}
-                style={({ pressed }) => [
-                  styles.btnPrimary,
-                  { backgroundColor: theme.primary },
-                  (!!draftActionLoading || confirmLoading) && styles.btnDisabled,
-                  pressed && { opacity: 0.92 },
-                ]}>
-                {draftActionLoading === 'ai_reply' ? (
-                  <ActivityIndicator color={theme.primaryForeground} />
-                ) : (
-                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={theme.primaryForeground} />
-                )}
-                <Text style={[styles.btnPrimaryLabel, { color: theme.primaryForeground }]}>
-                  {t('inboxThreadDetail.ctaReplyDraft')}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!!draftActionLoading || confirmLoading}
-                onPress={() => void openOrCreateDraft('quote', detail.suggestedDraftIds.quote)}
-                android_ripple={{ color: `${theme.primary}18` }}
-                style={({ pressed }) => [
-                  styles.btnSecondary,
-                  { borderColor: theme.border },
-                  (!!draftActionLoading || confirmLoading) && styles.btnDisabled,
-                  pressed && { opacity: 0.88 },
-                ]}>
-                {draftActionLoading === 'quote' ? (
-                  <ActivityIndicator color={theme.foreground} />
-                ) : (
-                  <Ionicons name="pricetag-outline" size={16} color={theme.foreground} />
-                )}
-                <Text style={[styles.btnSecondaryLabel, { color: theme.foreground }]}>
-                  {t('inboxThreadDetail.ctaQuoteDraft')}
-                </Text>
-              </Pressable>
-            </View>
             </View>
           ) : null}
         </View>
@@ -1037,7 +856,7 @@ export default function InboxThreadDetailScreen() {
 
           {showContractWarning ? (
             <RiskBanner
-              flags={effectiveRiskFlags}
+              flags={effectiveContractRisks}
               showAckRequired={pendingDangerFlags.length > 0 && readyToConfirm}
             />
           ) : null}
@@ -1200,14 +1019,17 @@ export default function InboxThreadDetailScreen() {
               loading={contractEditor.parsing}
               saving={contractEditor.saving}
               savingTarget={contractEditor.savingTarget}
+              deleting={contractEditor.deleting}
               unsaved={contractEditor.unsaved}
               editable={!!contractEditor.displayed && contractEditor.displayed.status !== 'FAILED'}
               saveLayout="contract"
+              collapsible
               onChange={contractEditor.patchDraft}
               onSave={() => void saveContractSummary()}
               onCancel={contractEditor.cancelDraft}
+              onDelete={showDeleteSavedContract ? () => void deleteSavedContractSummary() : undefined}
               onUploadPdf={apiMode ? () => void uploadContractPdf() : undefined}
-              uploadDisabled={contractEditor.parsing || contractEditor.saving}
+              uploadDisabled={contractEditor.parsing || contractEditor.saving || contractEditor.deleting}
             />
           </View>
         ) : null}
@@ -1275,7 +1097,6 @@ export default function InboxThreadDetailScreen() {
               categoryLabels={inboxCategoryLabel}
               onSelectCategory={(category) => {
                 setCategory(detail, category);
-                setLastCorrectedCategory(category);
                 if (apiMode) {
                   const leadStage =
                     category === 'commercial' && detail.leadStage === 'new' ? 'needs_reply' : detail.leadStage;
@@ -1299,7 +1120,6 @@ export default function InboxThreadDetailScreen() {
                   void restoreOpportunityClassification(detail.id).then((updatedDetail) => {
                     queryClient.setQueryData(detailQueryKey, updatedDetail);
                     clearCorrection(detail.id);
-                    setLastCorrectedCategory(null);
                     void Promise.all([
                       invalidateTenantScopedQueries(queryClient),
                       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
@@ -1310,15 +1130,10 @@ export default function InboxThreadDetailScreen() {
                   return;
                 }
                 clearCorrection(detail.id);
-                setLastCorrectedCategory(null);
               }}
             />
           </View>
         </SettingsGroup>
-
-        {correctedByUser && lastCorrectedCategory ? (
-          <TrainingRulePrompt category={lastCorrectedCategory} brandName={detail.brandName} />
-        ) : null}
 
         {isCommercial ? (
           <HubLinkGroup
@@ -1443,36 +1258,6 @@ const styles = StyleSheet.create({
   nextHint: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   nextHintText: { fontSize: fontSize.caption, fontWeight: '600' },
 
-  // 折叠原文
-  threadBox: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing.md },
-  threadToggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  threadToggleLabel: { flex: 1, fontSize: fontSize.caption, fontWeight: '600' },
-  msgRow: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  msgRowInbound: {
-    borderLeftWidth: 2,
-  },
-  msgRowOutbound: {
-    borderLeftWidth: 2,
-    marginLeft: spacing.sm,
-  },
-  msgRowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  msgMetaGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  unreadDot: { width: 8, height: 8, borderRadius: 4 },
-  msgMeta: { fontSize: fontSize.caption, fontWeight: '600' },
-  replyBadge: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-  },
-  replyBadgeText: { fontSize: fontSize.caption, fontWeight: '700' },
-  msgSnippet: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
-
   // 纠偏行
   sectionLabel: { fontSize: fontSize.eyebrow, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
   correctionRow: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
@@ -1486,24 +1271,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   categoryCorrectionLabel: { fontSize: fontSize.caption, fontWeight: '800' },
-  trainingPrompt: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  trainingHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  trainingTitle: { fontSize: fontSize.bodySmall, fontWeight: '800' },
-  trainingDesc: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
-  trainingButton: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.md,
-    minHeight: layout.touchMin - 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.xs,
-  },
-  trainingButtonLabel: { fontSize: fontSize.bodySmall, fontWeight: '800' },
 
   // 固定底部
   stickyFooter: {

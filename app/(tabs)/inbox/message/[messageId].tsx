@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createElement, type CSSProperties, useEffect, useRef, useState } from 'react';
+import { createElement, type CSSProperties, useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -14,8 +14,7 @@ import { fetchEmailMessage } from '@/src/api/mailbox-api';
 import type { EmailAttachment } from '@/src/api/mailbox-api';
 import { fetchOpportunityThreadDetail } from '@/src/api/opportunities-api';
 import { ApiError } from '@/src/api/api-client';
-import { alertAction } from '@/src/lib/app-dialog';
-import { ContractSummaryCard } from '@/components/deals/ContractSummaryCard';
+import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-editor';
 import { EmailAttachmentsList } from '@/components/mail/EmailAttachmentsList';
 import { invalidateTenantScopedQueries, useTenantQueryKey, useTenantScopedQueryEnabled } from '@/src/lib/tenant-query';
@@ -383,7 +382,6 @@ export default function InboxMessageDetailScreen() {
   });
 
   const syncedReadRef = useRef<string | null>(null);
-  const [summarizingAttachmentId, setSummarizingAttachmentId] = useState<string | null>(null);
 
   const threadDetailQuery = useQuery({
     queryKey: inboxThreadKey,
@@ -410,7 +408,6 @@ export default function InboxMessageDetailScreen() {
       void alertAction(t('contractSummary.title'), t('contractSummary.missingThread'));
       return;
     }
-    setSummarizingAttachmentId(attachment.id);
     try {
       await contractEditor.parseFromAttachment(messageId, attachment.id);
     } catch (error) {
@@ -421,14 +418,12 @@ export default function InboxMessageDetailScreen() {
             ? error.message
             : t('contractSummary.failed');
       void alertAction(t('contractSummary.title'), message);
-    } finally {
-      setSummarizingAttachmentId(null);
     }
   };
 
-  const saveContractSummary = async () => {
+  const saveContractSummary = async (attachmentId: string) => {
     try {
-      await contractEditor.saveDraft();
+      await contractEditor.saveDraft(attachmentId);
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -439,10 +434,53 @@ export default function InboxMessageDetailScreen() {
       void alertAction(t('contractSummary.title'), message);
     }
   };
-  const saveDocumentSummary = async () => {
+  const saveDocumentSummary = async (attachmentId: string) => {
     if (!messageId) return;
     try {
-      await contractEditor.saveDocumentDraft(messageId);
+      await contractEditor.saveDocumentDraft(messageId, attachmentId);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    }
+  };
+  const deleteDocumentSummary = async (attachmentId: string) => {
+    if (!messageId || !attachmentId) return;
+    const ok = await confirmAction({
+      title: t('contractSummary.deleteConfirmTitle'),
+      message: t('contractSummary.deleteDocumentConfirmMessage'),
+      confirmLabel: t('contractSummary.deleteConfirmAction'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await contractEditor.deleteSavedDocument(messageId, attachmentId);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    }
+  };
+  const deleteContractSummary = async () => {
+    const ok = await confirmAction({
+      title: t('contractSummary.deleteConfirmTitle'),
+      message: t('contractSummary.deleteContractConfirmMessage'),
+      confirmLabel: t('contractSummary.deleteConfirmAction'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await contractEditor.deleteSavedContract();
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -495,12 +533,6 @@ export default function InboxMessageDetailScreen() {
       );
     }
     const email = remoteQuery.data;
-    const savedDocument = email.documentSummary ?? null;
-    const showDraftCard =
-      !!contractEditor.draft ||
-      contractEditor.parsing ||
-      !!summarizingAttachmentId ||
-      contractEditor.unsaved;
     const rawHtml = email.bodyHtml?.trim();
     const stripped = stripQuotedEmailContent(email.bodyText, rawHtml);
     const htmlBody = stripped.html ?? undefined;
@@ -529,36 +561,27 @@ export default function InboxMessageDetailScreen() {
               messageId={email.id}
               attachments={email.attachments}
               onSummarizePdf={threadId ? summarizePdfAttachment : undefined}
-              summarizingAttachmentId={summarizingAttachmentId}
+              summaryHandlers={
+                threadId
+                  ? {
+                      documentSummaries: email.documentSummaries ?? [],
+                      contractSummary: contractForMessage,
+                      attachmentDrafts: contractEditor.attachmentDrafts,
+                      isAttachmentParsing: contractEditor.isAttachmentParsing,
+                      deleting: contractEditor.deleting,
+                      saving: contractEditor.saving,
+                      savingTarget: contractEditor.savingTarget,
+                      isAttachmentDraftUnsaved: contractEditor.isAttachmentDraftUnsaved,
+                      onDraftChange: contractEditor.patchAttachmentDraft,
+                      onSaveDocument: (attachmentId) => void saveDocumentSummary(attachmentId),
+                      onSaveContract: (attachmentId) => void saveContractSummary(attachmentId),
+                      onCancelDraft: (attachmentId) => contractEditor.cancelDraft(attachmentId),
+                      onDeleteDocument: (attachmentId) => void deleteDocumentSummary(attachmentId),
+                      onDeleteContract: () => void deleteContractSummary(),
+                    }
+                  : undefined
+              }
             />
-          ) : null}
-          {savedDocument && !showDraftCard ? (
-            <View style={{ marginTop: spacing.sm }}>
-              <ContractSummaryCard summary={savedDocument} editable={false} headerStyle="attachmentFilename" />
-            </View>
-          ) : null}
-          {contractForMessage && !showDraftCard ? (
-            <View style={{ marginTop: spacing.sm }}>
-              <ContractSummaryCard summary={contractForMessage} editable={false} headerStyle="attachmentFilename" />
-            </View>
-          ) : null}
-          {showDraftCard ? (
-            <View style={{ marginTop: spacing.sm }}>
-              <ContractSummaryCard
-                summary={contractEditor.displayed}
-                loading={contractEditor.parsing || !!summarizingAttachmentId}
-                saving={contractEditor.saving}
-                savingTarget={contractEditor.savingTarget}
-                unsaved={contractEditor.unsaved}
-                editable={!!contractEditor.displayed && contractEditor.displayed.status !== 'FAILED'}
-                saveLayout="email"
-                headerStyle="attachmentFilename"
-                onChange={contractEditor.patchDraft}
-                onSaveDocument={() => void saveDocumentSummary()}
-                onSaveContract={() => void saveContractSummary()}
-                onCancel={contractEditor.cancelDraft}
-              />
-            </View>
           ) : null}
           {htmlBody ? (
             <EmailHtmlBody fallbackText={body} html={htmlBody} theme={theme} />

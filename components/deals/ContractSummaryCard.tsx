@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -35,6 +36,10 @@ export type ContractSummaryCardProps = {
   summarizeDisabled?: boolean;
   onUploadPdf?: () => void;
   uploadDisabled?: boolean;
+  /** When true, show expand/collapse control. Defaults to attachment-style headers. */
+  collapsible?: boolean;
+  onDelete?: () => void | Promise<void>;
+  deleting?: boolean;
 };
 
 function severityColor(severity: InboxRiskFlag['severity'], theme: (typeof palette)['light']): string {
@@ -114,10 +119,14 @@ export function ContractSummaryCard({
   summarizeDisabled,
   onUploadPdf,
   uploadDisabled,
+  collapsible,
+  onDelete,
+  deleting,
 }: ContractSummaryCardProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const [collapsed, setCollapsed] = useState(false);
 
   if (!summary && !loading && !onSummarizeAttachment && !onUploadPdf) {
     return null;
@@ -126,6 +135,7 @@ export function ContractSummaryCard({
   const risks = summary?.riskFlags ?? [];
   const isContract = isContractDocumentKind(summary?.documentType);
   const useAttachmentHeader = headerStyle === 'attachmentFilename' || saveLayout === 'email';
+  const canCollapse = collapsible ?? useAttachmentHeader;
   const cardTitle = useAttachmentHeader
     ? summary?.sourceFilename?.trim()
       ? t('contractSummary.filenameSummaryTitle', { filename: summary.sourceFilename.trim() })
@@ -149,6 +159,87 @@ export function ContractSummaryCard({
     summary?.persisted && !unsaved
       ? t('contractSummary.reuploadAction')
       : t('contractSummary.uploadAction');
+  const showCollapseToggle = canCollapse && !loading && !!summary;
+  const showDeleteButton =
+    !loading &&
+    !deleting &&
+    ((summary?.persisted && !unsaved && !!onDelete) || (!!onCancel && showSave));
+  const deleteIsDraft = !summary?.persisted || unsaved || summary?.status === 'DRAFT';
+
+  const handleDeletePress = () => {
+    if (deleteIsDraft && onCancel) {
+      onCancel();
+      setCollapsed(false);
+      return;
+    }
+    void onDelete?.();
+  };
+
+  const kindBadge = summary ? (
+    <View style={[styles.draftBadge, { borderColor: `${theme.primary}55`, backgroundColor: `${theme.primary}18` }]}>
+      <Text style={[styles.draftBadgeText, { color: theme.primary }]}>
+        {t(documentKindLabelKey(summary.documentType))}
+      </Text>
+    </View>
+  ) : null;
+
+  const collapseButton = showCollapseToggle ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={collapsed ? t('contractSummary.expandA11y') : t('contractSummary.collapseA11y')}
+      hitSlop={8}
+      onPress={() => setCollapsed((value) => !value)}
+      style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]}>
+      <Ionicons
+        name={collapsed ? 'chevron-down-outline' : 'chevron-up-outline'}
+        size={18}
+        color={theme.mutedForeground}
+      />
+    </Pressable>
+  ) : null;
+
+  const deleteButton = showDeleteButton ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        deleteIsDraft ? t('contractSummary.discardDraftA11y') : t('contractSummary.deleteSavedA11y')
+      }
+      hitSlop={8}
+      disabled={deleting}
+      onPress={handleDeletePress}
+      style={({ pressed }) => [styles.iconButton, (pressed || deleting) && { opacity: 0.7 }]}>
+      <Ionicons name="close" size={18} color={theme.mutedForeground} />
+    </Pressable>
+  ) : null;
+
+  const headerActions =
+    collapseButton || deleteButton ? (
+      <View style={styles.headerActions}>
+        {collapseButton}
+        {deleteButton}
+      </View>
+    ) : null;
+
+  if (collapsed && canCollapse && summary) {
+    return (
+      <View
+        style={[
+          embedded ? styles.embeddedWrap : styles.card,
+          !embedded && styles.collapsedCard,
+          !embedded && { borderColor: theme.border, backgroundColor: theme.secondary },
+        ]}
+        testID="contract-summary-card-collapsed">
+        <View style={styles.collapsedRow}>
+          <Ionicons name="document-text-outline" size={14} color={theme.primary} />
+          <Text style={[styles.collapsedTitle, { color: theme.foreground }]} numberOfLines={1}>
+            {cardTitle}
+          </Text>
+          {kindBadge}
+          {headerActions}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -159,18 +250,31 @@ export function ContractSummaryCard({
       testID="contract-summary-card">
       {!embedded ? (
         <>
+          <View style={styles.headerRow}>
+            <View style={styles.header}>
+              <Ionicons name="document-text-outline" size={16} color={theme.primary} />
+              <Text style={[styles.title, { color: theme.foreground, flex: 1 }]} numberOfLines={2}>
+                {cardTitle}
+              </Text>
+              {kindBadge}
+              {unsaved ? (
+                <View style={[styles.draftBadge, { borderColor: '#F59E0B66', backgroundColor: '#F59E0B18' }]}>
+                  <Text style={[styles.draftBadgeText, { color: '#B45309' }]}>{t('contractSummary.unsavedBadge')}</Text>
+                </View>
+              ) : summary?.persisted ? (
+                <View style={[styles.draftBadge, { borderColor: '#34D39966', backgroundColor: '#34D39918' }]}>
+                  <Text style={[styles.draftBadgeText, { color: '#059669' }]}>{t('contractSummary.savedBadge')}</Text>
+                </View>
+              ) : null}
+            </View>
+            {headerActions}
+          </View>
+          <Text style={[styles.hint, { color: theme.mutedForeground }]}>{cardHint}</Text>
+        </>
+      ) : unsaved || summary?.persisted || summary ? (
+        <View style={styles.headerRow}>
           <View style={styles.header}>
-            <Ionicons name="document-text-outline" size={16} color={theme.primary} />
-            <Text style={[styles.title, { color: theme.foreground }]} numberOfLines={2}>
-              {cardTitle}
-            </Text>
-            {summary ? (
-              <View style={[styles.draftBadge, { borderColor: `${theme.primary}55`, backgroundColor: `${theme.primary}18` }]}>
-                <Text style={[styles.draftBadgeText, { color: theme.primary }]}>
-                  {t(documentKindLabelKey(summary.documentType))}
-                </Text>
-              </View>
-            ) : null}
+            {kindBadge}
             {unsaved ? (
               <View style={[styles.draftBadge, { borderColor: '#F59E0B66', backgroundColor: '#F59E0B18' }]}>
                 <Text style={[styles.draftBadgeText, { color: '#B45309' }]}>{t('contractSummary.unsavedBadge')}</Text>
@@ -181,26 +285,7 @@ export function ContractSummaryCard({
               </View>
             ) : null}
           </View>
-          <Text style={[styles.hint, { color: theme.mutedForeground }]}>{cardHint}</Text>
-        </>
-      ) : unsaved || summary?.persisted || summary ? (
-        <View style={styles.header}>
-          {summary ? (
-            <View style={[styles.draftBadge, { borderColor: `${theme.primary}55`, backgroundColor: `${theme.primary}18` }]}>
-              <Text style={[styles.draftBadgeText, { color: theme.primary }]}>
-                {t(documentKindLabelKey(summary.documentType))}
-              </Text>
-            </View>
-          ) : null}
-          {unsaved ? (
-            <View style={[styles.draftBadge, { borderColor: '#F59E0B66', backgroundColor: '#F59E0B18' }]}>
-              <Text style={[styles.draftBadgeText, { color: '#B45309' }]}>{t('contractSummary.unsavedBadge')}</Text>
-            </View>
-          ) : summary?.persisted ? (
-            <View style={[styles.draftBadge, { borderColor: '#34D39966', backgroundColor: '#34D39918' }]}>
-              <Text style={[styles.draftBadgeText, { color: '#059669' }]}>{t('contractSummary.savedBadge')}</Text>
-            </View>
-          ) : null}
+          {headerActions}
         </View>
       ) : null}
 
@@ -287,7 +372,7 @@ export function ContractSummaryCard({
             <Pressable
               accessibilityRole="button"
               disabled={saving || loading}
-              onPress={onCancel}
+              onPress={() => onCancel?.()}
               style={({ pressed }) => [
                 styles.actionButton,
                 { borderColor: theme.border, backgroundColor: theme.background },
@@ -412,7 +497,35 @@ const styles = StyleSheet.create({
   embeddedWrap: {
     gap: spacing.sm,
   },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  header: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  iconButton: {
+    padding: spacing.xs,
+    marginTop: -spacing.xs,
+  },
+  collapsedCard: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  collapsedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  collapsedTitle: {
+    flex: 1,
+    fontSize: fontSize.bodySmall,
+    fontWeight: '700',
+  },
   title: { fontSize: fontSize.bodySmall, fontWeight: '700' },
   hint: { fontSize: fontSize.eyebrow, lineHeight: lineHeight.body },
   summaryText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },

@@ -21,7 +21,9 @@ import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constan
 import type { LanguagePreference } from '@/src/stores/locale-store';
 import { useLocaleStore } from '@/src/stores/locale-store';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
+import { resetOnboardingOnServer } from '@/src/api/account-api';
 import { confirmAction } from '@/src/lib/confirm-action';
+import { alertAction } from '@/src/lib/app-dialog';
 import { resolveAccountProfileHeroMeta } from '@/src/lib/creator-profile-aggregate';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { ConnectedPlatformIcons } from '@/src/components/profile/ConnectedPlatformIcons';
@@ -135,8 +137,19 @@ export default function AccountScreen() {
         destructive: true,
       });
       if (!confirmed) return;
-      replayOnboarding();
-      router.replace('/onboarding' as Href);
+      try {
+        if (shouldUseBackendApi()) {
+          await resetOnboardingOnServer();
+        }
+        replayOnboarding();
+        if (shouldUseBackendApi()) {
+          await invalidateTenantScopedQueries(queryClient);
+        }
+        router.replace('/onboarding' as Href);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t('account.replayConfirm.errorBody');
+        void alertAction(t('account.replayConfirm.errorTitle'), message);
+      }
     })();
   };
 

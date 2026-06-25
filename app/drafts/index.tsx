@@ -94,11 +94,19 @@ export default function DraftsIndexScreen() {
               <HubListRow
                 key={item.id}
                 icon="create-outline"
-                title={item.title}
-                subtitle={[draftKindLabel[item.kind], item.sourceBrandHint].filter(Boolean).join(' · ')}
+                title={item.sourceBrandHint?.trim() || item.title}
+                subtitle={[draftKindLabel[item.kind], item.title].filter(Boolean).join(' · ')}
                 detail={detail}
                 detailAccent={pending}
-                onPress={() => router.push({ pathname: '/drafts/[id]', params: { id: item.id } })}
+                onPress={() =>
+                  router.push({
+                    pathname: '/drafts/[id]',
+                    params: {
+                      id: item.id,
+                      ...(item.sourceThreadId ? { threadId: item.sourceThreadId } : {}),
+                    },
+                  })
+                }
               />
             );
           })}

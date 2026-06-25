@@ -86,6 +86,14 @@ function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
 }
 
 export function applyOverviewToSession(overview: AccountOverviewResponse) {
+  if (useSessionStore.getState().onboardingReplayInProgress) {
+    const tenantDisplayName = overview.tenantDisplayName?.trim() || null;
+    if (tenantDisplayName) {
+      useSessionStore.setState({ tenantDisplayName });
+    }
+    return;
+  }
+
   try {
     const {
       setProfileBasics,
@@ -131,6 +139,13 @@ export function applyOverviewToSession(overview: AccountOverviewResponse) {
 
 /** Atomically replaces tenant-scoped onboarding fields (workspace switch). */
 export function replaceTenantOnboardingFromOverview(overview: AccountOverviewResponse | null) {
+  if (useSessionStore.getState().onboardingReplayInProgress) {
+    if (overview?.tenantDisplayName?.trim()) {
+      useSessionStore.setState({ tenantDisplayName: overview.tenantDisplayName.trim() });
+    }
+    return;
+  }
+
   useSessionStore.setState(() => {
     if (!overview) {
       return {

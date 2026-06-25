@@ -70,6 +70,8 @@ export type OpportunityDetail = OpportunityListItem & {
   classificationSummary?: string | null;
   classificationSignals?: string[];
   riskFlags?: unknown;
+  contractRiskFlags?: unknown;
+  attentionFlags?: unknown;
   recommendedActions?: string[];
   suggestedDraftIds?: { aiReply?: string | null; quote?: string | null } | null;
   extractionStatus?: 'PENDING' | 'COMPLETE' | 'FAILED' | 'SKIPPED';

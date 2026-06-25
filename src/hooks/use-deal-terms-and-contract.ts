@@ -11,12 +11,15 @@ import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-edito
 import { localizePacketTermLabel } from '@/src/lib/deal-copy-i18n';
 import { buildDealPanelTermLines, mergeDealPanelDeliverables } from '@/src/lib/deal-panel-fields';
 import { pickContractPdf } from '@/src/lib/pick-contract-pdf';
-import { alertAction } from '@/src/lib/app-dialog';
+import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { useTenantQueryKey } from '@/src/lib/tenant-query';
 import type { ContractSummaryCardProps } from '@/components/deals/ContractSummaryCard';
 import type { DealSummary } from '@/src/types/domain';
 
-export function useDealTermsAndContract(deal: DealSummary | undefined) {
+export function useDealTermsAndContract(
+  deal: DealSummary | undefined,
+  options?: { emailMessageId?: string; emailQueryKey?: unknown[] },
+) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const apiMode = shouldUseBackendApi();
@@ -40,6 +43,8 @@ export function useDealTermsAndContract(deal: DealSummary | undefined) {
     saved: thread?.contractSummary ?? null,
     queryClient,
     threadQueryKey,
+    emailMessageId: options?.emailMessageId,
+    emailQueryKey: options?.emailQueryKey,
   });
 
   const termLines = useMemo(
@@ -102,20 +107,48 @@ export function useDealTermsAndContract(deal: DealSummary | undefined) {
     }
   };
 
+  const deleteSavedContract = async () => {
+    const ok = await confirmAction({
+      title: t('contractSummary.deleteConfirmTitle'),
+      message: t('contractSummary.deleteContractConfirmMessage'),
+      confirmLabel: t('contractSummary.deleteConfirmAction'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await contractEditor.deleteSavedContract();
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    }
+  };
+
+  const showDeleteSavedContract =
+    !!contractEditor.saved?.persisted && !contractEditor.unsaved && !contractEditor.draft;
+
   const contractCardProps: ContractSummaryCardProps = {
     embedded: true,
+    collapsible: true,
     saveLayout: 'contract',
     summary: contractEditor.displayed,
     loading: contractEditor.parsing,
     saving: contractEditor.saving,
     savingTarget: contractEditor.savingTarget,
+    deleting: contractEditor.deleting,
     unsaved: contractEditor.unsaved,
     editable: !!contractEditor.displayed && contractEditor.displayed.status !== 'FAILED',
     onChange: contractEditor.patchDraft,
     onSave: () => void saveContractSummary(),
     onCancel: contractEditor.cancelDraft,
+    onDelete: showDeleteSavedContract ? () => void deleteSavedContract() : undefined,
     onUploadPdf: matchedThreadId && apiMode ? () => void uploadContractPdf() : undefined,
-    uploadDisabled: contractEditor.parsing || contractEditor.saving,
+    uploadDisabled: contractEditor.parsing || contractEditor.saving || contractEditor.deleting,
   };
 
   return {
@@ -127,5 +160,6 @@ export function useDealTermsAndContract(deal: DealSummary | undefined) {
     showContractBlock,
     contractCardProps,
     contractEditor,
+    deleteSavedContract,
   };
 }

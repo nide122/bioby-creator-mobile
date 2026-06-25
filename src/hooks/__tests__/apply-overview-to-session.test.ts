@@ -104,6 +104,21 @@ describe('applyOverviewToSession', () => {
     expect(() => applyOverviewToSession(overview)).not.toThrow();
     expect(useSessionStore.getState().profileBasics?.displayName).toBe('Mia');
   });
+
+  it('skips onboarding hydration while replay is in progress', () => {
+    useSessionStore.setState({
+      isAuthenticated: true,
+      onboardingReplayInProgress: true,
+      onboardingComplete: false,
+      profileBasics: null,
+    });
+    applyOverviewToSession(baseOverview);
+    const s = useSessionStore.getState();
+    expect(s.profileBasics).toBeNull();
+    expect(s.onboardingComplete).toBe(false);
+    expect(s.mailboxConnection).toBeNull();
+    expect(s.tenantDisplayName).toBe('Personal');
+  });
 });
 
 describe('replaceTenantOnboardingFromOverview', () => {

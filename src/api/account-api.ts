@@ -45,6 +45,12 @@ export async function updateTenantSettings(input: {
   await apiRequest('/api/v1/account/settings', { method: 'PATCH', body });
 }
 
+/** Clears server onboarding completion and disconnects mailbox so setup can be replayed. */
+export async function resetOnboardingOnServer(): Promise<void> {
+  if (!shouldUseBackendApi()) return;
+  await apiRequest('/api/v1/account/reset-onboarding', { method: 'POST' });
+}
+
 export async function markOnboardingCompleted(input: {
   agentSendMode: AgentSendMode;
   creatorFocusMode?: CreatorFocusMode;

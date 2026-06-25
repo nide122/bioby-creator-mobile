@@ -1,5 +1,5 @@
 import { apiRequest, apiDownloadBlob } from '@/src/api/api-client';
-import { mapContractSummary } from '@/src/api/contract-summary-api';
+import { mapContractSummary, type ContractSummary } from '@/src/api/contract-summary-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import type { MailboxConnectionResponse } from '@/src/api/account-api';
 
@@ -220,14 +220,29 @@ export type EmailMessageDetail = {
   sentAtISO?: string | null;
   receivedAtISO?: string | null;
   attachments?: EmailAttachment[];
-  documentSummary?: import('@/src/api/contract-summary-api').ContractSummary | null;
+  documentSummaries?: ContractSummary[];
 };
 
+function mapDocumentSummaries(
+  summaries?: ContractSummary[] | null,
+  legacySummary?: ContractSummary | null
+): ContractSummary[] {
+  if (summaries?.length) {
+    return summaries.map((row) => mapContractSummary(row));
+  }
+  if (legacySummary) {
+    return [mapContractSummary(legacySummary)];
+  }
+  return [];
+}
+
 export async function fetchEmailMessage(messageId: string): Promise<EmailMessageDetail> {
-  const result = await apiRequest<EmailMessageDetail>(`/api/v1/mailbox/messages/${messageId}`);
+  const result = await apiRequest<
+    EmailMessageDetail & { documentSummary?: ContractSummary | null }
+  >(`/api/v1/mailbox/messages/${messageId}`);
   return {
     ...result,
-    documentSummary: result.documentSummary ? mapContractSummary(result.documentSummary) : null,
+    documentSummaries: mapDocumentSummaries(result.documentSummaries, result.documentSummary),
   };
 }
 

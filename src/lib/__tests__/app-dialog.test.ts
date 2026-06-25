@@ -1,3 +1,5 @@
+import { Alert } from 'react-native';
+
 import {
   alertAction,
   confirmAction,
@@ -37,13 +39,21 @@ describe('app-dialog', () => {
     });
   });
 
-  it('returns safe fallbacks when no presenter is mounted', async () => {
+  it('falls back to Alert.alert when no presenter is mounted', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.[0]?.onPress?.();
+    });
+    await alertAction('Title', 'Message');
+    expect(alertSpy).toHaveBeenCalledWith('Title', 'Message', expect.any(Array));
+    alertSpy.mockRestore();
+  });
+
+  it('confirmAction returns false when no presenter is mounted', async () => {
     await expect(confirmAction({
       title: 'Title',
       message: 'Message',
       confirmLabel: 'OK',
       cancelLabel: 'Cancel',
     })).resolves.toBe(false);
-    await expect(alertAction('Title', 'Message')).resolves.toBeUndefined();
   });
 });

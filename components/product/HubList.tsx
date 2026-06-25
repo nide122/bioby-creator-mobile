@@ -52,21 +52,21 @@ export const hubListStyles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     flexShrink: 0,
-    maxWidth: '40%',
+    maxWidth: '46%',
   },
   trailingTall: {
     alignSelf: 'stretch',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   trailingTextBlock: {
     alignItems: 'flex-end',
-    gap: 2,
+    gap: 3,
     flexShrink: 1,
     minWidth: 0,
   },
   trailingTextBlockTall: {
     alignSelf: 'stretch',
-    justifyContent: 'space-between',
+    alignItems: 'flex-end',
   },
   detail: {
     fontSize: fontSize.caption,
@@ -87,7 +87,7 @@ type RowProps = {
   subtitle?: ReactNode;
   detail?: ReactNode;
   detailAccent?: boolean;
-  detailFooter?: string;
+  detailFooter?: ReactNode;
   detailFooterAccent?: boolean;
   onPress?: () => void;
   testID?: string;
@@ -146,14 +146,18 @@ function HubRowBase({
               )
             ) : null}
             {detailFooter ? (
-              <Text
-                style={[
-                  hubListStyles.detailFooter,
-                  { color: detailFooterAccent ? theme.primary : theme.foregroundEyebrow },
-                ]}
-                numberOfLines={1}>
-                {detailFooter}
-              </Text>
+              typeof detailFooter === 'string' ? (
+                <Text
+                  style={[
+                    hubListStyles.detailFooter,
+                    { color: detailFooterAccent ? theme.primary : theme.foregroundEyebrow },
+                  ]}
+                  numberOfLines={1}>
+                  {detailFooter}
+                </Text>
+              ) : (
+                detailFooter
+              )
             ) : null}
           </View>
         ) : null}

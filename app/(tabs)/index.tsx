@@ -211,24 +211,42 @@ function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
 
 function DecisionCardIdentityBlock({ card }: { card: DecisionCard }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const { display } = getLocalizedDecisionPresentation(card, t);
+  const initial = display.brand.trim().charAt(0).toUpperCase() || '?';
+  const canNavigate = !!card.sourceHref;
 
   return (
-    <View style={styles.identityBlock}>
-      <Text style={[styles.brandName, { color: theme.foreground }]}>{display.brand}</Text>
-      {display.subject ? (
-        <Text style={[styles.subjectLine, { color: theme.foregroundSubtitle }]} numberOfLines={2}>
-          {display.subject}
-        </Text>
-      ) : null}
+    <Pressable
+      accessibilityRole={canNavigate ? 'link' : undefined}
+      disabled={!canNavigate}
+      onPress={() => card.sourceHref && router.push(card.sourceHref as Href)}
+      style={({ pressed }) => [styles.identityBlock, pressed && canNavigate ? { opacity: 0.88 } : null]}>
+      <View style={styles.identityHeaderRow}>
+        <View style={[styles.brandAvatar, { backgroundColor: theme.primary + '20' }]}>
+          <Text style={[styles.brandAvatarText, { color: theme.primary }]}>{initial}</Text>
+        </View>
+        <View style={styles.identityCopy}>
+          <Text style={[styles.brandEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.brandLabel')}</Text>
+          <Text style={[styles.brandName, { color: theme.foreground }]} numberOfLines={1}>
+            {display.brand}
+          </Text>
+          {display.subject ? (
+            <Text style={[styles.subjectLine, { color: theme.foregroundSubtitle }]} numberOfLines={2}>
+              {display.subject}
+            </Text>
+          ) : null}
+        </View>
+        {canNavigate ? <Ionicons name="chevron-forward" size={16} color={theme.mutedForeground} /> : null}
+      </View>
       {display.actionSummary ? (
         <Text style={[styles.actionSummary, { color: theme.mutedForeground }]} numberOfLines={1}>
           {display.actionSummary}
         </Text>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -276,11 +294,12 @@ function DecisionCardSourceRow({ card }: { card: DecisionCard }) {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const sourceHint = getLocalizedDecisionPresentation(card, t).sourceHint;
+  const { display, sourceHint } = getLocalizedDecisionPresentation(card, t);
   const { prefix, detail } = parseDecisionSourceHint(sourceHint);
   const sourceLabel = [prefix, detail].filter(Boolean).join(' · ');
 
   if (!sourceLabel) return null;
+  if (detail && display.subject && detail.trim() === display.subject.trim()) return null;
 
   return (
     <Pressable
@@ -462,10 +481,11 @@ function SwipeableDecisionCard({
           { transform: [{ translateX }, { rotate }, { translateY: entryY }], opacity: entryOpacity },
         ]}>
 
+        {/* 品牌 / 商机身份 */}
+        <DecisionCardIdentityBlock card={card} />
+
         {/* 类型标签行 */}
         <DecisionCardMetaRow card={card} />
-
-        <DecisionCardIdentityBlock card={card} />
         {card.contractRiskFlags && contractWarningSeverity(card.contractRiskFlags) ? (
           <RiskBanner flags={card.contractRiskFlags} compact />
         ) : null}
@@ -903,7 +923,19 @@ const styles = StyleSheet.create({
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   categoryIcon: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 'auto' },
-  identityBlock: { gap: spacing.xs },
+  identityBlock: { gap: spacing.sm },
+  identityHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  brandAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  brandAvatarText: { fontSize: fontSize.sectionTitle, fontWeight: '800' },
+  identityCopy: { flex: 1, gap: 2 },
+  brandEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
   brandName: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.35, lineHeight: lineHeight.lead },
   subjectLine: { fontSize: fontSize.body, fontWeight: '600', lineHeight: lineHeight.body },
   actionSummary: { fontSize: fontSize.bodySmall, fontWeight: '600' },

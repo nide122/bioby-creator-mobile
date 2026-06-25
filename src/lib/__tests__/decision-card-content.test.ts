@@ -70,8 +70,24 @@ describe('decision-card-content', () => {
       'ClearSkin Lab · 2 short videos | Claims need pre-review · Open thread'
     );
     expect(formatDecisionQueuePreviewLines(opportunityCard)).toEqual({
-      title: '2 short videos | Claims need pre-review',
-      subtitle: 'ClearSkin Lab · Open thread · Needs attention today',
+      title: 'ClearSkin Lab',
+      subtitle: '2 short videos | Claims need pre-review · Open thread · Needs attention today',
     });
+  });
+
+  it('suppresses generic draft review headlines from action summary', () => {
+    const draftCard: DecisionCard = {
+      id: 'draft',
+      category: 'approval',
+      entityName: 'Glow Recipe',
+      headline: 'Review reply draft',
+      aiNote: 'Needs approval.',
+      sourceHint: 'Draft · TikTok · Watermelon serum launch',
+      actions: [{ id: 'review', label: 'Review draft', style: 'primary' }],
+    };
+    const display = resolveDecisionCardDisplay(draftCard);
+    expect(display.brand).toBe('Glow Recipe');
+    expect(display.subject).toBe('TikTok · Watermelon serum launch');
+    expect(display.actionSummary).toBeUndefined();
   });
 });

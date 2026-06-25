@@ -18,6 +18,7 @@ export type DraftListItemDto = {
   sourceBrandHint?: string | null;
   nextActionLabel?: string | null;
   approvalState?: string | null;
+  sourceThreadId?: string | null;
 };
 
 function asKind(value: string): DraftKind {
@@ -38,6 +39,7 @@ export function mapDraftSummary(dto: DraftListItemDto): DraftSummary {
     kind: asKind(dto.kind),
     requiresApproval: dto.requiresApproval,
     sourceBrandHint: dto.sourceBrandHint ?? undefined,
+    sourceThreadId: dto.sourceThreadId ?? undefined,
     nextActionLabel: dto.nextActionLabel ?? undefined,
     approvalState: asApprovalState(dto.approvalState),
   };

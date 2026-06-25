@@ -169,6 +169,11 @@ function parseRiskFlag(raw: unknown): InboxRiskFlag | undefined {
     severity: (['info', 'warning', 'danger'].includes(String(item.severity))
       ? String(item.severity)
       : 'info') as InboxRiskFlag['severity'],
+    code: item.code != null ? String(item.code) : undefined,
+    kind:
+      item.kind === 'contract' || item.kind === 'attention'
+        ? item.kind
+        : undefined,
     hint: item.hint != null ? String(item.hint) : undefined,
     acknowledged: item.acknowledged === true,
   };
@@ -211,6 +216,8 @@ function mapContractSummary(raw: OpportunityDetail['contractSummary']): Contract
 
 export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: OpportunityTimeline): InboxThreadDetail {
   const riskFlags = parseRiskFlags(detail.riskFlags);
+  const contractRiskFlags = parseRiskFlags(detail.contractRiskFlags);
+  const attentionFlags = parseRiskFlags(detail.attentionFlags);
   const messages: InboxMessage[] = (timeline?.messages ?? []).map((m, index) => ({
     id: m.id ?? `m${index}`,
     sentAtISO: m.sentAtISO ?? detail.updatedAtISO,
@@ -235,6 +242,8 @@ export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: Opp
     classificationSignals: detail.classificationSignals ?? [],
     messages,
     riskFlags,
+    contractRiskFlags: contractRiskFlags.length > 0 ? contractRiskFlags : undefined,
+    attentionFlags: attentionFlags.length > 0 ? attentionFlags : undefined,
     recommendedActions: detail.recommendedActions ?? [],
     extractionStatus: detail.extractionStatus,
     extractionConfidence: detail.extractionConfidence ?? undefined,

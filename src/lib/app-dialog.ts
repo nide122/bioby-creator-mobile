@@ -1,3 +1,5 @@
+import { Alert } from 'react-native';
+
 import appI18n from '@/src/i18n';
 
 export type ConfirmDialogOptions = {
@@ -35,12 +37,11 @@ export function confirmAction(options: ConfirmDialogOptions): Promise<boolean> {
 }
 
 export function alertAction(title: string, message: string, dismissLabel?: string): Promise<void> {
+  const dismiss = dismissLabel ?? appI18n.t('common.ok');
   if (presenter) {
-    return presenter.alert({
-      title,
-      message,
-      dismissLabel: dismissLabel ?? appI18n.t('common.ok'),
-    });
+    return presenter.alert({ title, message, dismissLabel: dismiss });
   }
-  return Promise.resolve();
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [{ text: dismiss, onPress: () => resolve() }]);
+  });
 }

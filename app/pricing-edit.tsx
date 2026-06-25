@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
@@ -180,23 +180,32 @@ export default function PricingEditScreen() {
     ? t('pricingEditScreen.titleNew')
     : pkg?.name.trim() || t('pricingEditScreen.titleEdit');
 
-  const onSave = async () => {
-    if (!pkg || !rateCardQuery.data || !canSave) return;
-    try {
-      await saveMutation.mutateAsync(mergePackagesForSave(rateCardQuery.data, pkg, isNew));
-      setSavedFlash(true);
-      setTimeout(() => {
-        if (router.canGoBack()) router.back();
-        else router.replace('/pricing' as Href);
-      }, 400);
-    } catch (error) {
+  const showSaveError = useCallback(
+    (error: unknown) => {
       const message = error instanceof Error ? error.message : t('pricingEditScreen.saveFailedBody');
       void alertAction(t('pricingEditScreen.saveFailedTitle'), message);
-    }
+    },
+    [t],
+  );
+
+  const navigateBackAfterSave = useCallback(() => {
+    setSavedFlash(true);
+    setTimeout(() => {
+      if (router.canGoBack()) router.back();
+      else router.replace('/pricing' as Href);
+    }, 400);
+  }, [router]);
+
+  const onSave = () => {
+    if (!pkg || !rateCardQuery.data || !canSave || saveMutation.isPending) return;
+    saveMutation.mutate(mergePackagesForSave(rateCardQuery.data, pkg, isNew), {
+      onSuccess: navigateBackAfterSave,
+      onError: showSaveError,
+    });
   };
 
   const onDelete = async () => {
-    if (!pkg || !rateCardQuery.data || isNew) return;
+    if (!pkg || !rateCardQuery.data || isNew || saveMutation.isPending) return;
     const confirmed = await confirmAction({
       title: t('pricingEditScreen.deleteConfirmTitle'),
       message: t('pricingEditScreen.deleteConfirmBody', { name: pkg.name.trim() || t('pricingEditScreen.titleEdit') }),
@@ -205,15 +214,14 @@ export default function PricingEditScreen() {
       destructive: true,
     });
     if (!confirmed) return;
-    try {
-      const remaining = excludeDeletedPackage(rateCardQuery.data, pkg, packageId).map(normalizePackage);
-      await saveMutation.mutateAsync(remaining);
-      if (router.canGoBack()) router.back();
-      else router.replace('/pricing' as Href);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('pricingEditScreen.saveFailedBody');
-      void alertAction(t('pricingEditScreen.saveFailedTitle'), message);
-    }
+    const remaining = excludeDeletedPackage(rateCardQuery.data, pkg, packageId).map(normalizePackage);
+    saveMutation.mutate(remaining, {
+      onSuccess: () => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/pricing' as Href);
+      },
+      onError: showSaveError,
+    });
   };
 
   if (rateCardQuery.isPending) {
@@ -363,12 +371,21 @@ function PackageEditForm({ pkg, theme, t, onUpdate, onSetRecommended, onDelete }
           {...getTextInputProps(theme)}
           style={getTextInputStyle(theme, { multiline: true, minHeight: 72 })}
         />
-        <View style={styles.toggleRow}>
-          <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text style={[styles.toggleLabel, { color: theme.foreground }]}>{t('pricingEditScreen.labelRecommended')}</Text>
-            <Text style={[styles.toggleHint, { color: theme.mutedForeground }]}>{t('pricingEditScreen.recommendedHint')}</Text>
+        <View style={[styles.defaultToggleCard, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <View style={styles.defaultLabelRow}>
+                {pkg.recommended ? (
+                  <Ionicons name="star" size={16} color={theme.accentMintStrong} accessibilityElementsHidden />
+                ) : (
+                  <Ionicons name="star-outline" size={16} color={theme.mutedForeground} accessibilityElementsHidden />
+                )}
+                <Text style={[styles.toggleLabel, { color: theme.foreground }]}>{t('pricingEditScreen.labelRecommended')}</Text>
+              </View>
+              <Text style={[styles.toggleHint, { color: theme.mutedForeground }]}>{t('pricingEditScreen.recommendedHint')}</Text>
+            </View>
+            <Switch value={pkg.recommended === true} onValueChange={onSetRecommended} trackColor={{ true: theme.primary }} />
           </View>
-          <Switch value={pkg.recommended === true} onValueChange={onSetRecommended} trackColor={{ true: theme.primary }} />
         </View>
         {onDelete ? (
           <Pressable
@@ -396,7 +413,14 @@ const styles = StyleSheet.create({
   },
   packageBody: { gap: spacing.sm },
   label: { fontSize: fontSize.caption, fontWeight: '600', marginTop: spacing.sm, marginBottom: spacing.xs },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
+  defaultToggleCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  defaultLabelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   toggleLabel: { fontSize: fontSize.body, fontWeight: '600' },
   toggleHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   deleteRow: {

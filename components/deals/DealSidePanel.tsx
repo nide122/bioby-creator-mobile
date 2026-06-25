@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, useW
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { Badge, SectionCard } from '@/components/product';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
@@ -21,16 +21,17 @@ import { localizeDeliveryTimeline } from '@/src/lib/delivery-workflow-i18n';
 import { reconcileDeliveryTimeline } from '@/src/lib/reconcile-delivery-timeline';
 import { formatThreadToggleLabel } from '@/src/lib/inbox-message-stats';
 import { stripQuotedPlainText } from '@/src/lib/email-body';
-import { visibleRiskFlags } from '@/src/lib/inbox-detail-labels';
-import { contractWarningSeverity } from '@/src/lib/contract-warning';
+import {
+  contractWarningSeverity,
+  resolveThreadRiskPartitions,
+} from '@/src/lib/contract-warning';
 import { fetchEmailMessage } from '@/src/api/mailbox-api';
 import type { EmailAttachment } from '@/src/api/mailbox-api';
 import { ApiError } from '@/src/api/api-client';
-import { alertAction } from '@/src/lib/app-dialog';
+import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { EmailAttachmentsList, EmailAttachmentBadge } from '@/components/mail/EmailAttachmentsList';
 import { isPdfAttachment } from '@/components/mail/email-attachment-utils';
 import { DealTermsWithContractSection } from '@/components/deals/DealTermsWithContractSection';
-import { ContractSummaryCard } from '@/components/deals/ContractSummaryCard';
 import { DealStatusStrip } from '@/components/deals/DealStatusStrip';
 import { resolveFulfillmentStatus } from '@/src/lib/deal-fulfillment-status';
 import { dealPanelQuickHref, dealPanelQuickLabelKey } from '@/src/lib/deal-panel-fields';
@@ -91,7 +92,6 @@ function stepBadge(status: StepStatus, t: (key: string) => string): { label: str
 export function DealSidePanel({ deal, onClose }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { escrowLifecycleLabel } = useDomainLabels();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -99,8 +99,6 @@ export function DealSidePanel({ deal, onClose }: Props) {
   const [timelineOpen, setTimelineOpen] = useState(true);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<InboxMessage | null>(null);
-  const [summarizingAttachmentId, setSummarizingAttachmentId] = useState<string | null>(null);
-  const [inlineSummaryMessageId, setInlineSummaryMessageId] = useState<string | null>(null);
 
   const packetQuery = useDealPacket(deal?.id);
   const inboxThreads = useInboxThreads();
@@ -111,9 +109,13 @@ export function DealSidePanel({ deal, onClose }: Props) {
     [deal?.opportunityThreadId, deal?.brandPlaceholder, inboxThreads.data],
   );
   const threadQuery = useInboxThreadDetail(matchedThreadId);
-  const termsContract = useDealTermsAndContract(deal ?? undefined);
-  const { termLines, deliverableLines, usageRights, showContractBlock, contractEditor } = termsContract;
   const mailboxMessageKey = useTenantQueryKey('mailbox', 'message', selectedMessage?.id);
+  const termsContract = useDealTermsAndContract(deal ?? undefined, {
+    emailMessageId: selectedMessage?.id,
+    emailQueryKey: mailboxMessageKey,
+  });
+  const { termLines, deliverableLines, usageRights, showContractBlock, contractEditor, deleteSavedContract } =
+    termsContract;
   const emailQuery = useQuery({
     queryKey: mailboxMessageKey,
     queryFn: () => fetchEmailMessage(selectedMessage!.id),
@@ -124,7 +126,10 @@ export function DealSidePanel({ deal, onClose }: Props) {
   const packet = packetQuery.data?.packet;
   const thread = threadQuery.data;
   const compact = width < 900;
-  const contractRiskFlags = visibleRiskFlags(thread?.riskFlags ?? [], thread?.budgetLabel);
+  const { contractRisks, attentionFlags } = thread
+    ? resolveThreadRiskPartitions(thread)
+    : { contractRisks: [], attentionFlags: [] };
+  const contractRiskFlags = contractRisks;
   const showContractWarning = contractWarningSeverity(contractRiskFlags) != null;
 
   useEffect(() => {
@@ -132,7 +137,6 @@ export function DealSidePanel({ deal, onClose }: Props) {
     setTimelineOpen(true);
     setDeliveryOpen(false);
     setSelectedMessage(null);
-    setInlineSummaryMessageId(null);
   }, [deal?.id]);
 
   const dealCopy = deal ? localizeDealSummaryCopy(deal, t) : null;
@@ -174,12 +178,7 @@ export function DealSidePanel({ deal, onClose }: Props) {
         : null,
     [selectedMessage, thread?.contractSummary]
   );
-  const savedDocumentForSelectedMessage = emailQuery.data?.documentSummary ?? null;
-  const showDraftInEmail =
-    !!selectedMessage &&
-    inlineSummaryMessageId === selectedMessage.id &&
-    (contractEditor.parsing || !!summarizingAttachmentId || contractEditor.unsaved || !!contractEditor.draft);
-  const riskItems = thread?.riskFlags ?? [];
+  const riskItems = attentionFlags;
   const openMessage = (message: InboxMessage) => {
     setSelectedMessage(message);
   };
@@ -191,12 +190,9 @@ export function DealSidePanel({ deal, onClose }: Props) {
       void alertAction(t('contractSummary.title'), t('contractSummary.missingThread'));
       return;
     }
-    setSummarizingAttachmentId(attachment.id);
-    setInlineSummaryMessageId(selectedMessage.id);
     try {
       await contractEditor.parseFromAttachment(selectedMessage.id, attachment.id);
     } catch (error) {
-      setInlineSummaryMessageId(null);
       const message =
         error instanceof ApiError
           ? error.message
@@ -204,14 +200,11 @@ export function DealSidePanel({ deal, onClose }: Props) {
             ? error.message
             : t('contractSummary.failed');
       void alertAction(t('contractSummary.title'), message);
-    } finally {
-      setSummarizingAttachmentId(null);
     }
   };
-  const saveContractSummary = async () => {
+  const saveContractSummaryForAttachment = async (attachmentId: string) => {
     try {
-      await contractEditor.saveDraft();
-      setInlineSummaryMessageId(null);
+      await contractEditor.saveDraft(attachmentId);
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -222,12 +215,10 @@ export function DealSidePanel({ deal, onClose }: Props) {
       void alertAction(t('contractSummary.title'), message);
     }
   };
-  const saveDocumentSummary = async () => {
+  const saveDocumentSummaryForAttachment = async (attachmentId: string) => {
     if (!selectedMessage) return;
     try {
-      await contractEditor.saveDocumentDraft(selectedMessage.id);
-      setInlineSummaryMessageId(null);
-      await queryClient.invalidateQueries({ queryKey: mailboxMessageKey });
+      await contractEditor.saveDocumentDraft(selectedMessage.id, attachmentId);
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -238,16 +229,35 @@ export function DealSidePanel({ deal, onClose }: Props) {
       void alertAction(t('contractSummary.title'), message);
     }
   };
-  const cancelContractSummary = () => {
-    contractEditor.cancelDraft();
-    setInlineSummaryMessageId(null);
+  const deleteDocumentSummaryForSelectedMessage = async (attachmentId: string) => {
+    if (!selectedMessage || !attachmentId) return;
+    const ok = await confirmAction({
+      title: t('contractSummary.deleteConfirmTitle'),
+      message: t('contractSummary.deleteDocumentConfirmMessage'),
+      confirmLabel: t('contractSummary.deleteConfirmAction'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await contractEditor.deleteSavedDocument(selectedMessage.id, attachmentId);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : t('contractSummary.failed');
+      void alertAction(t('contractSummary.title'), message);
+    }
+  };
+  const deleteContractSummaryForSelectedMessage = async () => {
+    await deleteSavedContract();
   };
   const termsContractCardProps = {
     ...termsContract.contractCardProps,
-    loading: termsContract.contractCardProps.loading || !!summarizingAttachmentId,
-    onSave: () => void saveContractSummary(),
-    onCancel: cancelContractSummary,
-    uploadDisabled: termsContract.contractCardProps.uploadDisabled || !!summarizingAttachmentId,
+    uploadDisabled:
+      termsContract.contractCardProps.uploadDisabled || contractEditor.parsingAttachmentIds.length > 0,
   };
   const openFullDeal = () => {
     if (!deal) return;
@@ -264,27 +274,6 @@ export function DealSidePanel({ deal, onClose }: Props) {
     onClose();
     openBrandDetail(router, deal.brandId, '/deals');
   };
-
-  const renderContractSummaryCard = (placement: 'inline' | 'timeline') => (
-    <ContractSummaryCard
-      key={placement}
-      summary={contractEditor.displayed}
-      loading={contractEditor.parsing || !!summarizingAttachmentId}
-      saving={contractEditor.saving}
-      savingTarget={contractEditor.savingTarget}
-      unsaved={contractEditor.unsaved}
-      editable={!!contractEditor.displayed && contractEditor.displayed.status !== 'FAILED'}
-      saveLayout={placement === 'inline' ? 'email' : 'contract'}
-      headerStyle={placement === 'inline' ? 'attachmentFilename' : 'default'}
-      onChange={contractEditor.patchDraft}
-      onSave={() => void saveContractSummary()}
-      onSaveDocument={placement === 'inline' ? () => void saveDocumentSummary() : undefined}
-      onSaveContract={placement === 'inline' ? () => void saveContractSummary() : undefined}
-      onCancel={cancelContractSummary}
-      onUploadPdf={termsContract.contractCardProps.onUploadPdf}
-      uploadDisabled={contractEditor.parsing || contractEditor.saving || !!summarizingAttachmentId}
-    />
-  );
 
   return (
     <Modal animationType="slide" transparent visible={!!deal} onRequestClose={onClose}>
@@ -343,7 +332,7 @@ export function DealSidePanel({ deal, onClose }: Props) {
               termLines={termLines}
               deliverableLines={deliverableLines}
               usageRights={usageRights}
-              showContractBlock={showContractBlock && !showDraftInEmail}
+              showContractBlock={showContractBlock}
               contractCardProps={termsContractCardProps}
             />
 
@@ -455,21 +444,32 @@ export function DealSidePanel({ deal, onClose }: Props) {
                                         ? summarizePdfAttachment
                                         : undefined
                                     }
-                                    summarizingAttachmentId={summarizingAttachmentId}
+                                    summaryHandlers={
+                                      matchedThreadId
+                                        ? {
+                                            documentSummaries: emailQuery.data.documentSummaries ?? [],
+                                            contractSummary: contractForSelectedMessage,
+                                            attachmentDrafts: contractEditor.attachmentDrafts,
+                                            isAttachmentParsing: contractEditor.isAttachmentParsing,
+                                            deleting: contractEditor.deleting,
+                                            saving: contractEditor.saving,
+                                            savingTarget: contractEditor.savingTarget,
+                                            isAttachmentDraftUnsaved: contractEditor.isAttachmentDraftUnsaved,
+                                            onDraftChange: contractEditor.patchAttachmentDraft,
+                                            onSaveDocument: (attachmentId) =>
+                                              void saveDocumentSummaryForAttachment(attachmentId),
+                                            onSaveContract: (attachmentId) =>
+                                              void saveContractSummaryForAttachment(attachmentId),
+                                            onCancelDraft: (attachmentId) =>
+                                              contractEditor.cancelDraft(attachmentId),
+                                            onDeleteDocument: (attachmentId) =>
+                                              void deleteDocumentSummaryForSelectedMessage(attachmentId),
+                                            onDeleteContract: () =>
+                                              void deleteContractSummaryForSelectedMessage(),
+                                          }
+                                        : undefined
+                                    }
                                   />
-                                ) : null}
-                                {savedDocumentForSelectedMessage && !showDraftInEmail ? (
-                                  <View style={{ marginTop: spacing.sm }}>
-                                    <ContractSummaryCard summary={savedDocumentForSelectedMessage} editable={false} headerStyle="attachmentFilename" />
-                                  </View>
-                                ) : null}
-                                {contractForSelectedMessage && !showDraftInEmail ? (
-                                  <View style={{ marginTop: spacing.sm }}>
-                                    <ContractSummaryCard summary={contractForSelectedMessage} editable={false} headerStyle="attachmentFilename" />
-                                  </View>
-                                ) : null}
-                                {showDraftInEmail ? (
-                                  <View style={{ marginTop: spacing.sm }}>{renderContractSummaryCard('inline')}</View>
                                 ) : null}
                                 {(emailQuery.data?.bodyText || selectedMessage.snippet).split('\n').map((line, i) => (
                                   <Text key={i} style={[styles.msgDetailLine, { color: theme.foreground }]}>

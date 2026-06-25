@@ -13,9 +13,9 @@ import {
 } from 'react-native';
 
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import {
-  Badge,
   getTextInputProps,
   getTextInputStyle,
   HubLinkGroup,
@@ -26,19 +26,29 @@ import {
   SettingsGroup,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { DraftOpportunityBrief } from '@/components/drafts/DraftOpportunityBrief';
+import { CollapsibleThread } from '@/components/inbox/CollapsibleThread';
+import { InboundMessagePreview, pickLatestInboundMessage } from '@/components/inbox/InboundMessagePreview';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import { calendarLocaleTagForLanguage } from '@/src/i18n';
 import { getMockInboxThreadBrandHint } from '@/src/api/mock-inbox';
-import { approveDraftOnServer, sendNativeMailboxDraft, syncDraftToNativeMailbox, type GeneratedReplyDraft, type RemoteDraftSyncResult } from '@/src/api/drafts-api';
+import {
+  sendNativeMailboxDraft,
+  syncDraftToNativeMailbox,
+  type GeneratedReplyDraft,
+  type RemoteDraftSyncResult,
+} from '@/src/api/drafts-api';
 import { syncMailbox } from '@/src/api/mailbox-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { alertAction } from '@/src/lib/app-dialog';
 import { useDraftDetail } from '@/src/hooks/use-drafts';
-import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { useMailboxConnection } from '@/src/hooks/use-mailbox-connection';
 import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
 import { useRateCardPackages } from '@/src/hooks/use-growth';
 import { buildReplyTemplateContext } from '@/src/lib/reply-template-context';
+import { inboxMessageHref } from '@/src/lib/open-brand-detail';
+import { cooperationLeadLine, isEmailLikeLabel } from '@/src/lib/cooperation-display-name';
 import {
   mailboxSendFlowReady,
   normalizeMailboxDraftProviderError,
@@ -49,45 +59,37 @@ import { ReplyDraftGeneratorSheet } from '@/components/drafts/ReplyDraftGenerato
 import { ReplyTemplatePicker } from '@/src/components/reply-templates/ReplyTemplatePicker';
 import { renderReplyTemplateForSend } from '@/src/lib/reply-template-render';
 import type { RenderReplyTemplateInput } from '@/src/types/reply-template';
-import { useDraftApprovalStore } from '@/src/stores/draft-approval-store';
+import type { InboxMessage } from '@/src/types/domain';
 import { useSessionStore } from '@/src/stores/session-store';
 
 export default function DraftDetailScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { draftKindLabel } = useDomainLabels();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ id?: string | string[]; threadId?: string | string[] }>();
   const rawId = params.id;
   const rawThread = params.threadId;
   const draftId = Array.isArray(rawId) ? rawId[0] : rawId;
-  const threadId = Array.isArray(rawThread) ? rawThread[0] : rawThread;
+  const threadIdParam = Array.isArray(rawThread) ? rawThread[0] : rawThread;
 
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
-  const approveDraftLocal = useDraftApprovalStore((s) => s.approveDraft);
-  const isApprovedLocal = useDraftApprovalStore((s) => (draftId ? s.isDraftApproved(draftId) : false));
-  const approvedAtLocal = useDraftApprovalStore((s) => (draftId ? s.approvedAtById[draftId] : undefined));
-
   const query = useDraftDetail(draftId);
-  const threadQuery = useInboxThreadDetail(threadId);
+  const effectiveThreadId = threadIdParam ?? query.data?.sourceThreadId;
+  const threadQuery = useInboxThreadDetail(effectiveThreadId);
+  const dateLocale = calendarLocaleTagForLanguage(i18n.language);
   const rateCardQuery = useRateCardPackages();
   const mailbox = useMailboxConnection();
   const mailboxCapabilities = mailbox.data?.capabilities;
-  const mailboxSendReady = mailboxSendFlowReady(
-    mailboxCapabilities,
-    mailbox.data?.reconsentRequired,
-  );
+  const mailboxSendReady = mailboxSendFlowReady(mailboxCapabilities, mailbox.data?.reconsentRequired);
+
   const [body, setBody] = useState('');
-  const [boundarySkipped, setBoundarySkipped] = useState(false);
   const [remoteDraftLoading, setRemoteDraftLoading] = useState(false);
   const [remoteDraftSending, setRemoteDraftSending] = useState(false);
   const [remoteDraftResult, setRemoteDraftResult] = useState<RemoteDraftSyncResult | null>(null);
   const [remoteDraftError, setRemoteDraftError] = useState<string | null>(null);
   const [draftSyncFlash, setDraftSyncFlash] = useState<'saved' | 'updated' | null>(null);
-  const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
-  const [approveLoading, setApproveLoading] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showAiGenerator, setShowAiGenerator] = useState(false);
 
@@ -111,33 +113,47 @@ export default function DraftDetailScreen() {
 
   const profileBasics = useSessionStore((s) => s.profileBasics);
 
-  const brandHint = useMemo(() => {
-    if (shouldUseBackendApi()) return query.data?.sourceBrandHint;
-    if (threadId) return getMockInboxThreadBrandHint(threadId);
-    return query.data?.sourceBrandHint;
-  }, [threadId, query.data?.sourceBrandHint]);
+  const brandDisplayName = useMemo(() => {
+    const fromThread = threadQuery.data?.brandName?.trim();
+    if (fromThread && !isEmailLikeLabel(fromThread)) return fromThread;
+    const hint = query.data?.sourceBrandHint?.trim();
+    if (hint && !isEmailLikeLabel(hint)) return hint;
+    if (effectiveThreadId) return getMockInboxThreadBrandHint(effectiveThreadId);
+    return fromThread || undefined;
+  }, [effectiveThreadId, query.data?.sourceBrandHint, threadQuery.data?.brandName]);
+
+  const cooperationTitle = useMemo(() => {
+    return (
+      threadQuery.data?.subject?.trim() ||
+      query.data?.emailSubject?.trim() ||
+      query.data?.title?.trim() ||
+      ''
+    );
+  }, [query.data?.emailSubject, query.data?.title, threadQuery.data?.subject]);
+
+  const headerLead = cooperationLeadLine(brandDisplayName, cooperationTitle);
 
   const templateRenderContext = useMemo((): RenderReplyTemplateInput => {
     const thread = threadQuery.data;
     const base = buildReplyTemplateContext({
-      opportunityId: threadId,
-      thread: thread ?? (brandHint ? { brandName: brandHint, subject: query.data?.title } : undefined),
+      opportunityId: effectiveThreadId,
+      thread: thread ?? (brandDisplayName ? { brandName: brandDisplayName, subject: cooperationTitle } : undefined),
       creatorName: profileBasics?.displayName?.trim() || t('auth.creatorFallback'),
       rateCardPackages: rateCardQuery.data,
     });
-    if (!base.brandName && brandHint) {
-      return { ...base, brandName: brandHint };
+    if (!base.brandName && brandDisplayName) {
+      return { ...base, brandName: brandDisplayName };
     }
-    if (!base.cooperationTitle && query.data?.title) {
-      return { ...base, cooperationTitle: query.data.title };
+    if (!base.cooperationTitle && cooperationTitle) {
+      return { ...base, cooperationTitle };
     }
     return base;
   }, [
-    brandHint,
+    brandDisplayName,
+    cooperationTitle,
     profileBasics?.displayName,
-    query.data?.title,
     rateCardQuery.data,
-    threadId,
+    effectiveThreadId,
     threadQuery.data,
     t,
   ]);
@@ -159,14 +175,22 @@ export default function DraftDetailScreen() {
     (result: GeneratedReplyDraft) => {
       if (!result.draft) return;
       if (result.draft.id !== draftId) {
-        router.replace(`/drafts/${result.draft.id}?threadId=${encodeURIComponent(threadId ?? '')}` as Href);
+        router.replace(`/drafts/${result.draft.id}?threadId=${encodeURIComponent(effectiveThreadId ?? '')}` as Href);
         return;
       }
       setBody(result.draft.body);
       void queryClient.invalidateQueries({ queryKey: ['drafts'] });
       void queryClient.invalidateQueries({ queryKey: ['draft', draftId] });
     },
-    [draftId, queryClient, router, threadId],
+    [draftId, queryClient, router, effectiveThreadId],
+  );
+
+  const openMessage = useCallback(
+    (message: InboxMessage) => {
+      if (!effectiveThreadId) return;
+      router.push(inboxMessageHref(message.id, effectiveThreadId, null));
+    },
+    [router, effectiveThreadId],
   );
 
   const generationSource = query.data?.generationSource;
@@ -174,10 +198,7 @@ export default function DraftDetailScreen() {
 
   if (!draftId) {
     return (
-      <PlaceholderScreen
-        title={t('draftDetail.missingTitle')}
-        description={t('draftDetail.missingSubtitle')}
-      />
+      <PlaceholderScreen title={t('draftDetail.missingTitle')} description={t('draftDetail.missingSubtitle')} />
     );
   }
 
@@ -192,9 +213,7 @@ export default function DraftDetailScreen() {
   if (query.error || !query.data) {
     const msg = query.error?.message ?? t('draftDetail.loadErrorUnknown');
     return (
-      <PlaceholderScreen
-        title={t('draftDetail.errorTitle')}
-        description={t('draftDetail.errorSubtitle')}>
+      <PlaceholderScreen title={t('draftDetail.errorTitle')} description={t('draftDetail.errorSubtitle')}>
         <QueryRetryCard
           message={msg}
           onRetry={() =>
@@ -208,50 +227,21 @@ export default function DraftDetailScreen() {
   }
 
   const detail = query.data;
-  const serverApproved = detail.approvalState === 'approved';
-  const isApproved = serverApproved || isApprovedLocal;
-  const approvedAtISO = detail.approvedAtISO ?? approvedAtLocal;
-  const linkedDealId = shouldUseBackendApi()
-    ? detail.linkedDealId
-    : 'mock-deal-alpha';
-  const decisionTitle = detail.requiresApproval
-    ? detail.kind === 'quote'
-      ? t('draftDetail.titleQuote')
-      : t('draftDetail.titleReply')
-    : t('draftDetail.titleLowRisk');
-
-  const headerSubtitle = brandHint ? `${brandHint} · ${detail.title}` : detail.title;
+  const linkedDealId = shouldUseBackendApi() ? detail.linkedDealId : 'mock-deal-alpha';
+  const threadDetail = threadQuery.data;
+  const latestInboundMessage = threadDetail?.messages?.length
+    ? pickLatestInboundMessage(threadDetail.messages)
+    : undefined;
+  const showSubjectLine =
+    !!emailSubject &&
+    emailSubject.trim() !== cooperationTitle &&
+    emailSubject.trim() !== threadDetail?.subject?.trim();
 
   const onShareCopy = async () => {
     try {
       await Share.share({ message: body });
     } catch {
       void alertAction(t('draftDetail.shareErrorTitle'), t('draftDetail.shareErrorMsg'));
-    }
-  };
-
-  const invalidateAfterApprove = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['drafts'] }),
-      queryClient.invalidateQueries({ queryKey: ['draft', draftId] }),
-      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
-      invalidateTenantScopedQueries(queryClient),
-    ]);
-
-  const onApproveDraft = async () => {
-    if (!draftId || approveLoading) return;
-    approveDraftLocal(draftId);
-    setShowApprovalConfirm(false);
-    if (!shouldUseBackendApi()) return;
-    setApproveLoading(true);
-    try {
-      await approveDraftOnServer(draftId);
-      await invalidateAfterApprove();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('draftDetail.loadErrorUnknown');
-      void alertAction(t('draftDetail.errorTitle'), message);
-    } finally {
-      setApproveLoading(false);
     }
   };
 
@@ -277,11 +267,7 @@ export default function DraftDetailScreen() {
       if (result?.errorMessage) {
         setRemoteDraftError(normalizeMailboxDraftProviderError(result.errorMessage, t));
       } else if (result?.remoteDraftId) {
-        const flash = wasUpdate ? 'updated' : 'saved';
-        setDraftSyncFlash(flash);
-        if (wasUpdate) {
-          void alertAction(t('draftDetail.nativeDraftUpdatedTitle'), t('draftDetail.nativeDraftUpdatedBody'));
-        }
+        setDraftSyncFlash(wasUpdate ? 'updated' : 'saved');
         void invalidateTenantScopedQueries(queryClient);
       }
     } catch (error) {
@@ -311,9 +297,7 @@ export default function DraftDetailScreen() {
       if (result?.errorMessage) {
         setRemoteDraftError(normalizeMailboxDraftProviderError(result.errorMessage, t));
       } else if (result?.status === 'SENT') {
-        if (detail.kind === 'quote') {
-          void alertAction(t('draftDetail.sentQuoteNextTitle'), t('draftDetail.sentQuoteNextBody'));
-        } else if (threadId) {
+        if (effectiveThreadId) {
           void alertAction(t('draftDetail.sentReplyNextTitle'), t('draftDetail.sentReplyNextBody'));
         }
         void invalidateTenantScopedQueries(queryClient);
@@ -336,53 +320,9 @@ export default function DraftDetailScreen() {
     router.push('/onboarding/email?source=draft-send' as Href);
   };
 
-  const clearedAtLabel = approvedAtISO
-    ? new Date(approvedAtISO).toLocaleString(i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US', {
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : t('draftDetail.approvalJustNow');
   const remoteDraftSent = remoteDraftResult?.status === 'SENT';
-  const remoteDraftSentAtLabel = remoteDraftResult?.sentAtISO
-    ? new Date(remoteDraftResult.sentAtISO).toLocaleString(i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US', {
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : null;
   const canSyncRemoteDraft =
-    shouldUseBackendApi() &&
-    mailboxSendReady &&
-    !remoteDraftLoading &&
-    !remoteDraftSending &&
-    !remoteDraftSent &&
-    (!detail.requiresApproval || isApproved);
-  const saveDisabledReason = remoteDraftSent
-    ? t('draftDetail.nativeDraftSentCta')
-    : detail.requiresApproval && !isApproved && shouldUseBackendApi()
-      ? t('draftDetail.nativeDraftApprovalRequired')
-      : !mailboxSendReady && shouldUseBackendApi()
-        ? t('draftDetail.nativeDraftScopeMissingBody')
-        : null;
-  const nativeDraftStatusBadge = remoteDraftSent
-    ? t('draftDetail.nativeDraftSentBadge')
-    : draftSyncFlash === 'updated'
-      ? t('draftDetail.nativeDraftUpdatedBadge')
-      : remoteDraftResult?.remoteDraftId
-        ? t('draftDetail.nativeDraftSyncedBadge')
-        : t('draftDetail.nativeDraftReadyBadge');
-  const nativeDraftStatusBody = remoteDraftSent
-    ? t('draftDetail.nativeDraftSentBody', {
-        time: remoteDraftSentAtLabel ?? t('draftDetail.approvalJustNow'),
-      })
-    : draftSyncFlash === 'updated'
-      ? t('draftDetail.nativeDraftUpdatedBody')
-      : remoteDraftResult?.remoteDraftId
-        ? t('draftDetail.nativeDraftSyncedBody')
-        : t('draftDetail.nativeDraftBody');
+    shouldUseBackendApi() && mailboxSendReady && !remoteDraftLoading && !remoteDraftSending && !remoteDraftSent;
   const nativeDraftSyncCta = remoteDraftLoading
     ? null
     : draftSyncFlash === 'updated'
@@ -393,223 +333,95 @@ export default function DraftDetailScreen() {
 
   return (
     <>
-    <HubScreen eyebrow={t('tabs.assets')} title={decisionTitle} lead={headerSubtitle}>
-      <View style={styles.row}>
-        <Badge tone="mint" label={draftKindLabel[detail.kind]} />
-        {detail.requiresApproval ? (
-          <Badge tone="warning" label={t('draftDetail.badgeNeedsReview')} />
-        ) : (
-          <Badge tone="mint" label={t('draftDetail.badgeLowRisk')} />
-        )}
-      </View>
+      <HubScreen eyebrow={t('tabs.assets')} title={t('draftDetail.screenTitle')} lead={headerLead || undefined}>
+        {effectiveThreadId ? (
+          <DraftOpportunityBrief detail={threadDetail} loading={threadQuery.isPending && !threadDetail} />
+        ) : null}
 
-      <SectionCard title={t('draftDetail.checkSectionTitle')}>
-        <View style={[styles.commentCard, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-          <View style={styles.row}>
-            <Badge
-              tone={detail.requiresApproval ? 'warning' : 'mint'}
-              label={detail.requiresApproval ? t('draftDetail.checkLabelQuote') : t('draftDetail.checkLabelFollow')}
-            />
-            <Text style={[styles.commentMeta, { color: theme.foregroundSubtitle }]}>
-              {t('draftDetail.checkMetaBeforeSend')}
+        {effectiveThreadId && latestInboundMessage ? (
+          <InboundMessagePreview
+            message={latestInboundMessage}
+            dateLocale={dateLocale}
+            onPress={() => openMessage(latestInboundMessage)}
+          />
+        ) : null}
+
+        {effectiveThreadId && threadDetail?.messages && threadDetail.messages.length > 1 ? (
+          <CollapsibleThread
+            messages={threadDetail.messages}
+            messageStats={threadDetail.messageStats}
+            initiallyOpen={false}
+            dateLocale={dateLocale}
+            onOpenMessage={openMessage}
+          />
+        ) : null}
+
+        <SectionCard title={t('draftDetail.composeSectionTitle')} subtitle={t('draftDetail.composeSectionSubtitle')}>
+          {generationSource ? (
+            <Text style={[styles.generationSource, { color: theme.mutedForeground }]}>
+              {generationSource === 'llm'
+                ? t('replyDraftGenerator.sourceLlm')
+                : t('replyDraftGenerator.sourceRules')}
             </Text>
-          </View>
-          <Text style={[styles.commentBody, { color: theme.foreground }]}>
-            {detail.requiresApproval ? t('draftDetail.checkQuoteBody') : t('draftDetail.checkFollowBody')}
-          </Text>
-        </View>
-        {detail.requiresApproval ? (
-          <View style={{ gap: spacing.sm }}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setBody((current) => `${current.trim()}${t('draftDetail.boundarySnippet')}`)}
-              style={[styles.secondary, { borderColor: theme.border }]}>
-              <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>{t('draftDetail.addBoundaryCta')}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setBoundarySkipped(true)}
-              style={[styles.secondary, { borderColor: theme.border }]}>
-              <Text style={[styles.secondaryLabel, { color: boundarySkipped ? theme.mutedForeground : theme.foreground }]}>
-                {boundarySkipped ? t('draftDetail.skippedBoundary') : t('draftDetail.skipBoundary')}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {!isApproved ? (
-          detail.requiresApproval ? (
-            showApprovalConfirm ? (
-              <View
-                style={[
-                  styles.approvalConfirm,
-                  { borderColor: theme.border, backgroundColor: theme.secondary },
-                ]}>
-                <View style={styles.row}>
-                  <Badge tone="warning" label={t('draftDetail.finalConfirmBadge')} />
-                  <Text style={[styles.commentMeta, { color: theme.foregroundSubtitle }]}>
-                    {t('draftDetail.finalConfirmMeta')}
-                  </Text>
-                </View>
-                <Text style={[styles.commentBody, { color: theme.foreground }]}>
-                  {t('draftDetail.finalConfirmBody')}
-                </Text>
-                <View style={styles.confirmActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={approveLoading}
-                    onPress={() => setShowApprovalConfirm(false)}
-                    style={[styles.confirmSecondary, { borderColor: theme.border }]}>
-                    <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>
-                      {t('draftDetail.recheckCta')}
-                    </Text>
-                  </Pressable>
-                  <View style={styles.confirmActionsSpacer} />
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={approveLoading}
-                    onPress={() => void onApproveDraft()}
-                    style={[styles.confirmPrimary, { backgroundColor: theme.primary }]}>
-                    {approveLoading ? (
-                      <ActivityIndicator color={theme.primaryForeground} />
-                    ) : (
-                      <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
-                        {t('draftDetail.confirmApproveCta')}
-                      </Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setShowApprovalConfirm(true)}
-                style={[styles.primary, { backgroundColor: theme.primary }]}>
-                <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
-                  {t('draftDetail.approveSendCta')}
-                </Text>
-              </Pressable>
-            )
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              disabled={approveLoading}
-              onPress={() => void onApproveDraft()}
-              style={[styles.primary, { backgroundColor: theme.primary }]}>
-              {approveLoading ? (
-                <ActivityIndicator color={theme.primaryForeground} />
-              ) : (
-                <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
-                  {t('draftDetail.markCheckedCta')}
-                </Text>
-              )}
-            </Pressable>
-          )
-        ) : (
-          <View style={styles.row}>
-            <Badge tone="mint" label={t('draftDetail.approvedCta')} />
-            <Text style={[styles.commentMeta, { color: theme.foregroundSubtitle }]}>{clearedAtLabel}</Text>
-          </View>
-        )}
-      </SectionCard>
-
-      <SectionCard title={t('draftDetail.bodySectionTitle')}>
-        {shouldUseBackendApi() ? (
-          <View style={[styles.commentCard, styles.mailboxDraftStatus, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-            <View style={styles.row}>
-              <Badge
-                tone={remoteDraftSent ? 'mint' : remoteDraftResult?.remoteDraftId || draftSyncFlash ? 'mint' : 'warning'}
-                label={nativeDraftStatusBadge}
-              />
-              <Text style={[styles.commentMeta, { color: theme.foregroundSubtitle }]}>
-                {remoteDraftResult?.provider ?? t('draftDetail.nativeDraftProviderFallback')}
-              </Text>
-            </View>
-            <Text style={[styles.commentBody, { color: theme.foreground }]}>{nativeDraftStatusBody}</Text>
-            {remoteDraftSent ? (
-              <Text style={[styles.commentMeta, { color: theme.foregroundSubtitle }]}>
-                {t('draftDetail.nativeDraftSentSyncHint')}
-              </Text>
-            ) : null}
-            {saveDisabledReason && !remoteDraftSent ? (
-              <Text
-                style={[
-                  styles.commentMeta,
-                  { color: !mailboxSendReady ? '#B45309' : theme.foregroundSubtitle },
-                ]}>
-                {saveDisabledReason}
-              </Text>
-            ) : null}
-            {!mailboxSendReady && shouldUseBackendApi() ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={onReconnectMailbox}
-                style={[styles.secondary, { borderColor: theme.border }]}>
-                <Text style={[styles.secondaryLabel, { color: theme.primary }]}>
-                  {t('draftDetail.nativeDraftReconnectCta')}
-                </Text>
-              </Pressable>
-            ) : null}
-            {remoteDraftError ? (
-              <Text style={[styles.commentMeta, { color: '#DC2626' }]}>{remoteDraftError}</Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        <View style={styles.composeToolbar}>
-          {threadId ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setShowAiGenerator(true)}
-              style={[styles.secondary, styles.composeToolbarButton, { borderColor: theme.border }]}>
-              <Text style={[styles.secondaryLabel, { color: theme.primary }]}>{t('replyDraftGenerator.openCta')}</Text>
-            </Pressable>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setShowTemplatePicker(true)}
-            style={[styles.secondary, styles.composeToolbarButton, { borderColor: theme.border }]}>
-            <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>{t('draftDetail.insertTemplateCta')}</Text>
-          </Pressable>
-        </View>
-        {generationSource ? (
-          <Text style={[styles.generationSource, { color: theme.mutedForeground }]}>
-            {generationSource === 'llm'
-              ? t('replyDraftGenerator.sourceLlm')
-              : t('replyDraftGenerator.sourceRules')}
-          </Text>
-        ) : null}
-        {emailSubject ? (
-          <View style={[styles.subjectCard, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-            <Text style={[styles.subjectLabel, { color: theme.foregroundSubtitle }]}>
-              {t('replyDraftGenerator.subjectLabel')}
-            </Text>
-            <Text style={[styles.subjectValue, { color: theme.foreground }]}>{emailSubject}</Text>
+
+          {showSubjectLine ? (
+            <View style={[styles.subjectCard, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+              <Text style={[styles.subjectLabel, { color: theme.foregroundSubtitle }]}>
+                {t('replyDraftGenerator.subjectLabel')}
+              </Text>
+              <Text style={[styles.subjectValue, { color: theme.foreground }]}>{emailSubject}</Text>
+            </View>
+          ) : null}
+
+          <TextInput
+            multiline
+            value={body}
+            onChangeText={setBody}
+            placeholder={t('draftDetail.bodyPlaceholder')}
+            {...getTextInputProps(theme)}
+            style={[
+              getTextInputStyle(theme, {
+                borderColor: theme.border,
+                minHeight: 240,
+                multiline: true,
+              }),
+              styles.composeInput,
+            ]}
+            textAlignVertical="top"
+          />
+
+          <View style={styles.composeActionRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowTemplatePicker(true)}
+              style={[styles.composeActionButton, styles.actionSecondary, { borderColor: theme.border, flex: 1 }]}>
+              <Text style={[styles.actionLabel, { color: theme.foreground }]}>{t('draftDetail.insertTemplateCta')}</Text>
+            </Pressable>
+            {effectiveThreadId ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowAiGenerator(true)}
+                style={[
+                  styles.composeActionButton,
+                  styles.actionSecondary,
+                  { borderColor: theme.primary, backgroundColor: theme.secondary, flex: 1 },
+                ]}>
+                <Ionicons name="sparkles-outline" size={16} color={theme.primary} />
+                <Text style={[styles.actionLabel, { color: theme.primary }]}>{t('replyDraftGenerator.openCta')}</Text>
+              </Pressable>
+            ) : null}
           </View>
-        ) : null}
 
-        <TextInput
-          multiline
-          value={body}
-          onChangeText={setBody}
-          placeholder={t('draftDetail.bodyPlaceholder')}
-          {...getTextInputProps(theme)}
-          style={getTextInputStyle(theme, {
-            borderColor: theme.border,
-            minHeight: 200,
-            multiline: true,
-          })}
-          textAlignVertical="top"
-        />
-
-        {shouldUseBackendApi() ? (
-          <View style={styles.mailboxDraftBlock}>
+          {shouldUseBackendApi() ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('draftDetail.nativeDraftCtaA11y')}
               disabled={!canSyncRemoteDraft}
               onPress={onSyncRemoteDraft}
               style={[
-                styles.primary,
+                styles.actionButton,
+                styles.actionPrimary,
                 {
                   backgroundColor: canSyncRemoteDraft ? theme.primary : theme.border,
                   opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
@@ -618,162 +430,115 @@ export default function DraftDetailScreen() {
               {remoteDraftLoading ? (
                 <ActivityIndicator color={theme.primaryForeground} />
               ) : (
-                <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>{nativeDraftSyncCta}</Text>
+                <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>{nativeDraftSyncCta}</Text>
               )}
             </Pressable>
+          ) : null}
 
-            {remoteDraftResult?.remoteDraftId && !remoteDraftSent ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('draftDetail.nativeDraftSendCtaA11y')}
-                disabled={!canSyncRemoteDraft}
-                onPress={onSendRemoteDraft}
-                style={[
-                  styles.secondary,
-                  {
-                    borderColor: theme.border,
-                    opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
-                  },
-                ]}>
-                {remoteDraftSending ? (
-                  <ActivityIndicator color={theme.primary} />
-                ) : (
-                  <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>{t('draftDetail.nativeDraftSendCta')}</Text>
-                )}
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-      </SectionCard>
+          {!mailboxSendReady && shouldUseBackendApi() ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onReconnectMailbox}
+              style={[styles.actionButton, styles.actionSecondary, { borderColor: theme.border }]}>
+              <Text style={[styles.actionLabel, { color: theme.primary }]}>{t('draftDetail.nativeDraftReconnectCta')}</Text>
+            </Pressable>
+          ) : null}
 
-      <SettingsGroup title={t('hubLinks.actions')}>
-        <HubListRow icon="share-outline" title={t('draftDetail.shareCopyCta')} onPress={onShareCopy} />
-        {threadId ? (
-          <HubListRow
-            icon="mail-outline"
-            title={t('draftDetail.backToThread')}
-            onPress={() => {
-              // 从商机详情 push 进草稿；用 back 弹出草稿栈，避免重复压入 /inbox/[id] 导致返回错乱
-              if (router.canGoBack()) {
-                router.back();
-                return;
-              }
-              router.replace(`/inbox/${threadId}` as Href);
-            }}
+          {remoteDraftError ? (
+            <Text style={[styles.inlineError, { color: '#DC2626' }]}>{remoteDraftError}</Text>
+          ) : null}
+
+          {remoteDraftResult?.remoteDraftId && !remoteDraftSent && shouldUseBackendApi() ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('draftDetail.nativeDraftSendCtaA11y')}
+              disabled={!canSyncRemoteDraft}
+              onPress={onSendRemoteDraft}
+              style={[
+                styles.actionButton,
+                styles.actionSecondary,
+                {
+                  borderColor: theme.border,
+                  opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
+                },
+              ]}>
+              {remoteDraftSending ? (
+                <ActivityIndicator color={theme.primary} />
+              ) : (
+                <Text style={[styles.actionLabel, { color: theme.foreground }]}>{t('draftDetail.nativeDraftSendCta')}</Text>
+              )}
+            </Pressable>
+          ) : null}
+        </SectionCard>
+
+        <SettingsGroup title={t('hubLinks.actions')}>
+          <HubListRow icon="share-outline" title={t('draftDetail.shareCopyCta')} onPress={onShareCopy} />
+          {effectiveThreadId ? (
+            <HubListRow
+              icon="mail-outline"
+              title={t('draftDetail.backToThread')}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                  return;
+                }
+                router.replace(`/inbox/${effectiveThreadId}` as Href);
+              }}
+            />
+          ) : null}
+        </SettingsGroup>
+
+        {linkedDealId ? (
+          <HubLinkGroup
+            title={t('draftDetail.nextStepsTitle')}
+            links={[
+              {
+                label: t('draftDetail.viewDelivery'),
+                href: `/deal/${linkedDealId}/delivery`,
+                icon: 'cube-outline',
+              },
+              {
+                label: t('draftDetail.viewPacket'),
+                href: `/deal/${linkedDealId}/packet`,
+                icon: 'document-text-outline',
+              },
+            ]}
           />
         ) : null}
-      </SettingsGroup>
 
-      {isApproved && linkedDealId ? (
         <HubLinkGroup
-          title={t('draftDetail.nextStepsTitle')}
           links={[
             {
-              label: t('draftDetail.viewDelivery'),
-              href: `/deal/${linkedDealId}/delivery`,
-              icon: 'cube-outline',
-            },
-            {
-              label: t('draftDetail.viewPacket'),
-              href: `/deal/${linkedDealId}/packet`,
-              icon: 'document-text-outline',
+              label: t('draftDetail.backToList'),
+              href: '/drafts',
+              icon: 'list-outline',
             },
           ]}
         />
-      ) : null}
+      </HubScreen>
 
-      <HubLinkGroup
-        links={[
-          {
-            label: t('draftDetail.backToList'),
-            href: '/drafts',
-            icon: 'list-outline',
-          },
-        ]}
+      <ReplyTemplatePicker
+        visible={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onInsert={onInsertTemplate}
+        renderContext={templateRenderContext}
       />
-    </HubScreen>
-    <ReplyTemplatePicker
-      visible={showTemplatePicker}
-      onClose={() => setShowTemplatePicker(false)}
-      onInsert={onInsertTemplate}
-      renderContext={templateRenderContext}
-    />
-    <ReplyDraftGeneratorSheet
-      visible={showAiGenerator}
-      opportunityId={threadId}
-      rateCardPackages={rateCardQuery.data}
-      locale={i18n.language}
-      overwriteDraftId={draftId}
-      hasExistingBody={!!body.trim()}
-      onClose={() => setShowAiGenerator(false)}
-      onGenerated={onAiGenerated}
-    />
+      <ReplyDraftGeneratorSheet
+        visible={showAiGenerator}
+        opportunityId={effectiveThreadId}
+        rateCardPackages={rateCardQuery.data}
+        locale={i18n.language}
+        overwriteDraftId={draftId}
+        hasExistingBody={!!body.trim()}
+        onClose={() => setShowAiGenerator(false)}
+        onGenerated={onAiGenerated}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' },
-  meta: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
-  commentCard: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  approvalConfirm: {
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  confirmActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  confirmActionsSpacer: { flex: 1 },
-  confirmPrimary: {
-    borderRadius: radii.md,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  confirmSecondary: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  commentMeta: { fontSize: fontSize.caption, fontWeight: '600' },
-  commentBody: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
-  mailboxDraftBlock: { gap: spacing.sm, marginTop: spacing.md },
-  mailboxDraftStatus: { marginBottom: spacing.md },
-  primary: {
-    borderRadius: radii.md,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  primaryLabel: { fontWeight: '700', fontSize: fontSize.body },
-  secondary: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  composeToolbar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  composeToolbarButton: {
-    flexGrow: 1,
-    flexBasis: '48%',
-    paddingHorizontal: spacing.md,
-  },
   generationSource: {
     fontSize: fontSize.caption,
     lineHeight: lineHeight.body,
@@ -794,12 +559,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.bodyRelaxed,
   },
-  ghost: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    minHeight: layout.touchMin - 8,
+  composeInput: {
+    marginHorizontal: -spacing.xs,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  composeActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  composeActionButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.sm,
+    borderRadius: radii.md,
+    minHeight: layout.touchMin,
+    paddingHorizontal: spacing.md,
   },
-  secondaryLabel: { fontWeight: '700', fontSize: fontSize.body },
+  actionButton: {
+    borderRadius: radii.md,
+    minHeight: layout.touchMin,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  actionPrimary: {},
+  actionSecondary: { borderWidth: 1 },
+  actionLabel: { fontWeight: '700', fontSize: fontSize.body },
+  inlineError: { fontSize: fontSize.bodySmall, marginTop: spacing.xs },
 });

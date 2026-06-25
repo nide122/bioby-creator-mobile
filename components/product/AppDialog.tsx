@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { elevation, fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
@@ -113,19 +113,19 @@ export function AppDialogHost({ children }: PropsWithChildren) {
   return (
     <>
       {children}
-      <Modal
-        visible={request != null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => dismiss(false)}>
-        {request ? (
+      {request ? (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => dismiss(false)}>
           <AppDialogCard
             request={request}
             onDismiss={() => dismiss(false)}
             onConfirm={() => dismiss(true)}
           />
-        ) : null}
-      </Modal>
+        </Modal>
+      ) : null}
     </>
   );
 }
@@ -137,6 +137,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xxl,
     backgroundColor: 'rgba(5, 7, 6, 0.72)',
+    ...(Platform.OS === 'web' ? { zIndex: 100_000 } : null),
   },
   backdropHit: {
     ...StyleSheet.absoluteFillObject,

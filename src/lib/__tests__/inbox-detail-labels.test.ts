@@ -111,6 +111,8 @@ describe('inbox-detail-labels', () => {
       'Ask for budget range before quoting.',
     ]);
     expect(resolveAttentionCount(undefined, [], [], true)).toBe(1);
+    expect(resolveAttentionCount(0, [{ id: 'rf-usage', label: 'Usage scope unclear', severity: 'warning' }], ['Confirm which package applies.'])).toBe(0);
+    expect(commercialAttentionFallback(true, true, [], [], 0)).toBe(false);
     expect(commercialAttentionFallback(true, true, [], [], undefined)).toBe(true);
   });
 });

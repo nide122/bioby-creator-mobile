@@ -200,6 +200,10 @@ export type InboxRiskFlag = {
   id: string;
   label: string;
   severity: InboxRiskSeverity;
+  /** Rule code when present (e.g. BROAD_USAGE); otherwise derived from id. */
+  code?: string;
+  /** Server-authored bucket: contract clause risk vs reply attention gap. */
+  kind?: 'contract' | 'attention';
   hint?: string;
   acknowledged?: boolean;
 };
@@ -216,6 +220,10 @@ export type InboxThreadDetail = InboxThread & {
   dealId?: string;
   messages: InboxMessage[];
   riskFlags: InboxRiskFlag[];
+  /** Resolved contract clause risks (API Phase 2). */
+  contractRiskFlags?: InboxRiskFlag[];
+  /** Resolved reply attention gaps (API Phase 2). */
+  attentionFlags?: InboxRiskFlag[];
   recommendedActions: string[];
   packages?: InboxDeliverablePackage[];
   attentionCount?: number;
@@ -306,6 +314,7 @@ export type DraftSummary = {
   /** 是否需要人工审批后才能发送（PRD：高风险动作不落自动发送） */
   requiresApproval?: boolean;
   sourceBrandHint?: string;
+  sourceThreadId?: string;
   nextActionLabel?: string;
   approvalState?: 'pending' | 'approved';
 };

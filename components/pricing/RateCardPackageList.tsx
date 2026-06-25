@@ -9,6 +9,7 @@ import { Badge } from '@/components/product';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing, type ThemePalette } from '@/constants/tokens';
 import type { RateCardPackage } from '@/src/types/domain';
+import { alertAction } from '@/src/lib/app-dialog';
 import {
   deliverableRowLabel,
   parseDeliverables,
@@ -87,6 +88,51 @@ function DetailSection({
   );
 }
 
+function DefaultPackageBadge({
+  label,
+  theme,
+}: {
+  label: string;
+  theme: ThemePalette;
+}) {
+  return (
+    <View
+      style={[styles.defaultBadge, { backgroundColor: theme.accentMintSoft }]}
+      accessibilityLabel={label}>
+      <Ionicons name="star" size={12} color={theme.accentMintStrong} />
+      <Text style={[styles.defaultBadgeLabel, { color: theme.accentMintStrong }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function DefaultPackageHint({
+  packages,
+  theme,
+}: {
+  packages: RateCardPackage[];
+  theme: ThemePalette;
+}) {
+  const { t } = useTranslation();
+  const defaultPackage = packages.find((pkg) => pkg.recommended === true);
+
+  return (
+    <View style={[styles.defaultHint, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+      <Ionicons
+        name={defaultPackage ? 'star' : 'star-outline'}
+        size={16}
+        color={defaultPackage ? theme.accentMintStrong : theme.mutedForeground}
+      />
+      <Text style={[styles.defaultHintText, { color: theme.mutedForeground }]}>
+        {defaultPackage
+          ? t('pricingScreen.defaultPackageHintNamed', { name: defaultPackage.name.trim() || t('pricingEditScreen.titleEdit') })
+          : t('pricingScreen.defaultPackageHintNone')}
+      </Text>
+    </View>
+  );
+}
+
 function RateCardPackageCard({
   pkg,
   expanded,
@@ -140,10 +186,18 @@ function RateCardPackageCard({
           </View>
           <View style={styles.cardHeaderCopy}>
             <View style={styles.titleRow}>
+              {recommended ? (
+                <Ionicons
+                  name="star"
+                  size={16}
+                  color={theme.accentMintStrong}
+                  accessibilityLabel={t('pricingScreen.badgeDefaultShort')}
+                />
+              ) : null}
               <Text style={[styles.title, { color: theme.foreground }]} numberOfLines={2}>
                 {pkg.name}
               </Text>
-              {recommended ? <Badge tone="mint" label={t('pricingScreen.badgeRecommendedShort')} /> : null}
+              {recommended ? <DefaultPackageBadge label={t('pricingScreen.badgeDefaultShort')} theme={theme} /> : null}
             </View>
             {tagline ? (
               <Text style={[styles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
@@ -216,7 +270,7 @@ function RateCardPackageCard({
         <View style={[styles.detail, { borderTopColor: theme.border }]}>
           {recommended ? (
             <View style={styles.badges}>
-              <Badge tone="mint" label={t('pricingScreen.badgeRecommendedForProposal')} />
+              <DefaultPackageBadge label={t('pricingScreen.badgeRecommendedForProposal')} theme={theme} />
             </View>
           ) : null}
 
@@ -306,6 +360,45 @@ function RateCardPackageCard({
   );
 }
 
+function PricingSectionToolbar({ theme }: { theme: ThemePalette }) {
+  const { t } = useTranslation();
+  const router = useRouter();
+
+  const showWhyRules = () => {
+    void alertAction(t('pricingScreen.whyRulesTitle'), t('pricingScreen.whyRulesBody'));
+  };
+
+  return (
+    <View style={styles.toolbar}>
+      <Pressable
+        testID="pricing-add-package"
+        accessibilityRole="button"
+        onPress={() => router.push('/pricing-edit?new=1' as Href)}
+        style={({ pressed }) => [
+          styles.addPill,
+          { borderColor: theme.primary + '55', backgroundColor: theme.primary + '12' },
+          pressed && { opacity: 0.82 },
+        ]}>
+        <Ionicons name="add" size={15} color={theme.primary} />
+        <Text style={[styles.addPillLabel, { color: theme.primary }]}>{t('pricingScreen.ctaAddPackage')}</Text>
+      </Pressable>
+      <Pressable
+        testID="pricing-why-rules-info"
+        accessibilityRole="button"
+        accessibilityLabel={t('pricingScreen.whyRulesInfoA11y')}
+        onPress={showWhyRules}
+        hitSlop={6}
+        style={({ pressed }) => [
+          styles.infoDot,
+          { borderColor: theme.border, backgroundColor: theme.secondary },
+          pressed && { opacity: 0.82 },
+        ]}>
+        <Text style={[styles.infoMark, { color: theme.mutedForeground }]}>!</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function EmptyPackagesCard({ theme }: { theme: ThemePalette }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -357,32 +450,38 @@ export function RateCardPackageList({ packages }: Props) {
   return (
     <View testID="pricing-package-list" style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: theme.foreground }]}>{t('pricingScreen.packagesTitle')}</Text>
-        {packages.length > 0 ? (
-          <Badge tone="neutral" label={t('pricingScreen.packagesCount', { count: packages.length })} />
-        ) : null}
+        <View style={styles.sectionHeaderMain}>
+          <Text style={[styles.sectionTitle, { color: theme.foreground }]}>{t('pricingScreen.packagesTitle')}</Text>
+          {packages.length > 0 ? (
+            <Badge tone="neutral" label={t('pricingScreen.packagesCount', { count: packages.length })} />
+          ) : null}
+        </View>
+        <PricingSectionToolbar theme={theme} />
       </View>
 
       {packages.length === 0 ? (
         <EmptyPackagesCard theme={theme} />
       ) : (
-        <View style={styles.cardStack}>
-          {sortedPackages.map((pkg) => (
-            <RateCardPackageCard
-              key={pkg.id}
-              pkg={pkg}
-              expanded={expandedIds.has(pkg.id)}
-              onToggle={() => toggle(pkg.id)}
-            />
-          ))}
-        </View>
+        <>
+          <DefaultPackageHint packages={sortedPackages} theme={theme} />
+          <View style={styles.cardStack}>
+            {sortedPackages.map((pkg) => (
+              <RateCardPackageCard
+                key={pkg.id}
+                pkg={pkg}
+                expanded={expandedIds.has(pkg.id)}
+                onToggle={() => toggle(pkg.id)}
+              />
+            ))}
+          </View>
+        </>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { gap: spacing.md },
+  section: { gap: spacing.sm },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -390,13 +489,82 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.xs,
   },
-  sectionTitle: {
-    fontSize: fontSize.cardTitle,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+  sectionHeaderMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     flex: 1,
+    minWidth: 0,
+  },
+  sectionTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+    letterSpacing: -0.15,
+    flexShrink: 1,
+  },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 0,
+  },
+  addPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 6,
+  },
+  addPillLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  infoDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoMark: {
+    fontSize: 11,
+    fontWeight: '800',
+    lineHeight: 13,
+    marginTop: -0.5,
   },
   cardStack: { gap: spacing.md },
+  defaultHint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  defaultHintText: {
+    flex: 1,
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.body,
+  },
+  defaultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    maxWidth: '100%',
+  },
+  defaultBadgeLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
   packageCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.lg,

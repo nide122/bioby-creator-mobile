@@ -3,6 +3,7 @@ import type { InboxThread, InboxThreadDetail } from '@/src/types/domain';
 import { mockDelay } from '@/src/lib/mock-delay';
 import { isTodayIso } from '@/src/lib/is-today-iso';
 import { isOpportunityNeedsAction } from '@/src/lib/opportunity-needs-action';
+import { partitionRiskFlags } from '@/src/lib/contract-warning';
 
 const now = new Date().toISOString();
 
@@ -228,10 +229,17 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
 
 function threadSummaryFromDetail(detail: InboxThreadDetail): InboxThread {
   const { messages: _m, riskFlags, recommendedActions: _a, suggestedDraftIds: _s, ...rest } = detail;
+  const { contractRisks } = partitionRiskFlags(riskFlags, {
+    budgetLabel: rest.budgetLabel,
+    usageRights: detail.usageRights,
+    deliverables: detail.deliverables,
+    packages: detail.packages,
+    leadStage: rest.leadStage,
+  });
   const primary =
-    riskFlags.find((flag) => flag.severity === 'danger') ??
-    riskFlags.find((flag) => flag.severity === 'warning') ??
-    riskFlags[0];
+    contractRisks.find((flag) => flag.severity === 'danger') ??
+    contractRisks.find((flag) => flag.severity === 'warning') ??
+    contractRisks[0];
   return {
     ...rest,
     contractRiskPreview: primary,

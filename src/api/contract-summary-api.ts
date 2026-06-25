@@ -181,5 +181,39 @@ export async function saveContractSummary(
   return mapContractSummary(result);
 }
 
+export async function deleteContractSummary(opportunityId: string): Promise<void> {
+  await apiRequest<void>(`/api/v1/opportunities/${opportunityId}/contract-summary`, {
+    method: 'DELETE',
+  });
+}
+
+export async function deleteEmailDocumentSummary(emailMessageId: string, attachmentId: string): Promise<void> {
+  await apiRequest<void>(
+    `/api/v1/mailbox/messages/${emailMessageId}/document-summary/attachments/${attachmentId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
+
+export function upsertDocumentSummary(
+  summaries: ContractSummary[] | null | undefined,
+  persisted: ContractSummary
+): ContractSummary[] {
+  const attachmentId = persisted.emailAttachmentId;
+  const next = (summaries ?? []).filter((row) => row.emailAttachmentId !== attachmentId);
+  next.push({ ...persisted, emailMessageId: persisted.emailMessageId ?? undefined });
+  return next.sort((left, right) =>
+    (left.emailAttachmentId ?? left.id ?? '').localeCompare(right.emailAttachmentId ?? right.id ?? '')
+  );
+}
+
+export function removeDocumentSummary(
+  summaries: ContractSummary[] | null | undefined,
+  attachmentId: string
+): ContractSummary[] {
+  return (summaries ?? []).filter((row) => row.emailAttachmentId !== attachmentId);
+}
+
 /** @deprecated use previewContractFromAttachment */
 export const summarizeContractFromAttachment = previewContractFromAttachment;

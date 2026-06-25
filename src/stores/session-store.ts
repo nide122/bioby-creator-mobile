@@ -73,6 +73,8 @@ type SessionState = {
   planAcknowledged: boolean;
   /** All onboarding steps complete. */
   onboardingComplete: boolean;
+  /** User is replaying onboarding; ignore server overview hydration for step flags. */
+  onboardingReplayInProgress: boolean;
 
   /** JWT cold-start restore finished (API mode). Not cleared on sign-out. */
   authBootstrapReady: boolean;
@@ -151,6 +153,7 @@ const initialSession = {
   mailboxConnection: null as MailboxConnection | null,
   planAcknowledged: false,
   onboardingComplete: false,
+  onboardingReplayInProgress: false,
   productTourDismissed: false,
   authBootstrapReady: !isApiConfigured(),
 };
@@ -293,7 +296,7 @@ const sessionStateCreator: (
     ) {
       return;
     }
-    set({ onboardingComplete: true, planAcknowledged: true });
+    set({ onboardingComplete: true, planAcknowledged: true, onboardingReplayInProgress: false });
   },
 
   dismissProductTour: () => set({ productTourDismissed: true }),
@@ -321,6 +324,7 @@ const sessionStateCreator: (
       mailboxConnection: null,
       planAcknowledged: false,
       onboardingComplete: false,
+      onboardingReplayInProgress: true,
       productTourDismissed: false,
     })),
 
@@ -358,6 +362,7 @@ export const useSessionStore = persistSessionOnWeb
           mailboxConnection: s.mailboxConnection,
           planAcknowledged: s.planAcknowledged,
           onboardingComplete: s.onboardingComplete,
+          onboardingReplayInProgress: s.onboardingReplayInProgress,
           productTourDismissed: s.productTourDismissed,
         }),
       })
