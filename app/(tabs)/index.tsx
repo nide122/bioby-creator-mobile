@@ -29,6 +29,7 @@ import {
 import { LeadValueBandIconShell } from '@/components/inbox/LeadValueBandChrome';
 import { InboxPriorityIconShell } from '@/components/inbox/InboxPriorityChrome';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
+import { BrandChip } from '@/components/brands/BrandChip';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { calendarLocaleTagForLanguage } from '@/src/i18n';
@@ -45,6 +46,10 @@ import {
 } from '@/src/lib/decision-card-visuals';
 import { contractWarningSeverity } from '@/src/lib/contract-warning';
 import { parseDecisionSourceHint } from '@/src/lib/decision-card-content';
+import {
+  decisionCardBrandLabel,
+  decisionCardSubject,
+} from '@/src/lib/decision-card-content';
 import {
   formatLocalizedDecisionQueuePreviewLines,
   getLocalizedDecisionPresentation,
@@ -183,6 +188,7 @@ function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
   const bandAccent = resolveDecisionCardBandAccent(card, theme);
   const displayPriority = resolveDecisionCardPriority(card);
   const { display } = getLocalizedDecisionPresentation(card, t);
+  const brandLabel = decisionCardBrandLabel(card);
 
   return (
     <View style={styles.categoryRow}>
@@ -197,9 +203,17 @@ function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
       )}
       <Badge tone="neutral" label={cfg.label} />
       {displayPriority ? (
-        <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
-      ) : card.leadValueBand && card.leadValueBand !== 'archived' ? (
-        <Badge tone={leadValueBandBadgeTone(card.leadValueBand)} label={leadValueBandLabel[card.leadValueBand]} />
+        <View style={styles.brandBelowStatusColumn}>
+          <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+          {brandLabel ? <BrandChip label={brandLabel} compact /> : null}
+        </View>
+      ) : !displayPriority && card.leadValueBand && card.leadValueBand !== 'archived' ? (
+        <View style={styles.brandBelowStatusColumn}>
+          <Badge tone={leadValueBandBadgeTone(card.leadValueBand)} label={leadValueBandLabel[card.leadValueBand]} />
+          {brandLabel ? <BrandChip label={brandLabel} compact /> : null}
+        </View>
+      ) : brandLabel ? (
+        <BrandChip label={brandLabel} compact />
       ) : null}
       {display.urgencyLabel ? <Badge tone="warning" label={display.urgencyLabel} /> : null}
       {card.amountLabel ? (
@@ -215,8 +229,13 @@ function DecisionCardIdentityBlock({ card }: { card: DecisionCard }) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const { display } = getLocalizedDecisionPresentation(card, t);
+  const brandLabel = decisionCardBrandLabel(card);
   const initial = display.brand.trim().charAt(0).toUpperCase() || '?';
   const canNavigate = !!card.sourceHref;
+
+  if (brandLabel && !display.subject && !display.actionSummary) {
+    return null;
+  }
 
   return (
     <Pressable
@@ -224,23 +243,25 @@ function DecisionCardIdentityBlock({ card }: { card: DecisionCard }) {
       disabled={!canNavigate}
       onPress={() => card.sourceHref && router.push(card.sourceHref as Href)}
       style={({ pressed }) => [styles.identityBlock, pressed && canNavigate ? { opacity: 0.88 } : null]}>
-      <View style={styles.identityHeaderRow}>
-        <View style={[styles.brandAvatar, { backgroundColor: theme.primary + '20' }]}>
-          <Text style={[styles.brandAvatarText, { color: theme.primary }]}>{initial}</Text>
-        </View>
-        <View style={styles.identityCopy}>
-          <Text style={[styles.brandEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.brandLabel')}</Text>
-          <Text style={[styles.brandName, { color: theme.foreground }]} numberOfLines={1}>
-            {display.brand}
-          </Text>
-          {display.subject ? (
-            <Text style={[styles.subjectLine, { color: theme.foregroundSubtitle }]} numberOfLines={2}>
-              {display.subject}
+      {!brandLabel ? (
+        <View style={styles.identityHeaderRow}>
+          <View style={[styles.brandAvatar, { backgroundColor: theme.primary + '20' }]}>
+            <Text style={[styles.brandAvatarText, { color: theme.primary }]}>{initial}</Text>
+          </View>
+          <View style={styles.identityCopy}>
+            <Text style={[styles.brandEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.brandLabel')}</Text>
+            <Text style={[styles.brandName, { color: theme.foreground }]} numberOfLines={1}>
+              {display.brand}
             </Text>
-          ) : null}
+          </View>
+          {canNavigate ? <Ionicons name="chevron-forward" size={16} color={theme.mutedForeground} /> : null}
         </View>
-        {canNavigate ? <Ionicons name="chevron-forward" size={16} color={theme.mutedForeground} /> : null}
-      </View>
+      ) : null}
+      {display.subject ? (
+        <Text style={[styles.subjectLine, { color: theme.foreground }]} numberOfLines={2}>
+          {display.subject}
+        </Text>
+      ) : null}
       {display.actionSummary ? (
         <Text style={[styles.actionSummary, { color: theme.mutedForeground }]} numberOfLines={1}>
           {display.actionSummary}
@@ -482,10 +503,8 @@ function SwipeableDecisionCard({
         ]}>
 
         {/* 品牌 / 商机身份 */}
-        <DecisionCardIdentityBlock card={card} />
-
-        {/* 类型标签行 */}
         <DecisionCardMetaRow card={card} />
+        <DecisionCardIdentityBlock card={card} />
         {card.contractRiskFlags && contractWarningSeverity(card.contractRiskFlags) ? (
           <RiskBanner flags={card.contractRiskFlags} compact />
         ) : null}
@@ -555,6 +574,33 @@ function ActionButton({
   );
 }
 
+function DecisionRowStatusDetail({
+  brandLabel,
+  statusLabel,
+  detailAccent,
+}: {
+  brandLabel: string | null;
+  statusLabel: string;
+  detailAccent?: boolean;
+}) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  if (brandLabel) {
+    return (
+      <View style={styles.brandBelowStatusColumn}>
+        <Text
+          style={[hubListStyles.detail, { color: detailAccent ? theme.primary : theme.mutedForeground, textAlign: 'right' }]}>
+          {statusLabel}
+        </Text>
+        <BrandChip label={brandLabel} compact />
+      </View>
+    );
+  }
+
+  return statusLabel;
+}
+
 function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -578,6 +624,9 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
             const cfg = categoryLabels[item.category];
             const bandAccent = resolveDecisionCardBandAccent(item, theme);
             const previewLines = formatLocalizedDecisionQueuePreviewLines(item, t);
+            const brandLabel = decisionCardBrandLabel(item);
+            const subject = decisionCardSubject(item);
+            const rowTitle = brandLabel && subject ? subject : previewLines.title;
             const detail =
               item.leadValueBand && item.leadValueBand !== 'archived'
                 ? leadValueBandLabel[item.leadValueBand]
@@ -603,9 +652,15 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
                   ) : undefined
                 }
                 icon={bandAccent ? undefined : cfg.icon}
-                title={previewLines.title}
+                title={rowTitle}
                 subtitle={subtitleContent}
-                detail={detail}
+                detail={
+                  <DecisionRowStatusDetail
+                    brandLabel={brandLabel}
+                    statusLabel={detail}
+                    detailAccent={bandAccent?.detailAccent}
+                  />
+                }
                 detailAccent={bandAccent?.detailAccent}
                 onPress={() => {
                   if (item.sourceHref) router.push(item.sourceHref as Href);
@@ -678,6 +733,9 @@ function DoneState({
             const bandAccent = resolveDecisionCardBandAccent(c, theme);
             const previewLines = formatLocalizedDecisionQueuePreviewLines(c, t);
             const { display } = getLocalizedDecisionPresentation(c, t);
+            const brandLabel = decisionCardBrandLabel(c);
+            const subject = decisionCardSubject(c);
+            const rowTitle = brandLabel && subject ? subject : previewLines.title;
             const detail =
               c.leadValueBand && c.leadValueBand !== 'archived'
                 ? leadValueBandLabel[c.leadValueBand]
@@ -689,9 +747,15 @@ function DoneState({
                   bandAccent ? <LeadValueBandIconShell band={c.leadValueBand} icon={cfg.icon} /> : undefined
                 }
                 icon={bandAccent ? undefined : 'time-outline'}
-                title={previewLines.title}
+                title={rowTitle}
                 subtitle={previewLines.subtitle}
-                detail={detail}
+                detail={
+                  <DecisionRowStatusDetail
+                    brandLabel={brandLabel}
+                    statusLabel={detail}
+                    detailAccent={bandAccent?.detailAccent}
+                  />
+                }
                 detailAccent={bandAccent?.detailAccent}
                 onPress={() => {
                   if (c.sourceHref) router.push(c.sourceHref as Href);
@@ -921,6 +985,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  brandBelowStatusColumn: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+    flexShrink: 0,
+  },
   categoryIcon: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 'auto' },
   identityBlock: { gap: spacing.sm },

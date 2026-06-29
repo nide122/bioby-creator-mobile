@@ -127,6 +127,23 @@ describe('useSwitchTenant', () => {
     expect(useSessionStore.getState().onboardingComplete).toBe(false);
   });
 
+  it('invalidates tenant-scoped queries after switch', async () => {
+    mockedFetchOverview.mockResolvedValue({
+      ...baseOverview,
+      onboardingCompletedAt: '2026-06-09T12:00:00.000Z',
+    });
+    queryClient.setQueryData(['tenant', 'tenant-a', 'inbox', 'threads'], [{ id: 'old' }]);
+
+    const { result } = renderHook(() => useSwitchTenant(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync(tenantMembership);
+    });
+
+    expect(queryClient.getQueryData(['tenant', 'tenant-a', 'inbox', 'threads'])).toEqual([{ id: 'old' }]);
+    expect(queryClient.getQueryState(['tenant', 'tenant-a', 'inbox', 'threads'])?.isInvalidated).toBe(true);
+  });
+
   it('restores skip-inbox state from overview', async () => {
     mockedFetchOverview.mockResolvedValue({
       ...baseOverview,

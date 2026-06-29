@@ -65,6 +65,8 @@ type RequestOptions = {
   retryOnUnauthorized?: boolean;
   /** When true, a 401 after refresh failure will not clear JWT / notify session expiry. */
   suppressSessionExpiry?: boolean;
+  /** Abort the request after this many milliseconds (e.g. long OCR / large attachment downloads). */
+  timeoutMs?: number;
 };
 
 let expireSessionPromise: Promise<void> | null = null;
@@ -215,11 +217,30 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const hadAccessToken = Boolean(headers.Authorization);
   const hadCredentials = hadAccessToken || Boolean(refreshBeforeRequest);
 
-  const response = await fetch(`${base}${path}`, {
-    method: options.method ?? (options.body !== undefined ? 'POST' : 'GET'),
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  const controller = options.timeoutMs != null && options.timeoutMs > 0 ? new AbortController() : null;
+  const timeoutId =
+    controller != null
+      ? setTimeout(() => controller.abort(), options.timeoutMs)
+      : undefined;
+
+  let response: Response;
+  try {
+    response = await fetch(`${base}${path}`, {
+      method: options.method ?? (options.body !== undefined ? 'POST' : 'GET'),
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: controller?.signal,
+    });
+  } catch (error) {
+    if (controller?.signal.aborted) {
+      throw new ApiError(0, 'REQUEST_TIMEOUT', 'Request timed out');
+    }
+    throw error;
+  } finally {
+    if (timeoutId != null) {
+      clearTimeout(timeoutId);
+    }
+  }
 
   if (response.status === 401 && options.retryOnUnauthorized !== false && options.auth !== false) {
     const payload = await readErrorBody(response);
@@ -264,6 +285,7 @@ type MultipartRequestOptions = {
   auth?: boolean;
   retryOnUnauthorized?: boolean;
   suppressSessionExpiry?: boolean;
+  timeoutMs?: number;
 };
 
 /** Multipart upload (e.g. contract PDF). Do not set Content-Type — fetch adds boundary. */
@@ -309,11 +331,30 @@ export async function apiMultipartRequest<T>(
   const hadAccessToken = Boolean(headers.Authorization);
   const hadCredentials = hadAccessToken || Boolean(refreshBeforeRequest);
 
-  const response = await fetch(`${base}${path}`, {
-    method: options.method ?? 'POST',
-    headers,
-    body: formData,
-  });
+  const controller = options.timeoutMs != null && options.timeoutMs > 0 ? new AbortController() : null;
+  const timeoutId =
+    controller != null
+      ? setTimeout(() => controller.abort(), options.timeoutMs)
+      : undefined;
+
+  let response: Response;
+  try {
+    response = await fetch(`${base}${path}`, {
+      method: options.method ?? 'POST',
+      headers,
+      body: formData,
+      signal: controller?.signal,
+    });
+  } catch (error) {
+    if (controller?.signal.aborted) {
+      throw new ApiError(0, 'REQUEST_TIMEOUT', 'Request timed out');
+    }
+    throw error;
+  } finally {
+    if (timeoutId != null) {
+      clearTimeout(timeoutId);
+    }
+  }
 
   if (response.status === 401 && options.retryOnUnauthorized !== false && options.auth !== false) {
     const payload = await readErrorBody(response);

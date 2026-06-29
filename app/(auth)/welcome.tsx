@@ -9,6 +9,7 @@ import { fontSize, layout, lineHeight, radii, spacing } from '@/constants/tokens
 import { clearDevSession } from '@/src/auth/clear-dev-session';
 import { enterDemoWorkspace } from '@/src/auth/enter-demo-workspace';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
+import { runAfterLocaleHydration, useLocaleStore } from '@/src/stores/locale-store';
 import { useSessionStore } from '@/src/stores/session-store';
 
 const BG = '#050706';
@@ -23,6 +24,12 @@ export default function WelcomeScreen() {
   const { signOut } = useAuthActions();
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
   const accountEmail = useSessionStore((s) => s.accountEmail);
+  useEffect(() => {
+    return runAfterLocaleHydration(() => {
+      void useLocaleStore.getState().applyWelcomeSystemLanguage();
+    });
+  }, []);
+
   useEffect(() => {
     if (!__DEV__ || Platform.OS !== 'web' || typeof window === 'undefined') return;
     const qs = new URLSearchParams(window.location.search);

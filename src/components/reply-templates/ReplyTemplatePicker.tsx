@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { Badge } from '@/components/product';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { renderReplyTemplateOnServer } from '@/src/api/reply-templates-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
-import { ReplyTemplateBodyPreview } from '@/src/components/reply-templates/ReplyTemplateBodyPreview';
+import { ReplyTemplateSectionList } from '@/src/components/reply-templates/ReplyTemplateSectionList';
 import { useReplyTemplates } from '@/src/hooks/use-reply-templates';
-import { replyTemplateFieldLabel } from '@/src/lib/reply-template-fields';
 import { renderReplyTemplate } from '@/src/lib/reply-template-render';
+import { groupReplyTemplatesForPicker } from '@/src/lib/reply-template-picker-visuals';
 import type { RenderReplyTemplateInput } from '@/src/types/reply-template';
 
 type ReplyTemplatePickerProps = {
@@ -26,69 +26,87 @@ export function ReplyTemplatePicker({ visible, onClose, onInsert, renderContext 
   const theme = palette[colorScheme];
   const { templates, isLoading } = useReplyTemplates();
   const [insertingId, setInsertingId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
-  const sortedTemplates = useMemo(
-    () => [...templates].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-    [templates],
-  );
+  const grouped = useMemo(() => groupReplyTemplatesForPicker(templates), [templates]);
+  const totalCount = grouped.negotiation.length + grouped.general.length;
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((current) => ({ ...current, [id]: !current[id] }));
+  };
 
   const onSelect = async (id: string) => {
     if (insertingId) return;
-    const template = sortedTemplates.find((item) => item.id === id);
+    const template = templates.find((item) => item.id === id);
     if (!template) return;
     setInsertingId(id);
     try {
       const rendered = shouldUseBackendApi()
         ? await renderReplyTemplateOnServer(id, renderContext)
-        : renderReplyTemplate(template.body, renderContext, {
-            missingLabel: (key) => replyTemplateFieldLabel(key, t),
-          });
-      const withLabels = renderReplyTemplate(rendered, renderContext, {
-        missingLabel: (key) => replyTemplateFieldLabel(key, t),
-      });
-      onInsert(withLabels);
+        : renderReplyTemplate(template.body, renderContext);
+      onInsert(rendered);
       onClose();
+      setExpandedIds({});
     } finally {
       setInsertingId(null);
     }
   };
 
+  const handleClose = () => {
+    setExpandedIds({});
+    onClose();
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <Pressable style={styles.backdrop} onPress={handleClose} accessibilityRole="button">
         <Pressable
           style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={(event) => event.stopPropagation()}>
+          <View style={[styles.handle, { backgroundColor: theme.border }]} />
+
           <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.foreground }]}>{t('replyTemplatePicker.title')}</Text>
-            <Pressable accessibilityRole="button" onPress={onClose}>
-              <Text style={[styles.close, { color: theme.primary }]}>{t('common.cancel')}</Text>
+            <View style={styles.headerText}>
+              <Text style={[styles.title, { color: theme.foreground }]}>{t('replyTemplatePicker.title')}</Text>
+              <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('replyTemplatePicker.lead')}</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.cancel')}
+              onPress={handleClose}
+              style={[styles.closeBtn, { backgroundColor: theme.secondary }]}>
+              <Ionicons name="close" size={18} color={theme.foreground} />
             </Pressable>
           </View>
-          <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('replyTemplatePicker.lead')}</Text>
+
           {isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator color={theme.primary} />
             </View>
-          ) : sortedTemplates.length === 0 ? (
+          ) : totalCount === 0 ? (
             <Text style={[styles.empty, { color: theme.mutedForeground }]}>{t('replyTemplatePicker.empty')}</Text>
           ) : (
             <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-              {sortedTemplates.map((template) => (
-                <Pressable
-                  key={template.id}
-                  accessibilityRole="button"
-                  disabled={!!insertingId}
-                  onPress={() => void onSelect(template.id)}
-                  style={[styles.row, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-                  <View style={styles.rowTop}>
-                    <Text style={[styles.rowTitle, { color: theme.foreground }]}>{template.name}</Text>
-                    {template.isDefault ? <Badge tone="mint" label={t('replyTemplatesScreen.defaultBadge')} /> : null}
-                  </View>
-                  <ReplyTemplateBodyPreview body={template.body} numberOfLines={3} />
-                  {insertingId === template.id ? <ActivityIndicator color={theme.primary} /> : null}
-                </Pressable>
-              ))}
+              <ReplyTemplateSectionList
+                section="negotiation"
+                templates={grouped.negotiation}
+                expandedIds={expandedIds}
+                onToggleExpanded={toggleExpanded}
+                mode="picker"
+                insertingId={insertingId}
+                disabled={!!insertingId}
+                onInsert={(id) => void onSelect(id)}
+              />
+              <ReplyTemplateSectionList
+                section="general"
+                templates={grouped.general}
+                expandedIds={expandedIds}
+                onToggleExpanded={toggleExpanded}
+                mode="picker"
+                insertingId={insertingId}
+                disabled={!!insertingId}
+                onInsert={(id) => void onSelect(id)}
+              />
             </ScrollView>
           )}
         </Pressable>
@@ -101,64 +119,61 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {
-    maxHeight: '72%',
+    maxHeight: '78%',
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,
     borderWidth: 1,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: layout.tabBarScrollInset,
     gap: spacing.md,
   },
+  handle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: spacing.xs,
+  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  headerText: {
+    flex: 1,
+    gap: spacing.xxs,
   },
   title: {
     fontSize: fontSize.cardTitle,
     lineHeight: lineHeight.lead,
-    fontWeight: '600',
-  },
-  close: {
-    fontSize: fontSize.body,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   lead: {
-    fontSize: fontSize.bodySmall,
-    lineHeight: lineHeight.bodyRelaxed,
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   centered: {
     paddingVertical: spacing.xl,
     alignItems: 'center',
   },
   empty: {
-    fontSize: fontSize.body,
+    fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.bodyRelaxed,
     paddingBottom: spacing.lg,
   },
   list: {
-    gap: spacing.sm,
+    gap: spacing.lg,
     paddingBottom: spacing.md,
-  },
-  row: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  rowTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  rowTitle: {
-    flex: 1,
-    fontSize: fontSize.body,
-    fontWeight: '600',
   },
 });

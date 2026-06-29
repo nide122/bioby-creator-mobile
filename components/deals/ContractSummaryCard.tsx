@@ -27,6 +27,10 @@ export type ContractSummaryCardProps = {
   embedded?: boolean;
   saveLayout?: 'contract' | 'email';
   headerStyle?: 'default' | 'attachmentFilename';
+  /** When false, only document summary can be saved (before brief/deal confirmation). */
+  contractSaveAllowed?: boolean;
+  /** Called when user taps contract save before terms are confirmed. */
+  onContractSaveBlocked?: () => void;
   onChange?: (patch: Partial<ContractSummary>) => void;
   onSave?: () => void;
   onSaveDocument?: () => void;
@@ -120,6 +124,8 @@ export function ContractSummaryCard({
   onUploadPdf,
   uploadDisabled,
   collapsible,
+  contractSaveAllowed = true,
+  onContractSaveBlocked,
   onDelete,
   deleting,
 }: ContractSummaryCardProps) {
@@ -153,8 +159,15 @@ export function ContractSummaryCard({
   const showSave = !!summary && (unsaved || summary.status === 'DRAFT' || !summary.persisted);
   const showCancel = !!onCancel && showSave;
   const showUploadPdf = !loading && !onSummarizeAttachment && !!onUploadPdf;
-  const emailSaveMode = saveLayout === 'email' && (!!onSaveDocument || !!onSaveContract);
+  const emailSaveMode = saveLayout === 'email' && (!!onSaveDocument || !!onSaveContract || !!onSave);
   const contractSaveHandler = onSaveContract ?? onSave;
+  const handleContractSavePress = () => {
+    if (!contractSaveAllowed) {
+      onContractSaveBlocked?.();
+      return;
+    }
+    contractSaveHandler?.();
+  };
   const uploadLabel =
     summary?.persisted && !unsaved
       ? t('contractSummary.reuploadAction')
@@ -368,86 +381,107 @@ export function ContractSummaryCard({
 
       {showSave ? (
         <View style={{ gap: spacing.sm }}>
-          {showCancel ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={saving || loading}
-              onPress={() => onCancel?.()}
-              style={({ pressed }) => [
-                styles.actionButton,
-                { borderColor: theme.border, backgroundColor: theme.background },
-                (pressed || saving) && { opacity: 0.88 },
-              ]}>
-              <Ionicons name="close-outline" size={16} color={theme.foreground} />
-              <Text style={[styles.actionLabel, { color: theme.foreground }]}>
-                {t('contractSummary.cancelAction')}
-              </Text>
-            </Pressable>
-          ) : null}
           {emailSaveMode ? (
+            <>
+              {showCancel ? (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={saving || loading}
+                  onPress={() => onCancel?.()}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    { borderColor: theme.border, backgroundColor: theme.background },
+                    (pressed || saving) && { opacity: 0.88 },
+                  ]}>
+                  <Ionicons name="close-outline" size={16} color={theme.foreground} />
+                  <Text style={[styles.actionLabel, { color: theme.foreground }]}>
+                    {t('contractSummary.cancelAction')}
+                  </Text>
+                </Pressable>
+              ) : null}
+              <View style={styles.actionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={saving || loading || !onSaveDocument}
+                  onPress={onSaveDocument}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    styles.actionButtonHalf,
+                    { borderColor: theme.border, backgroundColor: theme.background },
+                    (pressed || saving) && { opacity: 0.88 },
+                  ]}>
+                  {saving && savingTarget === 'document' ? (
+                    <ActivityIndicator size="small" color={theme.primary} />
+                  ) : (
+                    <Ionicons name="document-outline" size={16} color={theme.primary} />
+                  )}
+                  <Text style={[styles.actionLabel, { color: theme.primary }]}>
+                    {saving && savingTarget === 'document'
+                      ? t('contractSummary.saving')
+                      : t('contractSummary.saveDocumentAction')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={saving || loading || !contractSaveHandler}
+                  onPress={handleContractSavePress}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    styles.actionButtonHalf,
+                    { borderColor: theme.primary, backgroundColor: theme.primary },
+                    (pressed || saving) && { opacity: 0.88 },
+                  ]}>
+                  {saving && savingTarget === 'contract' ? (
+                    <ActivityIndicator size="small" color={theme.primaryForeground} />
+                  ) : (
+                    <Ionicons name="save-outline" size={16} color={theme.primaryForeground} />
+                  )}
+                  <Text style={[styles.saveLabel, { color: theme.primaryForeground }]}>
+                    {saving && savingTarget === 'contract'
+                      ? t('contractSummary.saving')
+                      : t('contractSummary.saveAction')}
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
             <View style={styles.actionRow}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={saving || loading || !onSaveDocument}
-                onPress={onSaveDocument}
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  styles.actionButtonHalf,
-                  { borderColor: theme.border, backgroundColor: theme.background },
-                  (pressed || saving) && { opacity: 0.88 },
-                ]}>
-                {saving && savingTarget === 'document' ? (
-                  <ActivityIndicator size="small" color={theme.primary} />
-                ) : (
-                  <Ionicons name="document-outline" size={16} color={theme.primary} />
-                )}
-                <Text style={[styles.actionLabel, { color: theme.primary }]}>
-                  {saving && savingTarget === 'document'
-                    ? t('contractSummary.saving')
-                    : t('contractSummary.saveDocumentAction')}
-                </Text>
-              </Pressable>
+              {showCancel ? (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={saving || loading}
+                  onPress={() => onCancel?.()}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    styles.actionButtonHalf,
+                    { borderColor: theme.border, backgroundColor: theme.background },
+                    (pressed || saving) && { opacity: 0.88 },
+                  ]}>
+                  <Ionicons name="close-outline" size={16} color={theme.foreground} />
+                  <Text style={[styles.actionLabel, { color: theme.foreground }]}>
+                    {t('contractSummary.cancelAction')}
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 disabled={saving || loading || !contractSaveHandler}
-                onPress={contractSaveHandler}
+                onPress={handleContractSavePress}
                 style={({ pressed }) => [
-                  styles.actionButton,
-                  styles.actionButtonHalf,
+                  showCancel ? styles.saveButtonHalf : styles.saveButton,
                   { borderColor: theme.primary, backgroundColor: theme.primary },
                   (pressed || saving) && { opacity: 0.88 },
                 ]}>
-                {saving && savingTarget === 'contract' ? (
+                {saving ? (
                   <ActivityIndicator size="small" color={theme.primaryForeground} />
                 ) : (
                   <Ionicons name="save-outline" size={16} color={theme.primaryForeground} />
                 )}
                 <Text style={[styles.saveLabel, { color: theme.primaryForeground }]}>
-                  {saving && savingTarget === 'contract'
-                    ? t('contractSummary.saving')
-                    : t('contractSummary.saveAction')}
+                  {saving ? t('contractSummary.saving') : t('contractSummary.saveAction')}
                 </Text>
               </Pressable>
             </View>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              disabled={saving || loading || !contractSaveHandler}
-              onPress={contractSaveHandler}
-              style={({ pressed }) => [
-                styles.saveButton,
-                { borderColor: theme.primary, backgroundColor: theme.primary },
-                (pressed || saving) && { opacity: 0.88 },
-              ]}>
-              {saving ? (
-                <ActivityIndicator size="small" color={theme.primaryForeground} />
-              ) : (
-                <Ionicons name="save-outline" size={16} color={theme.primaryForeground} />
-              )}
-              <Text style={[styles.saveLabel, { color: theme.primaryForeground }]}>
-                {saving ? t('contractSummary.saving') : t('contractSummary.saveAction')}
-              </Text>
-            </Pressable>
           )}
         </View>
       ) : null}

@@ -275,6 +275,8 @@ export function useContractSummaryEditor({
 
   const deleteSavedContract = useCallback(async () => {
     if (!opportunityId) return false;
+    const linkedAttachmentId = saved?.emailAttachmentId;
+    const linkedMessageId = saved?.emailMessageId ?? emailMessageId;
     setDeleting(true);
     try {
       await deleteContractSummary(opportunityId);
@@ -285,11 +287,22 @@ export function useContractSummaryEditor({
         );
         await queryClient.invalidateQueries({ queryKey: threadQueryKey });
       }
+      if (queryClient && emailQueryKey && linkedAttachmentId && linkedMessageId) {
+        queryClient.setQueryData<EmailMessageDetail>(emailQueryKey, (current) =>
+          current
+            ? {
+                ...current,
+                documentSummaries: removeDocumentSummary(current.documentSummaries, linkedAttachmentId),
+              }
+            : current
+        );
+        await queryClient.invalidateQueries({ queryKey: emailQueryKey });
+      }
       return true;
     } finally {
       setDeleting(false);
     }
-  }, [opportunityId, queryClient, threadQueryKey]);
+  }, [emailMessageId, emailQueryKey, opportunityId, queryClient, saved, threadQueryKey]);
 
   const deleteSavedDocument = useCallback(
     async (overrideMessageId?: string, attachmentId?: string) => {

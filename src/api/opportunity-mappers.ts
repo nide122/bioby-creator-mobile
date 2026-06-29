@@ -15,6 +15,7 @@ import type {
   LeadValueBand,
   OpportunityPipelinePhase,
   PriorityBreakdown,
+  RiskClearedCheck,
 } from '@/src/types/domain';
 
 const EMAIL_CATEGORIES: InboxEmailCategory[] = ['commercial', 'pr_sample', 'media', 'personal', 'spam', 'other'];
@@ -117,6 +118,7 @@ export function mapOpportunityToThread(item: OpportunityListItem): InboxThread {
     preview: item.preview,
     updatedAtISO: item.updatedAtISO,
     brandName: item.brandName,
+    claimedBrandName: item.claimedBrandName ?? undefined,
     category: asEmailCategory(item.emailCategory),
     actionTier: item.actionTier as InboxThread['actionTier'],
     leadValueBand: asLeadValueBand(item.leadValueBand),
@@ -188,6 +190,26 @@ export function parseRiskFlags(raw: unknown): InboxRiskFlag[] {
     .filter((flag): flag is InboxRiskFlag => flag != null);
 }
 
+function parseClearedCheck(item: unknown): RiskClearedCheck | null {
+  if (!item || typeof item !== 'object') return null;
+  const record = item as Record<string, unknown>;
+  const code = record.code != null ? String(record.code).trim() : '';
+  const label = record.label != null ? String(record.label).trim() : '';
+  if (!code || !label) return null;
+  return {
+    code,
+    label,
+    detail: record.detail != null ? String(record.detail) : undefined,
+  };
+}
+
+export function parseClearedRiskChecks(raw: unknown): RiskClearedCheck[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => parseClearedCheck(item))
+    .filter((check): check is RiskClearedCheck => check != null);
+}
+
 function mapContractSummary(raw: OpportunityDetail['contractSummary']): ContractSummary | undefined {
   if (!raw) return undefined;
   return {
@@ -218,6 +240,7 @@ export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: Opp
   const riskFlags = parseRiskFlags(detail.riskFlags);
   const contractRiskFlags = parseRiskFlags(detail.contractRiskFlags);
   const attentionFlags = parseRiskFlags(detail.attentionFlags);
+  const clearedRiskChecks = parseClearedRiskChecks(detail.clearedRiskChecks);
   const messages: InboxMessage[] = (timeline?.messages ?? []).map((m, index) => ({
     id: m.id ?? `m${index}`,
     sentAtISO: m.sentAtISO ?? detail.updatedAtISO,
@@ -244,6 +267,7 @@ export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: Opp
     riskFlags,
     contractRiskFlags: contractRiskFlags.length > 0 ? contractRiskFlags : undefined,
     attentionFlags: attentionFlags.length > 0 ? attentionFlags : undefined,
+    clearedRiskChecks: clearedRiskChecks.length > 0 ? clearedRiskChecks : undefined,
     recommendedActions: detail.recommendedActions ?? [],
     extractionStatus: detail.extractionStatus,
     extractionConfidence: detail.extractionConfidence ?? undefined,
@@ -256,6 +280,7 @@ export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: Opp
     classificationSource: detail.classificationSource ?? undefined,
     briefExtractionSource: detail.briefExtractionSource ?? undefined,
     contractSummary: mapContractSummary(detail.contractSummary),
+    latestApprovedScript: detail.latestApprovedScript ?? undefined,
     suggestedDraftIds: {
       aiReply: suggested.aiReply ?? (shouldUseBackendApi() ? '' : mockFallback.aiReply),
       quote: suggested.quote ?? (shouldUseBackendApi() ? '' : mockFallback.quote),

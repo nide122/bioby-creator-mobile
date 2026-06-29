@@ -80,9 +80,23 @@ export const hubListStyles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
   },
+  kicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: 2,
+  },
+  kickerHint: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    lineHeight: lineHeight.body,
+    flexShrink: 1,
+  },
 });
 
 type RowProps = {
+  kicker?: ReactNode;
   title: string;
   subtitle?: ReactNode;
   detail?: ReactNode;
@@ -96,6 +110,7 @@ type RowProps = {
 function HubRowBase({
   icon,
   iconElement,
+  kicker,
   title,
   subtitle,
   detail,
@@ -118,6 +133,7 @@ function HubRowBase({
           </View>
         ) : null)}
       <View style={hubListStyles.body}>
+        {kicker ? <View style={hubListStyles.kicker}>{kicker}</View> : null}
         <Text style={[hubListStyles.title, { color: theme.foreground }]} numberOfLines={2}>
           {title}
         </Text>

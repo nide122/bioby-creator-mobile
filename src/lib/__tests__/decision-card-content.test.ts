@@ -1,4 +1,5 @@
 import {
+  decisionCardBrandLabel,
   formatDecisionQueuePreviewLines,
   formatDecisionQueuePreviewSubtitle,
   parseDecisionSourceHint,
@@ -37,6 +38,21 @@ describe('decision-card-content', () => {
       prefix: 'Deal',
       detail: 'Camping light unboxing',
     });
+  });
+
+  it('decisionCardBrandLabel mirrors inbox claimedBrandName for opportunities', () => {
+    expect(
+      decisionCardBrandLabel({
+        category: 'opportunity',
+        claimedBrandName: '某护肤品牌',
+      }),
+    ).toBe('某护肤品牌');
+    expect(
+      decisionCardBrandLabel({
+        category: 'payout',
+        claimedBrandName: '某护肤品牌',
+      }),
+    ).toBeNull();
   });
 
   it('surfaces brand, subject, and primary action for opportunities', () => {

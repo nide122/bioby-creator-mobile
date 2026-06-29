@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fetchAccountOverview, mapCreatorProfileResponse, type AccountOverviewResponse } from '@/src/api/account-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
+import { normalizeCreatorVerificationStatus } from '@/src/lib/creator-verification';
 import {
   getActiveTenantPublicId,
   tenantQueryKey,
@@ -37,6 +38,7 @@ function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
   emailWizardFinished: boolean;
   emailSkipped: boolean;
   mailboxConnection: ReturnType<typeof useSessionStore.getState>['mailboxConnection'];
+  creatorVerificationStatus: ReturnType<typeof useSessionStore.getState>['creatorVerificationStatus'];
   onboardingComplete: boolean;
   planAcknowledged: boolean;
 } {
@@ -50,6 +52,7 @@ function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
     emailWizardFinished: false,
     emailSkipped: false,
     mailboxConnection: null as ReturnType<typeof useSessionStore.getState>['mailboxConnection'],
+    creatorVerificationStatus: 'unverified' as const,
     onboardingComplete: false,
     planAcknowledged: false,
   };
@@ -77,6 +80,10 @@ function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
     patch.complianceAcceptedAt = new Date().toISOString();
   }
 
+  patch.creatorVerificationStatus = overview.creatorVerified
+    ? 'verified'
+    : normalizeCreatorVerificationStatus(overview.creatorVerificationStatus);
+
   if (inferOnboardingComplete(overview)) {
     patch.onboardingComplete = true;
     patch.planAcknowledged = true;
@@ -103,6 +110,7 @@ export function applyOverviewToSession(overview: AccountOverviewResponse) {
       setAgentSendMode,
       setCreatorFocusMode,
       setClassificationStrictness,
+      setCreatorVerificationStatus,
     } = useSessionStore.getState();
     if (overview.profile) {
       setProfileBasics(mapProfile(overview.profile));
@@ -126,6 +134,11 @@ export function applyOverviewToSession(overview: AccountOverviewResponse) {
       setClassificationStrictness((overview.classificationStrictness ?? 'standard') as ClassificationStrictness);
       useSessionStore.setState({ inboxFilterStepFinished: true });
     }
+    setCreatorVerificationStatus(
+      overview.creatorVerified
+        ? 'verified'
+        : normalizeCreatorVerificationStatus(overview.creatorVerificationStatus),
+    );
     const tenantDisplayName = overview.tenantDisplayName?.trim() || null;
     if (inferOnboardingComplete(overview)) {
       useSessionStore.setState({ onboardingComplete: true, planAcknowledged: true, tenantDisplayName });
@@ -154,6 +167,7 @@ export function replaceTenantOnboardingFromOverview(overview: AccountOverviewRes
         emailWizardFinished: false,
         emailSkipped: false,
         mailboxConnection: null,
+        creatorVerificationStatus: 'unverified',
         onboardingComplete: false,
         planAcknowledged: false,
         tenantDisplayName: null,

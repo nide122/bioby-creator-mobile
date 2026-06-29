@@ -27,6 +27,8 @@ export type DecisionCard = {
   category: DecisionCategory;
   /** 品牌名或上下文实体名 */
   entityName: string;
+  /** AI 从 evaluation_snapshot 提取的品牌名（与收件箱列表一致） */
+  claimedBrandName?: string;
   /** 一行标题 */
   headline: string;
   /** AI 判断理由 — 用第一人称 "我" 代表 AI */
@@ -139,6 +141,7 @@ export type InboxThread = {
   updatedAtISO: string;
   brandName: string;
   brandId?: string;
+  claimedBrandName?: string;
   /** AI 自动分类结果 */
   category: InboxEmailCategory;
   /** 行动档 — 对齐后端 ActionTier */
@@ -208,10 +211,24 @@ export type InboxRiskFlag = {
   acknowledged?: boolean;
 };
 
+export type RiskClearedCheck = {
+  code: string;
+  label: string;
+  detail?: string;
+};
+
 export type InboxDeliverablePackage = {
   deliverable: string;
   budgetLabel?: string | null;
   currency?: string | null;
+};
+
+export type LatestApprovedScript = {
+  title: string;
+  excerpt: string;
+  sourceEmailMessageId?: string;
+  confirmedAtISO?: string;
+  extractionSource?: string;
 };
 
 /** AI Inbox 线程详情（mock）；接入 API 后可独立类型或由服务端拼装 */
@@ -224,6 +241,8 @@ export type InboxThreadDetail = InboxThread & {
   contractRiskFlags?: InboxRiskFlag[];
   /** Resolved reply attention gaps (API Phase 2). */
   attentionFlags?: InboxRiskFlag[];
+  /** Checks evaluated on the latest thread with no active risk. */
+  clearedRiskChecks?: RiskClearedCheck[];
   recommendedActions: string[];
   packages?: InboxDeliverablePackage[];
   attentionCount?: number;
@@ -238,6 +257,7 @@ export type InboxThreadDetail = InboxThread & {
   classificationSource?: AiProcessingSource;
   briefExtractionSource?: AiProcessingSource;
   contractSummary?: ContractSummary;
+  latestApprovedScript?: LatestApprovedScript;
 };
 
 export type DocumentKind =
@@ -276,6 +296,7 @@ export type DealSummary = {
   id: string;
   brandId?: string;
   brandPlaceholder: string;
+  brandName?: string;
   title: string;
   /** Associated opportunity thread when the deal was escalated from inbox. */
   opportunityThreadId?: string;
@@ -304,7 +325,11 @@ export type DraftKind =
   | 'follow_up'
   | 'clarify_budget'
   | 'counter_offer'
-  | 'ack_and_schedule';
+  | 'ack_and_schedule'
+  | 'shrink_scope'
+  | 'ask_more_money'
+  | 'ask_extension'
+  | 'request_usage_rights';
 
 export type DraftSummary = {
   id: string;

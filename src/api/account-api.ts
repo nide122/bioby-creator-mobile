@@ -8,6 +8,7 @@ import {
 import type { SubscriptionUsageSnapshot, TeamRoleCard } from '@/src/types/domain';
 import type { CreatorPlatformProfile, PresetPlatformKey } from '@/src/types/creator-profile';
 import type { AgentSendMode, ClassificationStrictness, CreatorFocusMode, CreatorProfileBasics } from '@/src/stores/session-store';
+import type { CreatorVerificationStatus } from '@/src/lib/creator-verification';
 
 export async function upsertCreatorProfile(profile: CreatorProfileBasics): Promise<void> {
   if (!shouldUseBackendApi()) return;
@@ -126,11 +127,40 @@ export type AccountOverviewResponse = {
   inboxFilterConfigured?: boolean;
   onboardingCompletedAt?: string | null;
   inboxSetupSkipped?: boolean;
+  creatorVerificationStatus?: CreatorVerificationStatus | string;
+  creatorVerified?: boolean;
 };
 
 export async function fetchAccountOverview(): Promise<AccountOverviewResponse | null> {
   if (!shouldUseBackendApi()) return null;
   return apiRequest<AccountOverviewResponse>('/api/v1/account/overview');
+}
+
+export type CreatorVerificationResponse = {
+  status: CreatorVerificationStatus | string;
+  creatorVerified: boolean;
+  verifiedAtISO?: string | null;
+  homepageEmail?: string | null;
+  boundMailboxEmail?: string | null;
+  inboxBackfillEnqueued?: number;
+};
+
+export async function fetchCreatorVerificationStatus(): Promise<CreatorVerificationResponse | null> {
+  if (!shouldUseBackendApi()) return null;
+  return apiRequest<CreatorVerificationResponse>('/api/v1/account/creator-verification');
+}
+
+export async function verifyCreatorEmail(): Promise<CreatorVerificationResponse> {
+  return apiRequest<CreatorVerificationResponse>('/api/v1/account/creator-verification/verify-email', {
+    method: 'POST',
+  });
+}
+
+/** Dev-only: skip homepage/mailbox comparison and mark verified. */
+export async function forceVerifyCreatorEmailDev(): Promise<CreatorVerificationResponse> {
+  return apiRequest<CreatorVerificationResponse>('/api/v1/account/creator-verification/dev/force-verify', {
+    method: 'POST',
+  });
 }
 
 export async function fetchCreatorProfile(): Promise<CreatorProfileBasics | null> {

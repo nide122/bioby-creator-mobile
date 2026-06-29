@@ -19,12 +19,67 @@ export type MailSyncResult = {
 
 export type MailboxSyncLookback = 'INCREMENTAL' | 'ONE_WEEK' | 'ONE_MONTH' | 'THREE_MONTHS' | 'ALL';
 
+export type MailboxSyncEnqueueResult = {
+  jobId: number;
+  status: string;
+  connectionId: number;
+  enqueuedAtISO: string;
+};
+
+export type MailboxSyncJob = {
+  jobId: number;
+  status: string;
+  connectionId: number;
+  syncType?: string | null;
+  lookback?: string | null;
+  enqueuedAtISO?: string | null;
+  startedAtISO?: string | null;
+  finishedAtISO?: string | null;
+  errorMessage?: string | null;
+  processed?: number | null;
+  newCount?: number | null;
+  upToDate?: boolean | null;
+};
+
 export async function syncMailbox(options?: { lookback?: MailboxSyncLookback }): Promise<MailSyncResult | null> {
   if (!shouldUseBackendApi()) return null;
-  return apiRequest<MailSyncResult>('/api/v1/mailbox/sync', {
+  const response = await apiRequest<MailboxSyncEnqueueResult | MailSyncResult>('/api/v1/mailbox/sync', {
     method: 'POST',
     body: options?.lookback ? { lookback: options.lookback } : undefined,
   });
+  if (response && 'jobId' in response && !('processed' in response)) {
+    return waitForSyncJobCompletion(response.jobId);
+  }
+  return response as MailSyncResult;
+}
+
+async function waitForSyncJobCompletion(jobId: number): Promise<MailSyncResult | null> {
+  const deadlineMs = Date.now() + 120_000;
+  while (Date.now() < deadlineMs) {
+    const status = await fetchMailboxSyncStatus();
+    const active = status?.activeSyncJob;
+    const completed = status?.lastCompletedSyncJob;
+    const job = active?.jobId === jobId ? active : completed?.jobId === jobId ? completed : null;
+    if (job?.status === 'FAILED') {
+      return null;
+    }
+    if (job?.status === 'COMPLETED') {
+      return {
+        processed: job.processed ?? 0,
+        success: job.processed ?? 0,
+        failed: 0,
+        newMessageIds: [],
+        newCount: job.newCount ?? 0,
+        upToDate: job.upToDate ?? false,
+        endedAtISO: job.finishedAtISO ?? null,
+      };
+    }
+    if (!status?.active && !active && completed?.jobId !== jobId) {
+      return null;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  return null;
 }
 
 export type MailProcessingSummary = {
@@ -58,6 +113,8 @@ export type MailSyncRun = {
 export type MailboxSyncStatus = {
   connection: MailboxConnectionResponse;
   lastSync?: MailSyncRun | null;
+  activeSyncJob?: MailboxSyncJob | null;
+  lastCompletedSyncJob?: MailboxSyncJob | null;
   mailProcessing: MailProcessingSummary;
   briefExtraction: MailProcessingSummary;
   writeback: {
@@ -206,7 +263,40 @@ export type EmailAttachment = {
   mimeType?: string | null;
   sizeBytes?: number | null;
   inline?: boolean;
+  contentId?: string | null;
 };
+
+export type MailboxMessageListItem = {
+  id: string;
+  subject: string;
+  fromAddress: string;
+  fromLabel?: string;
+  direction?: 'inbound' | 'outbound';
+  snippet: string;
+  receivedAtISO?: string | null;
+  sentAtISO?: string | null;
+  read: boolean;
+};
+
+export type MailboxMessageListPage = {
+  items: MailboxMessageListItem[];
+  page: number;
+  size: number;
+  hasMore: boolean;
+};
+
+export async function fetchMailboxMessages(input?: {
+  folder?: string;
+  page?: number;
+  size?: number;
+}): Promise<MailboxMessageListPage> {
+  const params = new URLSearchParams();
+  if (input?.folder) params.set('folder', input.folder);
+  if (input?.page != null) params.set('page', String(input.page));
+  if (input?.size != null) params.set('size', String(input.size));
+  const query = params.toString();
+  return apiRequest<MailboxMessageListPage>(`/api/v1/mailbox/messages${query ? `?${query}` : ''}`);
+}
 
 export type EmailMessageDetail = {
   id: string;
@@ -221,6 +311,8 @@ export type EmailMessageDetail = {
   receivedAtISO?: string | null;
   attachments?: EmailAttachment[];
   documentSummaries?: ContractSummary[];
+  opportunityId?: string | null;
+  mailboxEmailAddress?: string | null;
 };
 
 function mapDocumentSummaries(
@@ -246,8 +338,13 @@ export async function fetchEmailMessage(messageId: string): Promise<EmailMessage
   };
 }
 
-export async function downloadEmailAttachment(messageId: string, attachmentId: string): Promise<Blob> {
-  return apiDownloadBlob(`/api/v1/mailbox/messages/${messageId}/attachments/${attachmentId}`);
+export async function downloadEmailAttachment(
+  messageId: string,
+  attachmentId: string,
+  options?: { inline?: boolean },
+): Promise<Blob> {
+  const query = options?.inline ? '?inline=true' : '';
+  return apiDownloadBlob(`/api/v1/mailbox/messages/${messageId}/attachments/${attachmentId}${query}`);
 }
 
 export type MailboxLabelWritebackInput = {

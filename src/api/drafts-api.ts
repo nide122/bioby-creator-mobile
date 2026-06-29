@@ -4,6 +4,7 @@ import { mapDraftDetail, mapDraftSummary, type DraftDetailDto, type DraftListIte
 import { fetchMockDraftDetail, fetchMockDrafts } from '@/src/api/mock-draft';
 import type { ReplyDraftPurpose } from '@/src/lib/reply-draft-purpose';
 import type { DraftDetail, DraftKind, DraftSummary } from '@/src/types/domain';
+import type { NegotiationDraftKind } from '@/src/lib/negotiation-draft-kinds';
 
 export type GeneratedReplyDraftDto = {
   draft: DraftDetailDto | null;
@@ -66,6 +67,21 @@ export async function createDraftForOpportunity(
   const item = await apiRequest<DraftDetailDto>('/api/v1/drafts', {
     method: 'POST',
     body: { opportunityId, kind },
+  });
+  return mapDraftDetail(item);
+}
+
+export async function applyDraftScenarioKind(
+  draftId: string,
+  kind: NegotiationDraftKind,
+  body?: string,
+): Promise<DraftDetail> {
+  if (!shouldUseBackendApi()) {
+    return fetchMockDraftDetail(draftId);
+  }
+  const item = await apiRequest<DraftDetailDto>(`/api/v1/drafts/${draftId}/apply-kind`, {
+    method: 'POST',
+    body: { kind, body: body?.trim() || undefined },
   });
   return mapDraftDetail(item);
 }

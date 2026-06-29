@@ -1,5 +1,6 @@
 import en from '@/src/i18n/locales/en.json';
 import zh from '@/src/i18n/locales/zh.json';
+import { normalizeLocale } from '@/src/i18n';
 
 function flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
   return Object.entries(obj).flatMap(([key, value]) => {
@@ -12,6 +13,14 @@ function flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
 }
 
 describe('i18n locales', () => {
+  it('maps system language to supported app locales', () => {
+    expect(normalizeLocale('zh-CN')).toBe('zh');
+    expect(normalizeLocale('zh-Hans')).toBe('zh');
+    expect(normalizeLocale('en-US')).toBe('en');
+    expect(normalizeLocale('fr-FR')).toBe('en');
+    expect(normalizeLocale(undefined)).toBe('en');
+  });
+
   it('keeps en and zh translation keys in sync', () => {
     const enKeys = new Set(flattenKeys(en as Record<string, unknown>));
     const zhKeys = new Set(flattenKeys(zh as Record<string, unknown>));

@@ -453,8 +453,8 @@
     "correctedBody": "现为「{{category}}」。"
   },
   "opportunityPath": {
-    "title": "成单路径",
-    "titleCompleted": "成单路径 · 已完成",
+    "title": "合作进度",
+    "titleCompleted": "合作进度 · 已完成",
     "inboxLabel": "识别商机",
     "inboxHint": "提取预算/风险",
     "draftLabel": "确认报价",
@@ -494,6 +494,8 @@
     "dealKind": "合作",
     "emailEvent": "邮件往来",
     "dealEvent": "合作进展",
+    "inboundLabel": "来信",
+    "threadMessageCount": "{{count}} 封",
     "threadsTitle": "邮件线程",
     "threadsSubtitle": "该品牌相关的收件箱线程",
     "threadMeta": "{{count}} 封邮件",
@@ -518,6 +520,7 @@
     "extracting": "正在读取文档…",
     "extractingDocument": "正在分析文档并识别类型…",
     "failed": "无法生成合同摘要。",
+    "timeoutFailed": "读取扫描版 PDF 超时。文件较大时请稍候重试，或压缩后再解析。",
     "fileTooLarge": "文件超过上传大小限制（最大 50MB）。扫描版 PDF 体积较大，请压缩后重试。",
     "networkFailed": "无法连接服务器，请确认后端已启动且网络正常。",
     "scannedPdfUnavailable": "扫描版 PDF 无法识别文字。请安装 Tesseract（含中文语言包 chi_sim），或配置支持读图的视觉 AI 模型。",
@@ -532,7 +535,8 @@
     "uploadAction": "上传文档解析",
     "reuploadAction": "重新上传文档解析",
     "saveAction": "保存为合同摘要",
-    "saveDocumentAction": "保存文档摘要",
+    "saveDocumentAction": "保存为文档摘要",
+    "saveContractBlockedHint": "请先点击「确认条款 → 进入合作」创建合作后，再保存为合同摘要。",
     "cancelAction": "取消",
     "collapseA11y": "收起摘要",
     "expandA11y": "展开摘要",
@@ -569,6 +573,8 @@
     "decisionTitleNoBudget": "补齐预算与权益",
     "userCorrectedBadge": "用户纠正",
     "originalSubjectPrefix": "原邮件：",
+    "approvedScriptTitle": "最新确认脚本",
+    "approvedScriptSubtitle": "品牌在线程中确认的文案",
     "aiBriefEyebrow": "AI 简报",
     "aiSourceClassification": {
       "llm": "分类 · LLM",
@@ -674,10 +680,20 @@
     "briefIntro": "上方是邮件摘要与条款要点；下方是回复前建议。",
     "deliverablesTitle": "交付物",
     "packagesTitle": "报价与交付",
+    "briefSections": {
+      "quoteTitle": "报价与支付",
+      "quoteSubtitle": "品牌出价与交付物",
+      "usageSubtitle": "自然流 / 付费投放 / 地域与时长",
+      "scheduleSubtitle": "上线或交片节点"
+    },
     "contractWarning": {
       "title": "合同风险提示",
       "subtitle": "核对授权、付款与合规条款后再报价或确认 Brief。",
-      "ackRequired": "确认 Brief 前需先知晓以上风险。"
+      "ackRequired": "确认 Brief 前需先知晓以上风险。",
+      "riskCount": "{{count}} 项风险",
+      "clearedTitle": "已核对无风险（{{count}}）",
+      "clearedSubtitle": "基于当前往来邮件最新判断。",
+      "clearedCollapsed": "点击展开查看已核对项"
     },
     "attentionTitle": "回复前建议",
     "attentionSubtitle": "建议先核对再回复或报价。",
@@ -752,12 +768,34 @@
     "errorDesc": "原始邮件加载失败，请重试。",
     "noData": "暂无数据",
     "noSubject": "（无主题）",
-    "emptyBody": "（无正文内容）"
+    "emptyBody": "（无正文内容）",
+    "inlineImagesCount": "{{count}} 张内嵌图片",
+    "inlineImagesCount_one": "1 张内嵌图片",
+    "inlineImagesCount_other": "{{count}} 张内嵌图片",
+    "inlineImagesShow": "显示",
+    "inlineImagesHide": "隐藏",
+    "inlineImagesExpandA11y": "显示邮件内嵌图片",
+    "inlineImagesCollapseA11y": "隐藏邮件内嵌图片",
+    "inlineImagePreviewA11y": "内嵌图片预览",
+    "inlineImagePreviewCloseA11y": "关闭图片预览"
   },
   "emailAttachments": {
     "title": "{{count}} 个附件",
     "title_one": "1 个附件",
-    "title_other": "{{count}} 个附件"
+    "title_other": "{{count}} 个附件",
+    "downloadA11y": "下载 {{filename}}",
+    "downloadTooltip": "下载",
+    "previewA11y": "预览 {{filename}}",
+    "previewTooltip": "预览",
+    "previewLoading": "正在加载预览…",
+    "previewFailed": "无法加载附件预览，请先在「收件箱设置」中重新连接 {{email}} 后再试。",
+    "downloadFailed": "无法下载附件，请先在「收件箱设置」中重新连接 {{email}} 后再试。",
+    "parseFailed": "无法解析附件，请先在「收件箱设置」中重新连接 {{email}} 后再试。",
+    "mailboxEmailFallback": "该邮件所属的邮箱",
+    "previewFailedProcessing": "无法加载附件预览。",
+    "fetchFailedTitle": "附件",
+    "previewUnsupported": "此文件类型暂不支持内联预览，请下载后在本地打开。",
+    "previewCloseA11y": "关闭预览"
   },
   "labels": {
     "escrow": {
@@ -813,7 +851,11 @@
       "follow_up": "跟进草稿",
       "clarify_budget": "追问预算",
       "counter_offer": "还价草稿",
-      "ack_and_schedule": "确认并排期"
+      "ack_and_schedule": "确认并排期",
+      "shrink_scope": "缩小范围",
+      "ask_more_money": "要求加价",
+      "ask_extension": "申请延期",
+      "request_usage_rights": "书面授权"
     }
   },
   "inboxPriority": {
@@ -835,6 +877,33 @@
       "effort": "制作成本",
       "risk": "风险"
     }
+  },
+  "creatorVerification": {
+    "badgeVerified": "已认证",
+    "badgeUnverified": "账号未认证",
+    "bannerTitle": "验证主页邮箱后解锁 AI 收件箱",
+    "bannerBody": "我们会对比你在主页上公开的邮箱与本应用绑定的合作邮箱；一致则自动通过，无需人工审核。",
+    "verifyCta": "验证邮箱",
+    "verifying": "验证中…",
+    "devForceVerifyCta": "测试：一键通过",
+    "devForceVerifying": "测试中…",
+    "devForceVerifyErrorTitle": "测试验证失败",
+    "verifySuccessTitle": "邮箱验证通过",
+    "verifySuccessBody": "AI 收件箱已解锁，正在后台同步并分类邮件。",
+    "verifySuccessBodyWithBackfill": "AI 收件箱已解锁。已为 {{count}} 封历史邮件启动 AI 分类，请稍候查看。",
+    "verifyErrorTitle": "邮箱验证未通过",
+    "verifyErrorBody": "暂时无法完成邮箱验证，请稍后重试。",
+    "errorMismatch": "主页邮箱与合作邮箱不一致。请先在主页将联系邮箱改为本应用绑定的邮箱，然后重新验证。",
+    "errorHomepageMissing": "主页上未找到公开邮箱。请先在主页填写本应用绑定的合作邮箱。",
+    "errorMailboxRequired": "请先绑定合作邮箱，再进行邮箱验证。",
+    "errorProfileIncomplete": "请先填写达人资料并绑定平台主页链接。"
+  },
+  "basicMailbox": {
+    "screenTitle": "邮箱",
+    "sectionTitle": "收件箱",
+    "noSubject": "（无主题）",
+    "emptyTitle": "暂无邮件",
+    "emptyDesc": "同步邮箱后，未认证状态下也可在此查看原始邮件。"
   },
   "inboxScreen": {
     "connectionBannerTitle": "邮箱未连接",
@@ -892,6 +961,8 @@
     "mailboxNeverSynced": "尚未同步",
     "syncingInline": "同步中，AI 正在分类新邮件…",
     "syncNowA11y": "立即同步邮箱",
+    "syncMailboxCta": "同步邮箱",
+    "syncMailboxCtaBusy": "同步中…",
     "syncLookbackLabel": "同步范围",
     "syncLookback": {
       "ONE_WEEK": "近一周",
@@ -949,6 +1020,8 @@
     "emptyCommercialDesc": "全部邮件仍会保留分类；这里只显示 P0–P2 优先级队列（含托管交付）。",
     "emptyPriorityTitle": "暂无 P0–P2 邮件",
     "emptyPriorityDesc": "紧急、高价值与稍后看的线索会出现在这里；其余邮件可在「已分类邮件」查看。",
+    "emptyProcessingTitle": "正在分类历史邮件",
+    "emptyProcessingDesc": "认证前同步的邮件正在后台处理。请稍等片刻，或再点一次「同步邮箱」。",
     "emptyConnectMailbox": "连接邮箱",
     "emptyRateRules": "设置报价规则",
     "emptySearchTitle": "没有找到匹配邮件",
@@ -1125,6 +1198,8 @@
     "panelUsageRights": "使用权",
     "panelRiskFallback": "暂无重大合同风险标记。",
     "panelLoading": "正在加载合作详情…",
+    "panelApprovedScriptTitle": "最新确认脚本",
+    "panelApprovedScriptSubtitle": "品牌在线程中确认的文案",
     "panelDeliveryScheduleSubtitle": "可选的交付里程碑",
     "panelDeliveryScheduleToggle": "{{count}} 个交付步骤",
     "panelOpenFullDeal": "打开完整合作页",
@@ -1255,6 +1330,7 @@
     "titleReplyEmail": "审回复邮件",
     "screenTitle": "回复邮件",
     "opportunityBriefTitle": "合作摘要",
+    "opportunityBriefExpand": "点击展开完整摘要",
     "titleQuote": "审报价",
     "titleReply": "审回复",
     "titleLowRisk": "跟进稿",
@@ -2899,8 +2975,19 @@
   },
   "replyTemplatePicker": {
     "title": "插入模板",
-    "lead": "已识别的合作信息会自动填入；未识别的标签在发送前保留为标签文字。",
-    "empty": "还没有模板。可在「资产 → 报价与提案 → 回复模板」中添加。"
+    "lead": "点选模板即可填入编辑器；已识别的合作信息会自动替换。",
+    "empty": "还没有模板。可在「资产 → 报价与提案 → 回复模板」中添加。",
+    "insertA11y": "插入模板 {{name}}",
+    "insertCta": "插入模板 {{name}}",
+    "insertCtaShort": "插入",
+    "viewDetailCta": "查看详情",
+    "collapseDetailCta": "收起详情",
+    "viewDetailA11y": "查看模板详情",
+    "collapseDetailA11y": "收起模板详情",
+    "section": {
+      "negotiation": "谈判场景",
+      "general": "常用开场"
+    }
   },
   "replyDraftGenerator": {
     "title": "AI 生成回复",
@@ -3010,7 +3097,12 @@
     "mediaKitSubtitle": "对外预览。",
     "preview": "预览",
     "save": "保存资料",
-    "saved": "已保存"
+    "saving": "保存中…",
+    "saved": "已保存",
+    "saveSuccessTitle": "资料已保存",
+    "saveSuccessBody": "创作者资料已更新。",
+    "saveFailedTitle": "保存失败",
+    "saveFailedBody": "请检查网络后重试。"
   },
   "dataExportScreen": {
     "lead": "导出工作区数据或查看财务记录。",

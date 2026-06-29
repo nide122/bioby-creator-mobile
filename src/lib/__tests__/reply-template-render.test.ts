@@ -3,6 +3,7 @@ import {
   normalizeReplyTemplateBody,
   parseReplyTemplateBody,
   renderReplyTemplate,
+  renderReplyTemplateForSend,
   serializeReplyTemplateBody,
 } from '@/src/lib/reply-template-render';
 
@@ -37,5 +38,17 @@ describe('reply-template-render', () => {
       missingLabel: () => '品牌方',
     });
     expect(rendered).toBe('Hi 品牌方');
+  });
+
+  it('omits unresolved placeholders when rendering for send', () => {
+    const rendered = renderReplyTemplateForSend(
+      'Hi ⟦brandName⟧, thanks for ⟦cooperationTitle⟧ and ⟦missing⟧.',
+      { brandName: 'Glow Recipe', cooperationTitle: 'TikTok launch' },
+    );
+    expect(rendered).toBe('Hi Glow Recipe, thanks for TikTok launch and .');
+  });
+
+  it('omits known placeholders without values when rendering for send', () => {
+    expect(renderReplyTemplateForSend('Hi ⟦brandName⟧', {})).toBe('Hi ');
   });
 });

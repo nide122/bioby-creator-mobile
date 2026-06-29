@@ -8,15 +8,30 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { formatThreadToggleLabel } from '@/src/lib/inbox-message-stats';
 import { stripQuotedPlainText } from '@/src/lib/email-body';
+import { isSenderLikeLabel } from '@/src/lib/cooperation-display-name';
 import type { InboxMessage, InboxMessageStats } from '@/src/types/domain';
 
 function isOutboundMessage(message: InboxMessage): boolean {
   return message.direction === 'outbound';
 }
 
-function messageFromLabel(message: InboxMessage, t: (key: string) => string): string {
+function messageFromLabel(
+  message: InboxMessage,
+  t: (key: string) => string,
+  counterpartyLabel?: string
+): string {
   if (isOutboundMessage(message)) {
     return t('inboxThreadDetail.youLabel');
+  }
+  if (counterpartyLabel && !isSenderLikeLabel(counterpartyLabel)) {
+    return counterpartyLabel;
+  }
+  const from = message.fromLabel?.trim() ?? '';
+  if (from && isSenderLikeLabel(from)) {
+    const angle = from.match(/^(.+?)\s*<[^>]+>$/);
+    if (angle?.[1]?.trim() && !isSenderLikeLabel(angle[1].trim())) {
+      return angle[1].trim();
+    }
   }
   return message.fromLabel;
 }
@@ -26,6 +41,7 @@ type CollapsibleThreadProps = {
   messageStats?: InboxMessageStats;
   initiallyOpen?: boolean;
   dateLocale: string;
+  counterpartyLabel?: string;
   onOpenMessage: (message: InboxMessage) => void;
 };
 
@@ -34,6 +50,7 @@ export function CollapsibleThread({
   messageStats,
   initiallyOpen = false,
   dateLocale,
+  counterpartyLabel,
   onOpenMessage,
 }: CollapsibleThreadProps) {
   const { t } = useTranslation();
@@ -89,7 +106,7 @@ export function CollapsibleThread({
                       color={outbound ? theme.accentMintStrong : theme.foregroundEyebrow}
                     />
                     <Text style={[styles.msgMeta, { color: theme.foregroundEyebrow, flex: 1 }]}>
-                      {messageFromLabel(m, t)} ·{' '}
+                      {messageFromLabel(m, t, counterpartyLabel)} ·{' '}
                       {new Date(m.sentAtISO).toLocaleString(dateLocale, {
                         month: 'numeric',
                         day: 'numeric',

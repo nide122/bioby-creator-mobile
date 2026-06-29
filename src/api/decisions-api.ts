@@ -15,6 +15,7 @@ type DecisionCardDto = {
   id: string;
   category: string;
   entityName: string;
+  claimedBrandName?: string | null;
   headline: string;
   aiNote: string;
   urgencyNote?: string | null;
@@ -51,6 +52,7 @@ function mapCard(dto: DecisionCardDto): DecisionCard {
     id: dto.id,
     category: asCategory(dto.category),
     entityName: dto.entityName,
+    claimedBrandName: dto.claimedBrandName ?? undefined,
     headline: dto.headline,
     aiNote: dto.aiNote,
     urgencyNote: dto.urgencyNote ?? undefined,

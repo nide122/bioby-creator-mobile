@@ -81,13 +81,17 @@ export function inboxMessageHref(
   link?: string | CrossScreenLink | null,
 ): Href {
   const normalized = normalizeCrossLink(link);
-  if (!normalized?.returnTo && !normalized?.parentReturnTo && !normalized?.directReturn) {
-    return `/inbox/message/${messageId}?threadId=${encodeURIComponent(threadId)}` as Href;
+  let href = `/inbox/message/${messageId}?threadId=${encodeURIComponent(threadId)}`;
+  if (normalized?.returnTo) {
+    href += `&returnTo=${encodeURIComponent(normalized.returnTo)}`;
   }
-  return {
-    pathname: '/inbox/message/[messageId]',
-    params: { messageId, threadId, ...crossLinkParams(normalized) },
-  } as Href;
+  if (normalized?.parentReturnTo) {
+    href += `&parentReturnTo=${encodeURIComponent(normalized.parentReturnTo)}`;
+  }
+  if (normalized?.directReturn) {
+    href += '&directReturn=1';
+  }
+  return href as Href;
 }
 
 export function dealHref(dealId: string, returnTo?: string | null): Href {

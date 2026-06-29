@@ -7,6 +7,7 @@ import { isApiConfigured } from '@/src/api/api-config';
 import { mapAuthSessionToStore } from '@/src/auth/apply-auth-session';
 import type { SocialPlatformKey } from '@/src/api/mock-creator-profile';
 import type { CreatorPlatformProfile, PresetPlatformKey } from '@/src/types/creator-profile';
+import type { CreatorVerificationStatus } from '@/src/lib/creator-verification';
 import { useDraftApprovalStore } from '@/src/stores/draft-approval-store';
 
 /** Onboarding creator profile basics. */
@@ -89,6 +90,8 @@ type SessionState = {
   tenantPublicId: string | null;
   /** Active workspace label from JWT / account overview. */
   tenantDisplayName: string | null;
+  /** Creator identity verification for AI inbox features. */
+  creatorVerificationStatus: CreatorVerificationStatus;
   membershipRole: string | null;
   /** Dev skip / test workspace: use local mock data even when API URL is set. */
   isLocalDemoWorkspace: boolean;
@@ -121,6 +124,7 @@ type SessionState = {
   setAgentSendMode: (mode: AgentSendMode) => void;
   setCreatorFocusMode: (mode: CreatorFocusMode) => void;
   setClassificationStrictness: (strictness: ClassificationStrictness) => void;
+  setCreatorVerificationStatus: (status: CreatorVerificationStatus) => void;
   setInboxReclassificationActive: (active: boolean) => void;
   completeInboxFilterStep: (strictness: ClassificationStrictness) => void;
   setAuthBootstrapReady: (ready: boolean) => void;
@@ -137,6 +141,7 @@ const initialSession = {
   pendingDisplayName: null as string | null,
   tenantPublicId: null as string | null,
   tenantDisplayName: null as string | null,
+  creatorVerificationStatus: 'verified' as CreatorVerificationStatus,
   membershipRole: null as string | null,
   isLocalDemoWorkspace: false,
   profileBasics: null as CreatorProfileBasics | null,
@@ -304,6 +309,7 @@ const sessionStateCreator: (
   setAgentSendMode: (mode) => set({ agentSendMode: mode }),
   setCreatorFocusMode: (mode) => set({ creatorFocusMode: mode }),
   setClassificationStrictness: (strictness) => set({ classificationStrictness: strictness }),
+  setCreatorVerificationStatus: (status) => set({ creatorVerificationStatus: status }),
   setInboxReclassificationActive: (active) => set({ inboxReclassificationActive: active }),
   completeInboxFilterStep: (strictness) =>
     set({ classificationStrictness: strictness, inboxFilterStepFinished: true }),

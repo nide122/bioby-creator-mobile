@@ -89,9 +89,10 @@ export function renderReplyTemplate(
     .join('');
 }
 
-/** Plain text for mailbox send — only substitutes known values. */
+/** Plain text for mailbox send — substitutes known values and omits unresolved placeholders. */
 export function renderReplyTemplateForSend(body: string, values: ReplyTemplateFieldValues): string {
-  return renderReplyTemplate(body, values, { keepUnresolvedTokens: false, missingLabel: () => '' });
+  const rendered = renderReplyTemplate(body, values, { keepUnresolvedTokens: false, missingLabel: () => '' });
+  return rendered.replace(TOKEN_PATTERN, '');
 }
 
 export function insertReplyTemplateFieldToken(body: string, key: ReplyTemplateFieldKey): string {

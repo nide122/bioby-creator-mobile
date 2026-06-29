@@ -5,10 +5,12 @@ import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Badge } from '@/components/product';
+import { BrandChip } from '@/components/brands/BrandChip';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { openBrandDetail } from '@/src/lib/open-brand-detail';
+import { resolveOpportunityBrandLabel } from '@/src/lib/cooperation-display-name';
 import { localizeDealSummaryCopy, resolveNextMilestone } from '@/src/lib/deal-copy-i18n';
 import { resolveDealPaymentStatus } from '@/src/lib/deal-payment-status';
 import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
@@ -54,6 +56,11 @@ export function DealCard({
     resolveNextMilestone(deal.nextMilestone, deal.escrowPhase, t) ??
     t('dealsScreen.panelProgressFallback');
   const paymentStatus = resolveDealPaymentStatus(deal, t);
+  const brandLabel =
+    deal.brandName ?? resolveOpportunityBrandLabel(deal.brandPlaceholder, deal.title) ?? null;
+  const openBrand = () => {
+    openBrandDetail(router, deal.brandId, '/deals');
+  };
 
   return (
     <Pressable
@@ -70,18 +77,17 @@ export function DealCard({
       ]}>
       <View style={styles.header}>
         <View style={styles.headingCopy}>
-          <Pressable
-            accessibilityRole="link"
-            disabled={!shouldUseBackendApi() || !deal.brandId}
-            onPress={(event) => {
-              event.stopPropagation?.();
-              openBrandDetail(router, deal.brandId, '/deals');
-            }}
-            style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
-            <Text style={[styles.brand, { color: theme.foregroundEyebrow }]} numberOfLines={1}>
-              {deal.brandPlaceholder}
-            </Text>
-          </Pressable>
+          {brandLabel ? (
+            <BrandChip
+              label={brandLabel}
+              compact
+              onPress={
+                shouldUseBackendApi() && deal.brandId
+                  ? openBrand
+                  : undefined
+              }
+            />
+          ) : null}
           <Text style={[styles.title, { color: theme.foreground }]} numberOfLines={2}>
             {deal.title}
           </Text>
@@ -150,13 +156,7 @@ const styles = StyleSheet.create({
   },
   headingCopy: {
     flex: 1,
-    gap: spacing.xs / 2,
-  },
-  brand: {
-    fontSize: fontSize.caption,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    gap: spacing.sm,
   },
   title: {
     fontSize: fontSize.body,

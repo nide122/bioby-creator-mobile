@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette } from '@/constants/tokens';
-import { ReplyTemplateFieldChip } from '@/src/components/reply-templates/ReplyTemplateFieldChip';
+import {
+  replyTemplateFieldChipColors,
+  replyTemplateFieldLabel,
+} from '@/src/lib/reply-template-fields';
 import { parseReplyTemplateBody } from '@/src/lib/reply-template-render';
 
 type ReplyTemplateBodyPreviewProps = {
@@ -17,39 +20,50 @@ export function ReplyTemplateBodyPreview({ body, numberOfLines }: ReplyTemplateB
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const segments = useMemo(() => parseReplyTemplateBody(body), [body]);
+  const hasVisibleText = segments.some((segment) => segment.kind === 'text' && segment.value);
 
   return (
-    <View style={styles.row}>
+    <Text
+      numberOfLines={numberOfLines}
+      style={[styles.paragraph, { color: theme.foreground }]}>
       {segments.map((segment, index) => {
         if (segment.kind === 'field') {
-          return <ReplyTemplateFieldChip key={`field-${index}`} fieldKey={segment.key} compact />;
+          const colors = replyTemplateFieldChipColors(segment.key, colorScheme);
+          const label = replyTemplateFieldLabel(segment.key, t);
+          return (
+            <Text
+              key={`field-${index}`}
+              style={[
+                styles.inlineField,
+                {
+                  backgroundColor: colors.backgroundColor,
+                  color: colors.color,
+                },
+              ]}>
+              {label}
+            </Text>
+          );
         }
         if (!segment.value) return null;
-        return (
-          <Text
-            key={`text-${index}`}
-            numberOfLines={numberOfLines}
-            style={[styles.text, { color: theme.foreground }]}>
-            {segment.value}
-          </Text>
-        );
+        return <Text key={`text-${index}`}>{segment.value}</Text>;
       })}
-      {segments.every((segment) => segment.kind === 'field' || !segment.value) ? (
-        <Text style={[styles.text, { color: theme.mutedForeground }]}>{t('replyTemplateBodyPreview.empty')}</Text>
+      {!hasVisibleText && segments.every((segment) => segment.kind === 'field' || !segment.value) ? (
+        <Text style={{ color: theme.mutedForeground }}>{t('replyTemplateBodyPreview.empty')}</Text>
       ) : null}
-    </View>
+    </Text>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 4,
-  },
-  text: {
+  paragraph: {
     fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.bodyRelaxed,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
+  },
+  inlineField: {
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.bodyRelaxed,
+    fontWeight: '600',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
   },
 });

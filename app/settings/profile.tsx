@@ -18,6 +18,7 @@ import {
 } from '@/src/components/profile/CreatorProfileEditor';
 import { upsertCreatorProfile } from '@/src/api/account-api';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
+import { alertAction } from '@/src/lib/app-dialog';
 import { useSessionStore } from '@/src/stores/session-store';
 
 export default function ProfileSettingsScreen() {
@@ -30,6 +31,7 @@ export default function ProfileSettingsScreen() {
 
   const [editorState, setEditorState] = useState<CreatorProfileEditorState | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleEditorStateChange = useCallback((state: CreatorProfileEditorState) => {
     setEditorState(state);
@@ -37,12 +39,21 @@ export default function ProfileSettingsScreen() {
 
   const canSave = editorState?.canSubmit ?? false;
 
-  const onSave = () => {
-    if (!editorState?.canSubmit) return;
-    setProfileBasics(editorState.payload);
-    void upsertCreatorProfile(editorState.payload);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2000);
+  const onSave = async () => {
+    if (!editorState?.canSubmit || isSaving) return;
+    setIsSaving(true);
+    try {
+      setProfileBasics(editorState.payload);
+      await upsertCreatorProfile(editorState.payload);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2000);
+      await alertAction(t('profileSettingsScreen.saveSuccessTitle'), t('profileSettingsScreen.saveSuccessBody'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('profileSettingsScreen.saveFailedBody');
+      void alertAction(t('profileSettingsScreen.saveFailedTitle'), message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -86,8 +97,8 @@ export default function ProfileSettingsScreen() {
         <Pressable
           testID="profile-settings-save"
           accessibilityRole="button"
-          disabled={!canSave}
-          onPress={onSave}
+          disabled={!canSave || isSaving}
+          onPress={() => void onSave()}
           android_ripple={{ color: `${theme.primary}33` }}
           style={({ pressed }) => [
             styles.primary,
@@ -95,7 +106,11 @@ export default function ProfileSettingsScreen() {
             pressed && canSave && { opacity: 0.9 },
           ]}>
           <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
-            {savedFlash ? t('profileSettingsScreen.saved') : t('profileSettingsScreen.save')}
+            {isSaving
+              ? t('profileSettingsScreen.saving')
+              : savedFlash
+                ? t('profileSettingsScreen.saved')
+                : t('profileSettingsScreen.save')}
           </Text>
         </Pressable>
       </ScrollView>

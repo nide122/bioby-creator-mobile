@@ -6,7 +6,29 @@ import { EmailAttachmentBadge } from '@/components/mail/EmailAttachmentsList';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { stripQuotedPlainText } from '@/src/lib/email-body';
+import { isSenderLikeLabel } from '@/src/lib/cooperation-display-name';
 import type { InboxMessage } from '@/src/types/domain';
+
+function resolveFromLabel(
+  message: InboxMessage,
+  t: (key: string) => string,
+  counterpartyLabel?: string
+): string {
+  if (message.direction === 'outbound') {
+    return t('inboxThreadDetail.youLabel');
+  }
+  if (counterpartyLabel && !isSenderLikeLabel(counterpartyLabel)) {
+    return counterpartyLabel;
+  }
+  const from = message.fromLabel?.trim() ?? '';
+  if (from && isSenderLikeLabel(from)) {
+    const angle = from.match(/^(.+?)\s*<[^>]+>$/);
+    if (angle?.[1]?.trim() && !isSenderLikeLabel(angle[1].trim())) {
+      return angle[1].trim();
+    }
+  }
+  return message.fromLabel;
+}
 
 export function pickLatestInboundMessage(messages: InboxMessage[]): InboxMessage | undefined {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -20,17 +42,18 @@ export function pickLatestInboundMessage(messages: InboxMessage[]): InboxMessage
 type InboundMessagePreviewProps = {
   message: InboxMessage;
   dateLocale: string;
+  counterpartyLabel?: string;
   onPress?: () => void;
 };
 
-export function InboundMessagePreview({ message, dateLocale, onPress }: InboundMessagePreviewProps) {
+export function InboundMessagePreview({ message, dateLocale, counterpartyLabel, onPress }: InboundMessagePreviewProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const outbound = message.direction === 'outbound';
   const unread = !outbound && message.read === false;
   const snippet = stripQuotedPlainText(message.snippet) || message.snippet;
-  const fromLabel = outbound ? t('inboxThreadDetail.youLabel') : message.fromLabel;
+  const fromLabel = resolveFromLabel(message, t, counterpartyLabel);
 
   return (
     <View style={[styles.wrap, { borderColor: theme.border, backgroundColor: theme.secondary }]}>

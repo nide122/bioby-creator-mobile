@@ -137,6 +137,7 @@ export async function previewContractFromAttachment(
     {
       method: 'POST',
       body: { emailMessageId, attachmentId },
+      timeoutMs: 300_000,
     }
   );
   return mapContractSummary(result);
@@ -149,7 +150,8 @@ export async function previewContractFromUpload(
 ): Promise<ContractSummary> {
   const result = await apiMultipartRequest<ContractSummary>(
     `/api/v1/opportunities/${opportunityId}/contract-summary/upload`,
-    buildContractPdfFormData(picked)
+    buildContractPdfFormData(picked),
+    { timeoutMs: 300_000 }
   );
   return mapContractSummary(result);
 }

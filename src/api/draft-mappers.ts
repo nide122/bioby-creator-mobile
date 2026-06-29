@@ -7,6 +7,10 @@ const DRAFT_KINDS: DraftKind[] = [
   'clarify_budget',
   'counter_offer',
   'ack_and_schedule',
+  'shrink_scope',
+  'ask_more_money',
+  'ask_extension',
+  'request_usage_rights',
 ];
 
 export type DraftListItemDto = {

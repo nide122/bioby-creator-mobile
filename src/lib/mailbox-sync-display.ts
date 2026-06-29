@@ -9,6 +9,10 @@ import type { AccountOverviewResponse } from '@/src/api/account-api';
 export function isMailboxPipelineActive(status: MailboxSyncStatus | null | undefined): boolean {
   if (!status) return false;
   if (status.active) return true;
+  const syncJob = status.activeSyncJob;
+  if (syncJob?.status === 'PENDING' || syncJob?.status === 'PROCESSING') {
+    return true;
+  }
   return (
     status.mailProcessing.pending > 0 ||
     status.mailProcessing.processing > 0 ||

@@ -3,7 +3,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, HubLinkGroup, HubScreen, QueryRetryCard, SectionCard } from '@/components/product';
+import { Badge, HubLinkGroup, HubScreen, QueryRetryCard } from '@/components/product';
+import { BrandChip } from '@/components/brands/BrandChip';
 import { BrandTimelineList } from '@/components/brands/BrandTimelineList';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -61,30 +62,44 @@ export default function BrandDetailScreen() {
   return (
     <HubScreen
       testID="screen-brand-detail"
-      eyebrow={t('brandDetail.eyebrow')}
       title={brand.name}
       lead={brand.domain ? t('brandDetail.domainSubtitle', { domain: brand.domain }) : t('brandDetail.subtitle')}>
-      <View style={styles.statsRow}>
-        <StatPill label={t('brandDetail.statThreads')} value={String(brand.threadCount)} theme={theme} />
-        <StatPill label={t('brandDetail.statDeals')} value={String(brand.dealCount)} theme={theme} />
-        <StatPill label={t('brandDetail.statMessages')} value={String(brand.messageCount)} theme={theme} />
+      <View style={[styles.heroCard, { borderColor: theme.primary + '33', backgroundColor: theme.primary + '0C' }]}>
+        <View style={styles.heroTop}>
+          <View style={[styles.heroIcon, { backgroundColor: theme.primary + '20' }]}>
+            <Ionicons name="business" size={22} color={theme.primary} />
+          </View>
+          <View style={styles.heroCopy}>
+            <BrandChip label={brand.name} />
+          </View>
+        </View>
+        <View style={styles.statsRow}>
+          <StatPill label={t('brandDetail.statThreads')} value={String(brand.threadCount)} theme={theme} />
+          <StatPill label={t('brandDetail.statDeals')} value={String(brand.dealCount)} theme={theme} />
+          <StatPill label={t('brandDetail.statMessages')} value={String(brand.messageCount)} theme={theme} />
+        </View>
       </View>
 
-      <SectionCard title={t('brandDetail.timelineTitle')} subtitle={t('brandDetail.timelineSubtitle')}>
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.foreground }]}>{t('brandDetail.timelineTitle')}</Text>
+        <Text style={[styles.sectionSubtitle, { color: theme.mutedForeground }]}>
+          {t('brandDetail.timelineSubtitle')}
+        </Text>
         {timelineQuery.isPending ? (
           <ActivityIndicator color={theme.primary} />
         ) : timelineQuery.error ? (
-          <QueryRetryCard
-            message={timelineQuery.error.message}
-            onRetry={() => timelineQuery.refetch()}
-          />
+          <QueryRetryCard message={timelineQuery.error.message} onRetry={() => timelineQuery.refetch()} />
         ) : (
           <BrandTimelineList brandId={brandId} emailReturnLink={emailReturnLink} items={timelineItems} />
         )}
-      </SectionCard>
+      </View>
 
       {brand.threads.length > 0 ? (
-        <SectionCard title={t('brandDetail.threadsTitle')} subtitle={t('brandDetail.threadsSubtitle')}>
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.foreground }]}>{t('brandDetail.threadsTitle')}</Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.mutedForeground }]}>
+            {t('brandDetail.threadsSubtitle')}
+          </Text>
           <View style={styles.linkGroup}>
             {brand.threads.map((thread) => (
               <Pressable
@@ -93,9 +108,12 @@ export default function BrandDetailScreen() {
                 onPress={() => router.push(inboxThreadHref(thread.id, emailReturnLink))}
                 style={({ pressed }) => [
                   styles.linkRow,
-                  { borderColor: theme.border, backgroundColor: theme.secondary },
+                  { borderColor: theme.border, backgroundColor: theme.card },
                   pressed && { opacity: 0.88 },
                 ]}>
+                <View style={[styles.linkIcon, { backgroundColor: theme.secondary }]}>
+                  <Ionicons name="mail-outline" size={16} color={theme.primary} />
+                </View>
                 <View style={styles.linkCopy}>
                   <Text style={[styles.linkTitle, { color: theme.foreground }]} numberOfLines={2}>
                     {thread.title}
@@ -117,11 +135,15 @@ export default function BrandDetailScreen() {
               </Pressable>
             ))}
           </View>
-        </SectionCard>
+        </View>
       ) : null}
 
       {brand.deals.length > 0 ? (
-        <SectionCard title={t('brandDetail.dealsTitle')} subtitle={t('brandDetail.dealsSubtitle')}>
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.foreground }]}>{t('brandDetail.dealsTitle')}</Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.mutedForeground }]}>
+            {t('brandDetail.dealsSubtitle')}
+          </Text>
           <View style={styles.linkGroup}>
             {brand.deals.map((deal) => (
               <Pressable
@@ -130,9 +152,12 @@ export default function BrandDetailScreen() {
                 onPress={() => router.push(dealHref(deal.id, emailReturnLink.returnTo))}
                 style={({ pressed }) => [
                   styles.linkRow,
-                  { borderColor: theme.border, backgroundColor: theme.secondary },
+                  { borderColor: theme.border, backgroundColor: theme.card },
                   pressed && { opacity: 0.88 },
                 ]}>
+                <View style={[styles.linkIcon, { backgroundColor: theme.secondary }]}>
+                  <Ionicons name="briefcase-outline" size={16} color={theme.primary} />
+                </View>
                 <View style={styles.linkCopy}>
                   <Text style={[styles.linkTitle, { color: theme.foreground }]} numberOfLines={2}>
                     {deal.title}
@@ -141,11 +166,14 @@ export default function BrandDetailScreen() {
                     {new Date(deal.updatedAtISO).toLocaleDateString()}
                   </Text>
                 </View>
-                <Badge tone="primary" label={escrowLifecycleLabel[deal.escrowPhase as keyof typeof escrowLifecycleLabel] ?? deal.escrowPhase} />
+                <Badge
+                  tone="primary"
+                  label={escrowLifecycleLabel[deal.escrowPhase as keyof typeof escrowLifecycleLabel] ?? deal.escrowPhase}
+                />
               </Pressable>
             ))}
           </View>
-        </SectionCard>
+        </View>
       ) : null}
 
       <HubLinkGroup
@@ -176,7 +204,7 @@ function StatPill({
   theme: (typeof palette)['light'];
 }) {
   return (
-    <View style={[styles.statPill, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+    <View style={[styles.statPill, { borderColor: theme.border, backgroundColor: theme.card }]}>
       <Text style={[styles.statValue, { color: theme.foreground }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: theme.mutedForeground }]}>{label}</Text>
     </View>
@@ -185,7 +213,25 @@ function StatPill({
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  heroCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  heroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  heroCopy: { flex: 1, gap: spacing.sm },
+  heroSubtitle: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  statsRow: { flexDirection: 'row', gap: spacing.sm },
   statPill: {
     flex: 1,
     borderWidth: StyleSheet.hairlineWidth,
@@ -197,14 +243,25 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: fontSize.body, fontWeight: '700' },
   statLabel: { fontSize: fontSize.eyebrow, textAlign: 'center' },
+  section: { gap: spacing.sm, marginBottom: spacing.lg },
+  sectionTitle: { fontSize: fontSize.body, fontWeight: '700' },
+  sectionSubtitle: { fontSize: fontSize.caption, lineHeight: lineHeight.body, marginBottom: spacing.xs },
   linkGroup: { gap: spacing.sm },
   linkRow: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
-    padding: spacing.sm,
+    padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  linkIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   linkCopy: { flex: 1, gap: 2 },
   linkTitle: { fontSize: fontSize.bodySmall, fontWeight: '600', lineHeight: lineHeight.body },

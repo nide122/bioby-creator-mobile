@@ -35,10 +35,13 @@ import {
   hubListStyles,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
-import { BrandNameLink } from '@/components/brands/BrandNameLink';
+import { BrandChip } from '@/components/brands/BrandChip';
 import { LeadValueBandIconShell, LeadValueBandSectionHeader } from '@/components/inbox/LeadValueBandChrome';
 import { InboxPriorityIconShell, InboxPrioritySectionHeader } from '@/components/inbox/InboxPriorityChrome';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
+import { BasicMailboxInbox } from '@/components/inbox/BasicMailboxInbox';
+import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
+import { CreatorVerificationBanner } from '@/components/inbox/CreatorVerificationBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { useTranslation } from 'react-i18next';
@@ -83,7 +86,7 @@ import { formatExceptionalBudgetLabel } from '@/src/lib/exceptional-budget-label
 import { countPriorityLeadValueBands, resolvePriorityLeadValueBand } from '@/src/lib/priority-lead-value-band';
 import { isInboxPriorityUiEnabled } from '@/src/lib/inbox-priority-feature';
 import { translateInboxNextAction } from '@/src/lib/inbox-next-action-labels';
-import { inboxPriorityAccent } from '@/src/lib/inbox-priority-visuals';
+import { inboxPriorityAccent, inboxPriorityBadgeTone } from '@/src/lib/inbox-priority-visuals';
 import {
   countArchivedInboxPriority,
   countInboxPriorities,
@@ -96,6 +99,7 @@ import {
   resolveCommercialProgressLabel,
 } from '@/src/lib/opportunity-progress-label';
 import { useSessionStore } from '@/src/stores/session-store';
+import { isCreatorAiInboxEnabled, type CreatorVerificationStatus } from '@/src/lib/creator-verification';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
 import {
   useInboxViewStore,
@@ -150,6 +154,7 @@ function InboxMailboxStatusCard({
   onRetryWriteback,
   repairAction,
   repairError,
+  verificationStatus,
 }: {
   onSync?: () => void;
   syncing?: boolean;
@@ -163,6 +168,7 @@ function InboxMailboxStatusCard({
   onRetryWriteback?: () => void;
   repairAction?: 'reconnect' | 'watch' | 'writeback' | null;
   repairError?: string | null;
+  verificationStatus?: CreatorVerificationStatus;
 }) {
   const { t, i18n } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -244,6 +250,9 @@ function InboxMailboxStatusCard({
                 <Ionicons name="mail-outline" size={18} color={theme.primary} />
               </View>
               <View style={styles.mailboxIdentityText}>
+                {verificationStatus ? (
+                  <CreatorVerificationBadge status={verificationStatus} compact />
+                ) : null}
                 <Text style={[styles.mailboxAddressText, { color: theme.foreground }]}>
                   {connection.emailAddress}
                 </Text>
@@ -270,8 +279,11 @@ function InboxMailboxStatusCard({
               {syncing ? (
                 <ActivityIndicator size="small" color={theme.primary} />
               ) : (
-                <Ionicons name="refresh-outline" size={18} color={theme.primary} />
+                <Ionicons name="refresh-outline" size={16} color={theme.primary} />
               )}
+              <Text style={[styles.mailboxSyncButtonLabel, { color: theme.primary }]} numberOfLines={1}>
+                {syncing ? t('inboxScreen.syncMailboxCtaBusy') : t('inboxScreen.syncMailboxCta')}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -1069,11 +1081,13 @@ function commercialProgressPillColors(
 
 function CommercialTrailingMeta({
   budgetLabel,
+  brandLabel,
   progressLabel,
   progressPill,
   theme,
 }: {
   budgetLabel?: string;
+  brandLabel?: string | null;
   progressLabel?: string;
   progressPill: ReturnType<typeof commercialProgressPillColors>;
   theme: (typeof palette)['light'];
@@ -1085,20 +1099,23 @@ function CommercialTrailingMeta({
           {budgetLabel ?? ''}
         </Text>
       </View>
-      {progressLabel ? (
-        <View style={styles.threadProgressSlot}>
-          <View
-            style={[
-              styles.threadProgressPill,
-              {
-                backgroundColor: progressPill.backgroundColor,
-                borderColor: progressPill.borderColor,
-              },
-            ]}>
-            <Text style={[styles.threadProgressLabel, { color: progressPill.color }]} numberOfLines={1}>
-              {progressLabel}
-            </Text>
-          </View>
+      {brandLabel || progressLabel ? (
+        <View style={styles.threadMetaSlot}>
+          {brandLabel ? <BrandChip label={brandLabel} compact /> : null}
+          {progressLabel ? (
+            <View
+              style={[
+                styles.threadProgressPill,
+                {
+                  backgroundColor: progressPill.backgroundColor,
+                  borderColor: progressPill.borderColor,
+                },
+              ]}>
+              <Text style={[styles.threadProgressLabel, { color: progressPill.color }]} numberOfLines={1}>
+                {progressLabel}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -1117,7 +1134,7 @@ function InboxThreadHubRow({
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const { inboxCategoryLabel, inboxLeadStageLabel, escrowLifecycleLabel, opportunityPipelinePhaseLabel } =
+  const { inboxCategoryLabel, inboxLeadStageLabel, inboxPriorityLabel, escrowLifecycleLabel, opportunityPipelinePhaseLabel } =
     useDomainLabels();
   const correctedLocal = useInboxCorrectionStore((s) => !!s.classificationByThreadId[item.id]);
   const corrected = correctedLocal || !!item.userCorrected;
@@ -1141,10 +1158,12 @@ function InboxThreadHubRow({
 
   const subtitleParts: string[] = [];
   const localizedNextAction = translateInboxNextAction(t, item.nextActionLabel);
-  if (priorityUiEnabled && localizedNextAction) {
-    subtitleParts.push(localizedNextAction);
-  } else if (isCommercialRow) {
-    if (localizedNextAction) subtitleParts.push(localizedNextAction);
+  const brandLabel =
+    isCommercialRow && item.claimedBrandName?.trim() ? item.claimedBrandName.trim() : null;
+  const actionKickerVisible =
+    isCommercialRow && ((priorityUiEnabled && displayPriority) || localizedNextAction);
+  if (actionKickerVisible && localizedNextAction) {
+    // shown in row kicker
   } else if (localizedNextAction) {
     subtitleParts.push(localizedNextAction);
   } else if (item.preview) {
@@ -1176,41 +1195,43 @@ function InboxThreadHubRow({
   if (threadUsesRulesProcessing(item)) subtitleParts.push(t('inboxScreen.threadRulesLabel'));
 
   const metaLineSuffix = subtitleParts.length > 0 ? subtitleParts.join(' · ') : null;
+  const subtitleLine =
+    metaLineSuffix ?? (!actionKickerVisible && isCommercialRow && item.preview ? item.preview : null);
   const listRiskFlags = listContractWarningFlags(item, t);
   const subtitleContent =
     listRiskFlags.length > 0 ? (
       <View style={{ gap: spacing.xs }}>
-        <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
-          <BrandNameLink brandId={item.brandId} label={item.brandName} />
-          {metaLineSuffix ? ` · ${metaLineSuffix}` : ''}
-        </Text>
+        {subtitleLine ? (
+          <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
+            {subtitleLine}
+          </Text>
+        ) : null}
         <RiskBanner flags={listRiskFlags} compact />
       </View>
-    ) : metaLineSuffix ? (
-      <Text style={{ color: theme.mutedForeground }}>
-        <BrandNameLink brandId={item.brandId} label={item.brandName} />
-        {` · ${metaLineSuffix}`}
+    ) : subtitleLine ? (
+      <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
+        {subtitleLine}
       </Text>
-    ) : (
-      <BrandNameLink brandId={item.brandId} label={item.brandName} />
-    );
+    ) : null;
 
-  const detail = isCommercialRow && progressPill ? (
-    <CommercialTrailingMeta
-      budgetLabel={item.budgetLabel}
-      progressLabel={progressLabel}
-      progressPill={progressPill}
-      theme={theme}
-    />
-  ) : isCommercialRow ? (
-    item.budgetLabel
-  ) : priorityUiEnabled ? (
-    item.budgetLabel
-  ) : !showCommercialMeta ? (
-    inboxCategoryLabel[item.category]
-  ) : (
-    item.budgetLabel
-  );
+  const detail =
+    isCommercialRow && (progressPill || brandLabel) ? (
+      <CommercialTrailingMeta
+        budgetLabel={item.budgetLabel}
+        brandLabel={brandLabel}
+        progressLabel={progressLabel}
+        progressPill={progressPill ?? commercialProgressPillColors(item, theme)}
+        theme={theme}
+      />
+    ) : isCommercialRow ? (
+      item.budgetLabel
+    ) : priorityUiEnabled ? (
+      item.budgetLabel
+    ) : !showCommercialMeta ? (
+      inboxCategoryLabel[item.category]
+    ) : (
+      item.budgetLabel
+    );
 
   const detailAccent = isCommercialRow
     ? false
@@ -1224,10 +1245,25 @@ function InboxThreadHubRow({
     <LeadValueBandIconShell band={priorityBand ?? item.leadValueBand} icon={inboxThreadIcon(item.category)} />
   );
 
+  const actionKicker =
+    actionKickerVisible ? (
+      <>
+        {priorityUiEnabled && displayPriority ? (
+          <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+        ) : null}
+        {localizedNextAction ? (
+          <Text style={[hubListStyles.kickerHint, { color: theme.foreground }]} numberOfLines={1}>
+            {localizedNextAction}
+          </Text>
+        ) : null}
+      </>
+    ) : undefined;
+
   return (
     <HubListRow
       testID={`inbox-thread-${item.id}`}
       iconElement={iconElement}
+      kicker={actionKicker}
       title={item.subject}
       subtitle={subtitleContent}
       detail={detail}
@@ -1315,13 +1351,19 @@ function MailCategorySection({
   onOpen: (item: InboxThread) => void;
 }) {
   const { inboxCategoryLabel } = useDomainLabels();
+  const priorityUiEnabled = isInboxPriorityUiEnabled(items);
 
   if (items.length === 0) return null;
 
   return (
     <SettingsGroup title={`${inboxCategoryLabel[category]} · ${count ?? items.length}`}>
       {items.map((item) => (
-        <InboxThreadHubRow key={item.id} item={item} onPress={() => onOpen(item)} />
+        <InboxThreadHubRow
+          key={item.id}
+          item={item}
+          priorityUiEnabled={priorityUiEnabled}
+          onPress={() => onOpen(item)}
+        />
       ))}
     </SettingsGroup>
   );
@@ -1336,6 +1378,8 @@ export default function InboxScreen() {
   const queryClient = useQueryClient();
   const authReady = useAuthSessionReady();
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
+  const aiInboxEnabled = isCreatorAiInboxEnabled(creatorVerificationStatus);
   const viewMode = useInboxViewStore((s) => s.viewMode);
   const categoryFilter = useInboxViewStore((s) => s.categoryFilter);
   const timeRangeFilter = useInboxViewStore((s) => s.timeRangeFilter);
@@ -1429,7 +1473,7 @@ export default function InboxScreen() {
     } as const;
   }, [viewMode, categoryFilter, timeRangeFilter, sortBy, sortOrder]);
 
-  const inbox = useInboxThreads({ filters: listFilters });
+  const inbox = useInboxThreads({ filters: listFilters, empty: !aiInboxEnabled });
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const processingActive = !!syncStatus.data?.active;
@@ -1520,6 +1564,7 @@ export default function InboxScreen() {
       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'connection'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),
+      queryClient.invalidateQueries({ queryKey: ['mailbox', 'messages'] }),
       queryClient.invalidateQueries({ queryKey: ['account', 'overview'] }),
     ]);
   }, [authReady, isAuthenticated, queryClient]);
@@ -1740,13 +1785,14 @@ export default function InboxScreen() {
   const toolbar = (
     <>
       <InboxConnectionBanner />
-      <InboxRateCardBanner />
-      <InboxReclassificationBanner />
-      <InboxAiRulesBanner syncStatus={syncStatus.data} />
+      <CreatorVerificationBanner status={creatorVerificationStatus} />
+      {aiInboxEnabled ? <InboxRateCardBanner /> : null}
+      {aiInboxEnabled ? <InboxReclassificationBanner /> : null}
+      {aiInboxEnabled ? <InboxAiRulesBanner syncStatus={syncStatus.data} /> : null}
       <InboxMailboxStatusCard
         onSync={onRefresh}
         syncing={refreshing || inbox.isRefetching}
-        processingActive={processingActive}
+        processingActive={aiInboxEnabled && processingActive}
         syncLookback={syncLookback}
         onSyncLookbackChange={setSyncLookback}
         syncStatus={syncStatus.data}
@@ -1756,14 +1802,17 @@ export default function InboxScreen() {
         onRetryWriteback={handleRetryWriteback}
         repairAction={repairAction}
         repairError={repairError}
+        verificationStatus={creatorVerificationStatus}
       />
-      <InboxSyncProgressCard
-        expanded={syncProgressExpanded}
-        onToggle={() => setSyncProgressExpanded((value) => !value)}
-        showComplete={showSyncCompleteCard}
-        status={syncStatus.data}
-      />
-      {lastSync && (lastSync.processed > 0 || lastSync.upToDate) && lastSyncCounts ? (
+      {aiInboxEnabled ? (
+        <InboxSyncProgressCard
+          expanded={syncProgressExpanded}
+          onToggle={() => setSyncProgressExpanded((value) => !value)}
+          showComplete={showSyncCompleteCard}
+          status={syncStatus.data}
+        />
+      ) : null}
+      {aiInboxEnabled && lastSync && (lastSync.processed > 0 || lastSync.upToDate) && lastSyncCounts ? (
         <HubCallout
           title={
             processingActive
@@ -1779,8 +1828,10 @@ export default function InboxScreen() {
           }
         />
       ) : null}
-      <AiSummaryCard onPress={handleAiSummaryPress} mailboxProcessingActive={processingActive} />
-      <InboxViewToggle value={viewMode} onChange={handleViewModeChange} />
+      {aiInboxEnabled ? (
+        <AiSummaryCard onPress={handleAiSummaryPress} mailboxProcessingActive={processingActive} />
+      ) : null}
+      {aiInboxEnabled ? <InboxViewToggle value={viewMode} onChange={handleViewModeChange} /> : null}
     </>
   );
 
@@ -1789,7 +1840,7 @@ export default function InboxScreen() {
       <HubScreen
         testID="screen-inbox"
         eyebrow={t('tabs.inbox')}
-        title={viewMode === 'priority' ? t('inboxScreen.titlePriority') : t('inboxScreen.titleAll')}
+        title={aiInboxEnabled ? (viewMode === 'priority' ? t('inboxScreen.titlePriority') : t('inboxScreen.titleAll')) : t('basicMailbox.screenTitle')}
         toolbar={toolbar}
         refreshing={refreshing || inbox.isRefetching}
         onRefresh={onRefresh}
@@ -1797,7 +1848,9 @@ export default function InboxScreen() {
         onScroll={handleScroll}
         onContentSizeChange={handleContentSizeChange}
         onBodyLayout={handleBodyLayout}>
-        {initialLoading ? (
+        {!aiInboxEnabled ? (
+          <BasicMailboxInbox refreshing={refreshing} />
+        ) : initialLoading ? (
           <InboxInlineLoading />
         ) : viewMode === 'priority' ? (
           <>
@@ -1841,10 +1894,18 @@ export default function InboxScreen() {
             {!hasPriorityThreads ? (
               <EmptyStateCard
                 title={
-                  priorityUiEnabled ? t('inboxScreen.emptyPriorityTitle') : t('inboxScreen.emptyCommercialTitle')
+                  processingActive
+                    ? t('inboxScreen.emptyProcessingTitle')
+                    : priorityUiEnabled
+                      ? t('inboxScreen.emptyPriorityTitle')
+                      : t('inboxScreen.emptyCommercialTitle')
                 }
                 description={
-                  priorityUiEnabled ? t('inboxScreen.emptyPriorityDesc') : t('inboxScreen.emptyCommercialDesc')
+                  processingActive
+                    ? t('inboxScreen.emptyProcessingDesc')
+                    : priorityUiEnabled
+                      ? t('inboxScreen.emptyPriorityDesc')
+                      : t('inboxScreen.emptyCommercialDesc')
                 }
                 primaryAction={{
                   label: t('inboxScreen.viewAllMail'),
@@ -1957,11 +2018,16 @@ const styles = StyleSheet.create({
   threadTrailingTop: {
     alignItems: 'flex-end',
     gap: spacing.xs,
-    minWidth: 84,
+    minWidth: 96,
+    maxWidth: 128,
   },
-  threadProgressSlot: {
-    alignItems: 'flex-end',
-    maxWidth: 96,
+  threadMetaSlot: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    maxWidth: '100%',
   },
   threadBudgetSlot: {
     alignItems: 'flex-end',
@@ -2055,14 +2121,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mailboxSyncButton: {
-    width: 40,
-    height: 40,
+    minHeight: 36,
     borderRadius: radii.md,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
     marginRight: spacing.lg,
     flexShrink: 0,
+    maxWidth: 132,
+  },
+  mailboxSyncButtonLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    flexShrink: 1,
   },
   mailboxSyncButtonPressed: { opacity: 0.72 },
   mailboxSyncButtonDisabled: { opacity: 0.55 },

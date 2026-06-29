@@ -453,8 +453,8 @@
     "correctedBody": "Now {{category}}."
   },
   "opportunityPath": {
-    "title": "Deal path",
-    "titleCompleted": "Deal path · Complete",
+    "title": "Progress",
+    "titleCompleted": "Progress · Complete",
     "inboxLabel": "Spot the lead",
     "inboxHint": "Budget & risk",
     "draftLabel": "Confirm quote",
@@ -494,6 +494,8 @@
     "dealKind": "Deal",
     "emailEvent": "Email",
     "dealEvent": "Deal update",
+    "inboundLabel": "Inbound",
+    "threadMessageCount": "{{count}} msgs",
     "threadsTitle": "Email threads",
     "threadsSubtitle": "Inbox threads linked to this brand",
     "threadMeta": "{{count}} emails",
@@ -518,6 +520,7 @@
     "extracting": "Reading document…",
     "extractingDocument": "Analyzing document and classifying type…",
     "failed": "Could not summarize this contract.",
+    "timeoutFailed": "Reading this scanned PDF timed out. For large files, wait and retry or compress the PDF first.",
     "fileTooLarge": "This file exceeds the upload limit (50 MB max). Scanned PDFs are often large — try compressing the file first.",
     "networkFailed": "Could not reach the server. Check that the backend is running and your network connection.",
     "scannedPdfUnavailable": "Could not read text from this scanned PDF. Install Tesseract with Chinese (chi_sim), or configure a vision-capable AI model.",
@@ -532,7 +535,8 @@
     "uploadAction": "Upload document to analyze",
     "reuploadAction": "Upload another document",
     "saveAction": "Save as contract summary",
-    "saveDocumentAction": "Save document summary",
+    "saveDocumentAction": "Save as document summary",
+    "saveContractBlockedHint": "Confirm terms and create the deal before saving a contract summary.",
     "cancelAction": "Cancel",
     "collapseA11y": "Collapse summary",
     "expandA11y": "Expand summary",
@@ -569,6 +573,8 @@
     "decisionTitleNoBudget": "Add budget & rights",
     "userCorrectedBadge": "You corrected",
     "originalSubjectPrefix": "Original:",
+    "approvedScriptTitle": "Latest approved script",
+    "approvedScriptSubtitle": "Brand-confirmed copy from the email thread",
     "aiBriefEyebrow": "AI brief",
     "aiSourceClassification": {
       "llm": "Classify · LLM",
@@ -674,10 +680,20 @@
     "briefIntro": "Summary and deal terms above; reply suggestions below.",
     "deliverablesTitle": "Deliverables",
     "packagesTitle": "Quotes & deliverables",
+    "briefSections": {
+      "quoteTitle": "Quote & payment",
+      "quoteSubtitle": "Brand offer and deliverables",
+      "usageSubtitle": "Organic vs paid use, territory, and duration",
+      "scheduleSubtitle": "Go-live or delivery deadline"
+    },
     "contractWarning": {
       "title": "Contract warning",
       "subtitle": "Review usage rights, payment, and compliance terms before quoting or confirming.",
-      "ackRequired": "Acknowledge these risks before confirming the brief."
+      "ackRequired": "Acknowledge these risks before confirming the brief.",
+      "riskCount": "{{count}} risk items",
+      "clearedTitle": "Checked — no issue ({{count}})",
+      "clearedSubtitle": "Based on the latest thread.",
+      "clearedCollapsed": "Tap to view checked items"
     },
     "attentionTitle": "Before you reply",
     "attentionSubtitle": "Review these before replying or quoting.",
@@ -752,12 +768,34 @@
     "errorDesc": "Something went wrong loading this message.",
     "noData": "No data yet",
     "noSubject": "(No subject)",
-    "emptyBody": "(No body content)"
+    "emptyBody": "(No body content)",
+    "inlineImagesCount": "{{count}} inline images",
+    "inlineImagesCount_one": "1 inline image",
+    "inlineImagesCount_other": "{{count}} inline images",
+    "inlineImagesShow": "Show",
+    "inlineImagesHide": "Hide",
+    "inlineImagesExpandA11y": "Show inline email images",
+    "inlineImagesCollapseA11y": "Hide inline email images",
+    "inlineImagePreviewA11y": "Inline image preview",
+    "inlineImagePreviewCloseA11y": "Close image preview"
   },
   "emailAttachments": {
     "title": "{{count}} attachments",
     "title_one": "1 attachment",
-    "title_other": "{{count}} attachments"
+    "title_other": "{{count}} attachments",
+    "downloadA11y": "Download {{filename}}",
+    "downloadTooltip": "Download",
+    "previewA11y": "Preview {{filename}}",
+    "previewTooltip": "Preview",
+    "previewLoading": "Loading preview…",
+    "previewFailed": "Could not load attachment preview. Reconnect {{email}} in Inbox Setup, then try again.",
+    "downloadFailed": "Could not download attachment. Reconnect {{email}} in Inbox Setup, then try again.",
+    "parseFailed": "Could not parse attachment. Reconnect {{email}} in Inbox Setup, then try again.",
+    "mailboxEmailFallback": "the mailbox this message came from",
+    "previewFailedProcessing": "Could not load attachment preview.",
+    "fetchFailedTitle": "Attachment",
+    "previewUnsupported": "This file type cannot be previewed here. Download it to open locally.",
+    "previewCloseA11y": "Close preview"
   },
   "labels": {
     "escrow": {
@@ -813,7 +851,11 @@
       "follow_up": "Follow-up draft",
       "clarify_budget": "Clarify budget",
       "counter_offer": "Counter offer",
-      "ack_and_schedule": "Ack & schedule"
+      "ack_and_schedule": "Ack & schedule",
+      "shrink_scope": "Reduce scope",
+      "ask_more_money": "Ask for higher rate",
+      "ask_extension": "Request extension",
+      "request_usage_rights": "Written usage rights"
     }
   },
   "inboxPriority": {
@@ -835,6 +877,33 @@
       "effort": "Effort",
       "risk": "Risk"
     }
+  },
+  "creatorVerification": {
+    "badgeVerified": "Verified",
+    "badgeUnverified": "Not verified",
+    "bannerTitle": "Verify homepage email to unlock AI inbox",
+    "bannerBody": "We compare the public email on your creator homepage with your bound deal inbox. If they match, verification passes automatically—no manual review.",
+    "verifyCta": "Verify email",
+    "verifying": "Verifying…",
+    "devForceVerifyCta": "Test: force pass",
+    "devForceVerifying": "Forcing…",
+    "devForceVerifyErrorTitle": "Test verify failed",
+    "verifySuccessTitle": "Email verified",
+    "verifySuccessBody": "AI inbox is enabled. Syncing and classifying mail in the background.",
+    "verifySuccessBodyWithBackfill": "AI inbox is enabled. Started AI classification for {{count}} earlier message(s)—check back shortly.",
+    "verifyErrorTitle": "Email verification failed",
+    "verifyErrorBody": "We could not complete email verification. Please try again.",
+    "errorMismatch": "Homepage email does not match your bound inbox. Update your homepage contact email to the bound address, then verify again.",
+    "errorHomepageMissing": "No public email was found on your homepage. Add your bound inbox email to your homepage profile first.",
+    "errorMailboxRequired": "Connect your deal inbox before running email verification.",
+    "errorProfileIncomplete": "Complete your creator profile and link a platform homepage first."
+  },
+  "basicMailbox": {
+    "screenTitle": "Mailbox",
+    "sectionTitle": "Inbox",
+    "noSubject": "(No subject)",
+    "emptyTitle": "No messages yet",
+    "emptyDesc": "Sync your mailbox to read raw messages while verification is pending."
   },
   "inboxScreen": {
     "connectionBannerTitle": "Inbox not connected",
@@ -892,6 +961,8 @@
     "mailboxNeverSynced": "Not synced yet",
     "syncingInline": "Syncing. AI is classifying new mail…",
     "syncNowA11y": "Sync mailbox now",
+    "syncMailboxCta": "Sync inbox",
+    "syncMailboxCtaBusy": "Syncing…",
     "syncLookbackLabel": "Sync range",
     "syncLookback": {
       "ONE_WEEK": "1 week",
@@ -949,6 +1020,8 @@
     "emptyCommercialDesc": "All mail stays classified; this view shows the P0–P2 priority queue, including active escrow delivery.",
     "emptyPriorityTitle": "No P0–P2 threads",
     "emptyPriorityDesc": "Urgent, high-value, and review-later threads appear here. Everything else is under Classified mail.",
+    "emptyProcessingTitle": "Classifying earlier mail",
+    "emptyProcessingDesc": "Messages synced before verification are processing in the background. Wait a moment or tap Sync inbox again.",
     "emptyConnectMailbox": "Connect inbox",
     "emptyRateRules": "Set rate rules",
     "emptySearchTitle": "No matches",
@@ -1125,6 +1198,8 @@
     "panelUsageRights": "Usage rights",
     "panelRiskFallback": "No major contract flags yet.",
     "panelLoading": "Loading deal details…",
+    "panelApprovedScriptTitle": "Latest approved script",
+    "panelApprovedScriptSubtitle": "Brand-confirmed copy from email thread",
     "panelDeliveryScheduleSubtitle": "Optional milestone schedule",
     "panelDeliveryScheduleToggle": "{{count}} delivery steps",
     "panelOpenFullDeal": "Open full deal",
@@ -1255,6 +1330,7 @@
     "titleReplyEmail": "Review reply email",
     "screenTitle": "Reply email",
     "opportunityBriefTitle": "Cooperation summary",
+    "opportunityBriefExpand": "Tap to expand full summary",
     "titleQuote": "Review quote",
     "titleReply": "Review reply",
     "titleLowRisk": "Follow-up",
@@ -2899,8 +2975,19 @@
   },
   "replyTemplatePicker": {
     "title": "Insert template",
-    "lead": "Known cooperation details are filled automatically; missing tags stay as labels until send.",
-    "empty": "No templates yet. Add them under Assets → Price & pitch → Reply templates."
+    "lead": "Tap a template to fill the editor. Known fields are filled from this opportunity.",
+    "empty": "No templates yet. Add them under Assets → Price & pitch → Reply templates.",
+    "insertA11y": "Insert template {{name}}",
+    "insertCta": "Insert {{name}}",
+    "insertCtaShort": "Insert",
+    "viewDetailCta": "View details",
+    "collapseDetailCta": "Hide details",
+    "viewDetailA11y": "View template details",
+    "collapseDetailA11y": "Hide template details",
+    "section": {
+      "negotiation": "Negotiation",
+      "general": "Starters"
+    }
   },
   "replyDraftGenerator": {
     "title": "AI generate reply",
@@ -3010,7 +3097,12 @@
     "mediaKitSubtitle": "Public brand preview.",
     "preview": "Preview",
     "save": "Save profile",
-    "saved": "Saved"
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveSuccessTitle": "Profile saved",
+    "saveSuccessBody": "Your creator profile has been updated.",
+    "saveFailedTitle": "Couldn't save profile",
+    "saveFailedBody": "Check your connection and try again."
   },
   "dataExportScreen": {
     "lead": "Export workspace data or open financial records.",

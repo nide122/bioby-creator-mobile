@@ -14,6 +14,7 @@ export type DealListItemDto = {
   id: string;
   brandId?: string | null;
   brandPlaceholder: string;
+  brandName?: string | null;
   title: string;
   opportunityId?: string | null;
   opportunityThreadId?: string | null;
@@ -39,6 +40,7 @@ export function mapDealDto(item: DealListItemDto): DealSummary {
     id: item.id,
     brandId: item.brandId ?? undefined,
     brandPlaceholder: item.brandPlaceholder,
+    brandName: item.brandName ?? undefined,
     title: item.title,
     opportunityThreadId: item.opportunityId ?? item.opportunityThreadId ?? undefined,
     escrowPhase: asEscrowPhase(item.escrowPhase),

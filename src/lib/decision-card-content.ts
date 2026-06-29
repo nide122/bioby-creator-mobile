@@ -85,6 +85,19 @@ export function resolveDecisionCardDisplay(card: DecisionCard): DecisionCardDisp
   };
 }
 
+/** 与收件箱商业行一致：仅展示 claimedBrandName。 */
+export function decisionCardBrandLabel(
+  card: Pick<DecisionCard, 'category' | 'claimedBrandName'>,
+): string | null {
+  if (card.category !== 'opportunity') return null;
+  const label = card.claimedBrandName?.trim();
+  return label || null;
+}
+
+export function decisionCardSubject(card: Pick<DecisionCard, 'sourceHint'>): string | undefined {
+  return parseDecisionSourceHint(card.sourceHint).detail;
+}
+
 export function formatDecisionQueuePreviewLines(card: DecisionCard): { title: string; subtitle: string } {
   const display = resolveDecisionCardDisplay(card);
   const title = display.brand;

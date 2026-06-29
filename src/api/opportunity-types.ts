@@ -14,6 +14,7 @@ export type OpportunityListItem = {
   id: string;
   brandId?: string | null;
   brandName: string;
+  claimedBrandName?: string | null;
   subject: string;
   preview: string;
   updatedAtISO: string;
@@ -62,6 +63,14 @@ export type OpportunityListPage = {
   valueBandCounts?: Record<string, number>;
 };
 
+export type LatestApprovedScript = {
+  title: string;
+  excerpt: string;
+  sourceEmailMessageId?: string | null;
+  confirmedAtISO?: string | null;
+  extractionSource?: string | null;
+};
+
 export type OpportunityDetail = OpportunityListItem & {
   briefStage?: string;
   dealId?: string | null;
@@ -72,6 +81,7 @@ export type OpportunityDetail = OpportunityListItem & {
   riskFlags?: unknown;
   contractRiskFlags?: unknown;
   attentionFlags?: unknown;
+  clearedRiskChecks?: unknown;
   recommendedActions?: string[];
   suggestedDraftIds?: { aiReply?: string | null; quote?: string | null } | null;
   extractionStatus?: 'PENDING' | 'COMPLETE' | 'FAILED' | 'SKIPPED';
@@ -83,6 +93,7 @@ export type OpportunityDetail = OpportunityListItem & {
   packages?: Array<{ deliverable: string; budgetLabel?: string | null; currency?: string | null }>;
   attentionCount?: number | null;
   contractSummary?: ContractSummaryView | null;
+  latestApprovedScript?: LatestApprovedScript | null;
 };
 
 export type ContractSummaryView = {

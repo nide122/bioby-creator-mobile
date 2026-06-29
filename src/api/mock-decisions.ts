@@ -25,6 +25,7 @@ export const MOCK_DECISIONS: DecisionCard[] = [
     id: 'dec-opportunity-skincare',
     category: 'opportunity',
     entityName: 'ClearSkin Lab',
+    claimedBrandName: 'ClearSkin Lab',
     headline: 'Decide on ClearSkin Lab pitch',
     aiNote: 'High-value brief with claims review window — worth confirming rights before quote.',
     urgencyNote: 'Needs attention today',

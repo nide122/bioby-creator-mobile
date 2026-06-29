@@ -48,7 +48,7 @@ import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
 import { useRateCardPackages } from '@/src/hooks/use-growth';
 import { buildReplyTemplateContext } from '@/src/lib/reply-template-context';
 import { inboxMessageHref } from '@/src/lib/open-brand-detail';
-import { cooperationLeadLine, isEmailLikeLabel } from '@/src/lib/cooperation-display-name';
+import { cooperationLeadLine, resolveOpportunityBrandLabel } from '@/src/lib/cooperation-display-name';
 import {
   mailboxDraftFlowReady,
   mailboxSendFlowReady,
@@ -116,13 +116,17 @@ export default function DraftDetailScreen() {
   const profileBasics = useSessionStore((s) => s.profileBasics);
 
   const brandDisplayName = useMemo(() => {
-    const fromThread = threadQuery.data?.brandName?.trim();
-    if (fromThread && !isEmailLikeLabel(fromThread)) return fromThread;
+    const resolved = resolveOpportunityBrandLabel(
+      threadQuery.data?.brandName,
+      threadQuery.data?.subject,
+      threadQuery.data?.claimedBrandName,
+    );
+    if (resolved) return resolved;
     const hint = query.data?.sourceBrandHint?.trim();
-    if (hint && !isEmailLikeLabel(hint)) return hint;
+    if (hint && resolveOpportunityBrandLabel(hint, threadQuery.data?.subject)) return hint;
     if (effectiveThreadId) return getMockInboxThreadBrandHint(effectiveThreadId);
-    return fromThread || undefined;
-  }, [effectiveThreadId, query.data?.sourceBrandHint, threadQuery.data?.brandName]);
+    return undefined;
+  }, [effectiveThreadId, query.data?.sourceBrandHint, threadQuery.data?.brandName, threadQuery.data?.subject, threadQuery.data?.claimedBrandName]);
 
   const cooperationTitle = useMemo(() => {
     return (
@@ -383,6 +387,7 @@ export default function DraftDetailScreen() {
           <InboundMessagePreview
             message={latestInboundMessage}
             dateLocale={dateLocale}
+            counterpartyLabel={brandDisplayName}
             onPress={() => openMessage(latestInboundMessage)}
           />
         ) : null}
@@ -393,6 +398,7 @@ export default function DraftDetailScreen() {
             messageStats={threadDetail.messageStats}
             initiallyOpen={false}
             dateLocale={dateLocale}
+            counterpartyLabel={brandDisplayName}
             onOpenMessage={openMessage}
           />
         ) : null}

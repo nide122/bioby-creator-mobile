@@ -1,4 +1,5 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -40,6 +41,7 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
   const { inboxLeadStageLabel, inboxCategoryLabel } = useDomainLabels();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const [expanded, setExpanded] = useState(false);
 
   if (loading) {
     return (
@@ -56,25 +58,39 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
   const summary = detail.classificationSummary?.trim() || detail.preview?.trim();
   const packages = detail.packages ?? [];
   const deliverables =
-    packages.length > 0 ? packages.map((pkg) => pkg.budgetLabel ? `${pkg.budgetLabel} · ${pkg.deliverable}` : pkg.deliverable) : detail.deliverables ?? [];
+    packages.length > 0
+      ? packages.map((pkg) => (pkg.budgetLabel ? `${pkg.budgetLabel} · ${pkg.deliverable}` : pkg.deliverable))
+      : (detail.deliverables ?? []);
   const missingFields = visibleMissingFields(detail.missingFields, detail.budgetLabel);
   const signals = mergeDetailSignals(detail.signals, detail.classificationSignals)
     .slice(0, 5)
     .map((signal) => translateDetailSignal(t, signal));
+  const keyHighlights = [
+    deliverables[0],
+    detail.usageRights?.[0],
+    detail.postingSchedule?.trim(),
+  ].filter((value): value is string => !!value?.trim());
 
   return (
     <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
-      <View style={styles.headerRow}>
-        <View style={[styles.iconBox, { backgroundColor: theme.primary + '18' }]}>
-          <Ionicons name="sparkles" size={14} color={theme.primary} />
-        </View>
-        <Text style={[styles.eyebrow, { color: theme.primary }]}>{t('draftDetail.opportunityBriefTitle')}</Text>
-        {detail.budgetLabel ? (
-          <View style={[styles.budgetBadge, { borderColor: theme.primary + '50', backgroundColor: theme.primary + '10' }]}>
-            <Text style={[styles.budgetText, { color: theme.primary }]}>{detail.budgetLabel}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        onPress={() => setExpanded((value) => !value)}
+        style={styles.headerPressable}>
+        <View style={styles.headerRow}>
+          <View style={[styles.iconBox, { backgroundColor: theme.primary + '18' }]}>
+            <Ionicons name="sparkles" size={14} color={theme.primary} />
           </View>
-        ) : null}
-      </View>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>{t('draftDetail.opportunityBriefTitle')}</Text>
+          {detail.budgetLabel ? (
+            <View style={[styles.budgetBadge, { borderColor: theme.primary + '50', backgroundColor: theme.primary + '10' }]}>
+              <Text style={[styles.budgetText, { color: theme.primary }]}>{detail.budgetLabel}</Text>
+            </View>
+          ) : null}
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.mutedForeground} />
+        </View>
+      </Pressable>
 
       <View style={styles.badgeRow}>
         <Badge tone="neutral" label={inboxCategoryLabel[detail.category]} />
@@ -82,7 +98,9 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
       </View>
 
       {summary ? (
-        <Text style={[styles.summary, { color: theme.foregroundSubtitle }]}>{summary}</Text>
+        <Text style={[styles.summary, { color: theme.foregroundSubtitle }]} numberOfLines={expanded ? undefined : 3}>
+          {summary}
+        </Text>
       ) : detail.extractionStatus === 'PENDING' ? (
         <View style={styles.pendingRow}>
           <ActivityIndicator size="small" color={theme.primary} />
@@ -96,29 +114,47 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
         </Text>
       )}
 
-      <BriefListSection title={t('inboxThreadDetail.deliverablesTitle')} items={deliverables} />
-      <BriefListSection title={t('inboxThreadDetail.usageRightsTitle')} items={detail.usageRights ?? []} />
-
-      {detail.postingSchedule?.trim() ? (
+      {!expanded && keyHighlights.length > 0 ? (
         <View style={{ gap: spacing.xs }}>
-          <Text style={[styles.fieldLabel, { color: theme.foregroundEyebrow }]}>
-            {t('inboxThreadDetail.postingScheduleTitle')}
-          </Text>
-          <Text style={[styles.fieldValue, { color: theme.foregroundSubtitle }]}>· {detail.postingSchedule.trim()}</Text>
+          {keyHighlights.slice(0, 2).map((item) => (
+            <Text key={item} style={[styles.fieldValue, { color: theme.foregroundSubtitle }]} numberOfLines={1}>
+              · {item}
+            </Text>
+          ))}
         </View>
       ) : null}
 
-      {signals.length > 0 ? (
-        <BriefListSection title={t('inboxThreadDetail.signalsTitle')} items={signals} />
-      ) : null}
+      {!expanded ? (
+        <Text style={[styles.expandHint, { color: theme.mutedForeground }]}>{t('draftDetail.opportunityBriefExpand')}</Text>
+      ) : (
+        <>
+          <BriefListSection title={t('inboxThreadDetail.deliverablesTitle')} items={deliverables} />
+          <BriefListSection title={t('inboxThreadDetail.usageRightsTitle')} items={detail.usageRights ?? []} />
 
-      {missingFields.length > 0 ? (
-        <Text style={[styles.missingHint, { color: theme.mutedForeground }]}>
-          {t('inboxThreadDetail.missingFieldsHint', {
-            fields: missingFields.map((field) => translateMissingField(t, field)).join(', '),
-          })}
-        </Text>
-      ) : null}
+          {detail.postingSchedule?.trim() ? (
+            <View style={{ gap: spacing.xs }}>
+              <Text style={[styles.fieldLabel, { color: theme.foregroundEyebrow }]}>
+                {t('inboxThreadDetail.postingScheduleTitle')}
+              </Text>
+              <Text style={[styles.fieldValue, { color: theme.foregroundSubtitle }]}>
+                · {detail.postingSchedule.trim()}
+              </Text>
+            </View>
+          ) : null}
+
+          {signals.length > 0 ? (
+            <BriefListSection title={t('inboxThreadDetail.signalsTitle')} items={signals} />
+          ) : null}
+
+          {missingFields.length > 0 ? (
+            <Text style={[styles.missingHint, { color: theme.mutedForeground }]}>
+              {t('inboxThreadDetail.missingFieldsHint', {
+                fields: missingFields.map((field) => translateMissingField(t, field)).join(', '),
+              })}
+            </Text>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }
@@ -130,6 +166,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
+  headerPressable: { alignSelf: 'stretch' },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   iconBox: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   eyebrow: {
@@ -148,4 +185,5 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: fontSize.eyebrow, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
   fieldValue: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
   missingHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  expandHint: { fontSize: fontSize.caption, fontWeight: '600' },
 });

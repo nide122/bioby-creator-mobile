@@ -27,6 +27,8 @@ import { alertAction } from '@/src/lib/app-dialog';
 import { resolveAccountProfileHeroMeta } from '@/src/lib/creator-profile-aggregate';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { ConnectedPlatformIcons } from '@/src/components/profile/ConnectedPlatformIcons';
+import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
+import { isCreatorAiInboxEnabled } from '@/src/lib/creator-verification';
 import { useClassificationStrictness } from '@/src/hooks/use-classification-strictness';
 import { useCreatorFocusMode } from '@/src/hooks/use-creator-focus';
 import { useAccountOverview } from '@/src/hooks/use-account-overview';
@@ -54,6 +56,7 @@ export default function AccountScreen() {
   const mailboxConnection = useSessionStore((s) => s.mailboxConnection);
   const agentSendMode = useSessionStore((s) => s.agentSendMode);
   const membershipRole = useSessionStore((s) => s.membershipRole);
+  const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
   const { creatorFocusMode, setCreatorFocusMode } = useCreatorFocusMode();
   const { classificationStrictness, setClassificationStrictness, isUpdatingStrictness } =
     useClassificationStrictness();
@@ -233,6 +236,25 @@ export default function AccountScreen() {
         </Pressable>
       ) : null}
 
+      <SettingsGroup title={t('account.inboxTitle')}>
+        <View style={styles.inboxRowWrap}>
+          {connectedEmail ? (
+            <View style={styles.inboxBadgeRow}>
+              <CreatorVerificationBadge status={creatorVerificationStatus} compact />
+            </View>
+          ) : null}
+          <HubListRow
+            testID="account-inbox-row"
+            icon="mail-outline"
+            title={connectedEmail ? inboxEmail : t('account.inboxNotConnected')}
+            detail={inboxRowDetail}
+            detailAccent={!connectedEmail}
+            onPress={() => router.push('/onboarding/email?source=account' as Href)}
+          />
+        </View>
+      </SettingsGroup>
+
+      {isCreatorAiInboxEnabled(creatorVerificationStatus) ? (
       <SettingsGroup title={t('account.automationHeading')} insetDividers={false}>
         <SettingsBlock label={t('account.inboxFilterHeading')}>
           <SegmentedControl
@@ -257,17 +279,7 @@ export default function AccountScreen() {
           <SegmentedControl options={focusModes} value={creatorFocusMode} onChange={setCreatorFocusMode} />
         </SettingsBlock>
       </SettingsGroup>
-
-      <SettingsGroup title={t('account.inboxTitle')}>
-        <HubListRow
-          testID="account-inbox-row"
-          icon="mail-outline"
-          title={connectedEmail ? inboxEmail : t('account.inboxNotConnected')}
-          detail={inboxRowDetail}
-          detailAccent={!connectedEmail}
-          onPress={() => router.push('/onboarding/email?source=account' as Href)}
-        />
-      </SettingsGroup>
+      ) : null}
 
       <SettingsGroup title={t('account.workspaceHeading')} insetDividers={false}>
         {shouldUseBackendApi() ? (
@@ -408,4 +420,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   strictnessApplyingText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed, flex: 1 },
+  inboxRowWrap: { gap: spacing.xs },
+  inboxBadgeRow: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
 });

@@ -69,6 +69,10 @@ export function useDomainLabels() {
       clarify_budget: t('labels.draftKind.clarify_budget'),
       counter_offer: t('labels.draftKind.counter_offer'),
       ack_and_schedule: t('labels.draftKind.ack_and_schedule'),
+      shrink_scope: t('labels.draftKind.shrink_scope'),
+      ask_more_money: t('labels.draftKind.ask_more_money'),
+      ask_extension: t('labels.draftKind.ask_extension'),
+      request_usage_rights: t('labels.draftKind.request_usage_rights'),
     }),
     [t]
   );

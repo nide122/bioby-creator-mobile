@@ -3,28 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { extractReplyTemplateVariables } from '@/src/lib/reply-template-render';
+import { DEFAULT_REPLY_TEMPLATES, mergeDefaultReplyTemplates } from '@/src/lib/default-reply-templates';
 import type { ReplyTemplate, UpsertReplyTemplateInput } from '@/src/types/reply-template';
-
-const SEED_TEMPLATES: ReplyTemplate[] = [
-  {
-    id: 'tpl-quote-follow',
-    name: 'Quote follow-up',
-    body: 'Hi ⟦brandName⟧,\n\nThanks for reaching out about ⟦cooperationTitle⟧. I can share a structured quote once we confirm ⟦deliverables⟧, usage, and ⟦postingSchedule⟧.\n\nBest,\n⟦creatorName⟧',
-    variables: ['brandName', 'cooperationTitle', 'deliverables', 'postingSchedule', 'creatorName'],
-    isDefault: true,
-    sortOrder: 0,
-    updatedAtISO: new Date().toISOString(),
-  },
-  {
-    id: 'tpl-scope-clarify',
-    name: 'Clarify scope',
-    body: 'Hi ⟦brandName⟧,\n\nBefore I quote on ⟦cooperationTitle⟧, could you confirm revision rounds, usage rights, and the target publish window?\n\nThanks,\n⟦creatorName⟧',
-    variables: ['brandName', 'cooperationTitle', 'creatorName'],
-    isDefault: false,
-    sortOrder: 1,
-    updatedAtISO: new Date().toISOString(),
-  },
-];
 
 const MAX_TEMPLATES = 20;
 
@@ -52,8 +32,8 @@ function normalizeTemplate(id: string, input: UpsertReplyTemplateInput, existing
 export const useReplyTemplateStore = create<ReplyTemplateState>()(
   persist(
     (set, get) => ({
-      templates: SEED_TEMPLATES,
-      replaceTemplates: (templates) => set({ templates }),
+      templates: DEFAULT_REPLY_TEMPLATES,
+      replaceTemplates: (templates) => set({ templates: mergeDefaultReplyTemplates(templates) }),
       createTemplate: (input) => {
         const current = get().templates;
         if (current.length >= MAX_TEMPLATES) {
@@ -86,8 +66,21 @@ export const useReplyTemplateStore = create<ReplyTemplateState>()(
     }),
     {
       name: 'reply-template-store',
+      version: 1,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ templates: state.templates }),
+      migrate: (persisted) => {
+        const state = persisted as ReplyTemplateState | undefined;
+        if (!state?.templates) {
+          return { templates: DEFAULT_REPLY_TEMPLATES };
+        }
+        return { templates: mergeDefaultReplyTemplates(state.templates) };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.replaceTemplates(state.templates);
+        }
+      },
     },
   ),
 );

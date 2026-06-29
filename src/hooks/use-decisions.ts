@@ -47,6 +47,7 @@ export function useDecisionQueue() {
         id: `dec-corrected-${thread.id}`,
         category: 'approval' as const,
         entityName: thread.brandName,
+        claimedBrandName: thread.claimedBrandName,
         headline: t('decisionsGenerated.correctedLead.headline'),
         aiNote: t('decisionsGenerated.correctedLead.aiNote'),
         sourceHint: t('decisionsGenerated.correctedLead.sourceHint', { subject: thread.subject }),

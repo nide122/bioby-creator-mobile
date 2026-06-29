@@ -53,7 +53,7 @@ export function useReplyTemplates() {
     },
   });
 
-  const templates = apiMode ? (query.data ?? localTemplates) : localTemplates;
+  const templates = apiMode ? (query.data ?? []) : localTemplates;
 
   return {
     templates,

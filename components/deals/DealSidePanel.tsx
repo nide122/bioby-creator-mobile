@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 
 import { Badge, SectionCard } from '@/components/product';
+import { BrandChip } from '@/components/brands/BrandChip';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
@@ -16,6 +17,7 @@ import { useInboxThreads } from '@/src/hooks/use-inbox-threads';
 import { useTenantQueryKey } from '@/src/lib/tenant-query';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { openBrandDetail } from '@/src/lib/open-brand-detail';
+import { resolveOpportunityBrandLabel } from '@/src/lib/cooperation-display-name';
 import { localizeDealSummaryCopy } from '@/src/lib/deal-copy-i18n';
 import { localizeDeliveryTimeline } from '@/src/lib/delivery-workflow-i18n';
 import { reconcileDeliveryTimeline } from '@/src/lib/reconcile-delivery-timeline';
@@ -29,6 +31,8 @@ import { fetchEmailMessage } from '@/src/api/mailbox-api';
 import type { EmailAttachment } from '@/src/api/mailbox-api';
 import { ApiError } from '@/src/api/api-client';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
+import { isBriefConfirmed } from '@/src/lib/brief-confirm-eligibility';
+import { resolveAttachmentParseErrorMessage } from '@/src/lib/email-attachment-errors';
 import { EmailAttachmentsList, EmailAttachmentBadge } from '@/components/mail/EmailAttachmentsList';
 import { isParseableDocumentAttachment } from '@/components/mail/email-attachment-utils';
 import { DealTermsWithContractSection } from '@/components/deals/DealTermsWithContractSection';
@@ -125,6 +129,15 @@ export function DealSidePanel({ deal, onClose }: Props) {
 
   const packet = packetQuery.data?.packet;
   const thread = threadQuery.data;
+  const brandLabel = useMemo(() => {
+    if (thread) {
+      return resolveOpportunityBrandLabel(thread.brandName, thread.subject, thread.claimedBrandName);
+    }
+    if (deal?.brandName) {
+      return deal.brandName;
+    }
+    return resolveOpportunityBrandLabel(deal?.brandPlaceholder, deal?.title);
+  }, [thread, deal?.brandName, deal?.brandPlaceholder, deal?.title]);
   const compact = width < 900;
   const { contractRisks, attentionFlags } = thread
     ? resolveThreadRiskPartitions(thread)
@@ -178,6 +191,10 @@ export function DealSidePanel({ deal, onClose }: Props) {
         : null,
     [selectedMessage, thread?.contractSummary]
   );
+  const contractSaveAllowed = thread ? isBriefConfirmed(thread) : false;
+  const alertContractSaveBlocked = () => {
+    void alertAction(t('contractSummary.title'), t('contractSummary.saveContractBlockedHint'));
+  };
   const riskItems = attentionFlags;
   const openMessage = (message: InboxMessage) => {
     setSelectedMessage(message);
@@ -193,26 +210,21 @@ export function DealSidePanel({ deal, onClose }: Props) {
     try {
       await contractEditor.parseFromAttachment(selectedMessage.id, attachment.id);
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : t('contractSummary.failed');
-      void alertAction(t('contractSummary.title'), message);
+      void alertAction(
+        t('contractSummary.title'),
+        resolveAttachmentParseErrorMessage(t, emailQuery.data?.mailboxEmailAddress, error),
+      );
     }
   };
   const saveContractSummaryForAttachment = async (attachmentId: string) => {
+    if (!contractSaveAllowed) {
+      alertContractSaveBlocked();
+      return;
+    }
     try {
       await contractEditor.saveDraft(attachmentId);
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : t('contractSummary.failed');
-      void alertAction(t('contractSummary.title'), message);
+      void alertAction(t('contractSummary.title'), contractSummaryErrorMessage(error, t));
     }
   };
   const saveDocumentSummaryForAttachment = async (attachmentId: string) => {
@@ -220,13 +232,7 @@ export function DealSidePanel({ deal, onClose }: Props) {
     try {
       await contractEditor.saveDocumentDraft(selectedMessage.id, attachmentId);
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : t('contractSummary.failed');
-      void alertAction(t('contractSummary.title'), message);
+      void alertAction(t('contractSummary.title'), contractSummaryErrorMessage(error, t));
     }
   };
   const deleteDocumentSummaryForSelectedMessage = async (attachmentId: string) => {
@@ -293,19 +299,20 @@ export function DealSidePanel({ deal, onClose }: Props) {
           <View style={[styles.handle, { backgroundColor: theme.border }]} />
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Pressable
-                accessibilityRole="link"
-                disabled={!shouldUseBackendApi() || !deal?.brandId}
-                onPress={openBrand}
-                style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
-                <Text style={[styles.brand, { color: theme.foregroundEyebrow }]} numberOfLines={1}>
-                  {deal?.brandPlaceholder}
-                </Text>
-              </Pressable>
-              <Text style={[styles.title, { color: theme.foreground }]} numberOfLines={2}>
-                {deal?.title}
-              </Text>
-            </View>
+            {brandLabel ? (
+              <BrandChip
+                label={brandLabel}
+                onPress={
+                  shouldUseBackendApi() && deal?.brandId
+                    ? openBrand
+                    : undefined
+                }
+              />
+            ) : null}
+            <Text style={[styles.title, { color: theme.foreground }]} numberOfLines={2}>
+              {deal?.title}
+            </Text>
+          </View>
             <Pressable accessibilityRole="button" onPress={onClose} hitSlop={10} style={styles.closeBtn}>
               <Ionicons name="close" size={20} color={theme.foreground} />
             </Pressable>
@@ -335,6 +342,19 @@ export function DealSidePanel({ deal, onClose }: Props) {
               showContractBlock={showContractBlock}
               contractCardProps={termsContractCardProps}
             />
+
+            {thread?.latestApprovedScript ? (
+              <SectionCard
+                title={t('dealsScreen.panelApprovedScriptTitle')}
+                subtitle={t('dealsScreen.panelApprovedScriptSubtitle')}>
+                <Text style={[styles.approvedScriptTitle, { color: theme.foreground }]}>
+                  {thread.latestApprovedScript.title}
+                </Text>
+                <Text style={[styles.bodyText, { color: theme.mutedForeground }]}>
+                  {thread.latestApprovedScript.excerpt}
+                </Text>
+              </SectionCard>
+            ) : null}
 
             <SectionCard title={t('dealsScreen.panelSummaryTitle')} subtitle={t('dealsScreen.panelSummarySubtitle')} emphasis>
               <Text style={[styles.bodyText, { color: theme.foreground }]}>{summary}</Text>
@@ -439,6 +459,7 @@ export function DealSidePanel({ deal, onClose }: Props) {
                                   <EmailAttachmentsList
                                     messageId={selectedMessage.id}
                                     attachments={emailQuery.data.attachments}
+                                    mailboxEmailAddress={emailQuery.data.mailboxEmailAddress}
                                     onSummarizePdf={
                                       matchedThreadId && selectedMessageParseableAttachments.length > 0
                                         ? summarizePdfAttachment
@@ -448,7 +469,9 @@ export function DealSidePanel({ deal, onClose }: Props) {
                                       matchedThreadId
                                         ? {
                                             documentSummaries: emailQuery.data.documentSummaries ?? [],
-                                            contractSummary: contractForSelectedMessage,
+                                            contractSummary: contractSaveAllowed ? contractForSelectedMessage : null,
+                                            contractSaveAllowed,
+                                            onContractSaveBlocked: alertContractSaveBlocked,
                                             attachmentDrafts: contractEditor.attachmentDrafts,
                                             isAttachmentParsing: contractEditor.isAttachmentParsing,
                                             deleting: contractEditor.deleting,
@@ -641,13 +664,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: {
     flex: 1,
-    gap: spacing.xs / 2,
-  },
-  brand: {
-    fontSize: fontSize.caption,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    gap: spacing.sm,
   },
   title: {
     fontSize: fontSize.sectionTitle,
@@ -678,6 +695,12 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.body,
+  },
+  approvedScriptTitle: {
+    fontSize: fontSize.body,
+    lineHeight: lineHeight.body,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
   },
   list: {
     gap: spacing.sm,
