@@ -52,6 +52,7 @@ export function useDecisionQueue() {
         aiNote: t('decisionsGenerated.correctedLead.aiNote'),
         sourceHint: t('decisionsGenerated.correctedLead.sourceHint', { subject: thread.subject }),
         sourceHref: `/inbox/${thread.id}`,
+        estimatedMinutes: 5,
         actions: [
           {
             id: 'open',
@@ -71,6 +72,11 @@ export function useDecisionQueue() {
 
   const handledIds = useMemo(() => new Set(entries.map((e) => e.card.id)), [entries]);
   const pending = useMemo(() => allCards.filter((c) => !handledIds.has(c.id)), [allCards, handledIds]);
+
+  const pendingEstimatedMinutes = useMemo(
+    () => pending.reduce((sum, card) => sum + (card.estimatedMinutes ?? 0), 0),
+    [pending]
+  );
 
   const deferred = useMemo(() => entries.filter((e) => e.disposition === 'deferred').map((e) => e.card), [entries]);
   const resolvedCount = useMemo(() => entries.filter((e) => e.disposition === 'resolved').length, [entries]);
@@ -128,5 +134,6 @@ export function useDecisionQueue() {
     reset,
     aiHandledToday,
     totalEstimatedMinutes: query.data?.totalEstimatedMinutes,
+    pendingEstimatedMinutes,
   };
 }

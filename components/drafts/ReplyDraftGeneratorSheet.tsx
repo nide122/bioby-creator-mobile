@@ -17,8 +17,10 @@ import { useReplyTemplates } from '@/src/hooks/use-reply-templates';
 import { formatCooldownLabel, parseReplyDraftRateLimitCooldown } from '@/src/lib/format-cooldown-label';
 import { pickRateCardPackage } from '@/src/lib/reply-template-context';
 import {
-  REPLY_DRAFT_PURPOSE_ORDER,
+  REPLY_DRAFT_CORE_PURPOSES,
+  REPLY_DRAFT_MORE_PURPOSES,
   type ReplyDraftPurpose,
+  isReplyDraftCorePurpose,
   replyDraftPurposeI18nKey,
 } from '@/src/lib/reply-draft-purpose';
 import type { RateCardPackage } from '@/src/types/domain';
@@ -57,6 +59,7 @@ export function ReplyDraftGeneratorSheet({
   const [error, setError] = useState<string | null>(null);
   const [saveMode, setSaveMode] = useState<'overwrite' | 'fresh'>('overwrite');
   const [detail, setDetail] = useState<ReplyDraftDetailState | null>(null);
+  const [scenariosExpanded, setScenariosExpanded] = useState(false);
 
   const sortedPackages = useMemo(() => {
     if (!rateCardPackages?.length) return [];
@@ -95,6 +98,16 @@ export function ReplyDraftGeneratorSheet({
   }, [visible, opportunityId]);
 
   useEffect(() => {
+    if (!visible) {
+      setScenariosExpanded(false);
+      return;
+    }
+    if (!isReplyDraftCorePurpose(purpose)) {
+      setScenariosExpanded(true);
+    }
+  }, [visible, purpose]);
+
+  useEffect(() => {
     if (!visible) return;
     const selected = pickRateCardPackage(sortedPackages);
     setRateCardPackageId(selected?.id);
@@ -107,6 +120,10 @@ export function ReplyDraftGeneratorSheet({
     setDetail(null);
     setError(null);
   }, [visible, overwriteDraftId, hasExistingBody]);
+
+  const visibleMorePurposes = scenariosExpanded
+    ? REPLY_DRAFT_MORE_PURPOSES
+    : REPLY_DRAFT_MORE_PURPOSES.filter((item) => item === purpose && !isReplyDraftCorePurpose(purpose));
 
   const onGenerate = async () => {
     if (!opportunityId || generating) return;
@@ -163,33 +180,55 @@ export function ReplyDraftGeneratorSheet({
               <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('replyDraftGenerator.lead')}</Text>
 
               <Text style={[styles.sectionLabel, { color: theme.foregroundSubtitle }]}>
-                {t('replyDraftGenerator.purposeLabel')}
+                {t('replyDraftGenerator.scenarioLabel')}
               </Text>
               {loadingPurpose ? (
                 <ActivityIndicator color={theme.primary} />
               ) : (
-                <View style={styles.chipRow}>
-                  {REPLY_DRAFT_PURPOSE_ORDER.map((item) => {
-                    const active = purpose === item;
-                    return (
-                      <Pressable
+                <>
+                  <View style={styles.chipRow}>
+                    {REPLY_DRAFT_CORE_PURPOSES.map((item) => (
+                      <ScenarioChip
                         key={item}
-                        accessibilityRole="button"
+                        active={purpose === item}
+                        label={t(replyDraftPurposeI18nKey(item))}
                         onPress={() => setPurpose(item)}
-                        style={[
-                          styles.choiceChip,
-                          {
-                            borderColor: active ? theme.primary : theme.border,
-                            backgroundColor: active ? theme.secondary : theme.card,
-                          },
-                        ]}>
-                        <Text style={[styles.chipLabel, { color: active ? theme.primary : theme.foreground }]}>
-                          {t(replyDraftPurposeI18nKey(item))}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                        theme={theme}
+                      />
+                    ))}
+                    {visibleMorePurposes.map((item) => (
+                      <ScenarioChip
+                        key={item}
+                        active={purpose === item}
+                        label={t(replyDraftPurposeI18nKey(item))}
+                        onPress={() => setPurpose(item)}
+                        theme={theme}
+                      />
+                    ))}
+                  </View>
+                  {REPLY_DRAFT_MORE_PURPOSES.length ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        scenariosExpanded
+                          ? t('replyDraftGenerator.scenariosLessA11y')
+                          : t('replyDraftGenerator.scenariosMoreA11y')
+                      }
+                      onPress={() => setScenariosExpanded((expanded) => !expanded)}
+                      style={styles.scenariosToggle}>
+                      <Text style={[styles.scenariosToggleLabel, { color: theme.primary }]}>
+                        {scenariosExpanded
+                          ? t('replyDraftGenerator.scenariosLess')
+                          : t('replyDraftGenerator.scenariosMore')}
+                      </Text>
+                      <Ionicons
+                        name={scenariosExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                        size={16}
+                        color={theme.primary}
+                      />
+                    </Pressable>
+                  ) : null}
+                </>
               )}
 
               <Text style={[styles.sectionLabel, { color: theme.foregroundSubtitle }]}>
@@ -310,6 +349,33 @@ export function ReplyDraftGeneratorSheet({
         onClose={() => setDetail(null)}
       />
     </>
+  );
+}
+
+function ScenarioChip({
+  active,
+  label,
+  onPress,
+  theme,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+  theme: (typeof palette)['light'];
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[
+        styles.choiceChip,
+        {
+          borderColor: active ? theme.primary : theme.border,
+          backgroundColor: active ? theme.secondary : theme.card,
+        },
+      ]}>
+      <Text style={[styles.chipLabel, { color: active ? theme.primary : theme.foreground }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -436,6 +502,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   chipLabel: {
+    fontSize: fontSize.bodySmall,
+    fontWeight: '600',
+  },
+  scenariosToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    marginTop: -spacing.xs,
+  },
+  scenariosToggleLabel: {
     fontSize: fontSize.bodySmall,
     fontWeight: '600',
   },

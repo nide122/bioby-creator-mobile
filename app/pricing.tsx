@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -11,6 +11,7 @@ import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { useRateCardPackages, rateCardPackagesQueryKey } from '@/src/hooks/use-growth';
 
 export default function PricingScreen() {
@@ -21,11 +22,32 @@ export default function PricingScreen() {
   const theme = palette[colorScheme];
 
   const rateCard = useRateCardPackages();
+  const { openProposal } = useOpenProposal();
 
   useFocusEffect(
     useCallback(() => {
       void queryClient.refetchQueries({ queryKey: rateCardPackagesQueryKey() });
     }, [queryClient]),
+  );
+
+  const nextSteps = (
+    <HubLinkGroup
+      title={t('pricingScreen.nextStepsTitle')}
+      links={[
+        {
+          label: t('pricingScreen.ctaCreateProposal'),
+          icon: 'document-text-outline',
+          hint: t('pricingScreen.ctaCreateProposalHint'),
+          onPress: () => void openProposal(),
+        },
+        {
+          label: t('pricingScreen.ctaOpenMediaKit'),
+          icon: 'images-outline',
+          hint: t('pricingScreen.ctaOpenMediaKitHint'),
+          onPress: () => assetsNav.openMediaKit(),
+        },
+      ]}
+    />
   );
 
   if (rateCard.isPending) {
@@ -50,27 +72,26 @@ export default function PricingScreen() {
     );
   }
 
+  const useDraggableScrollRoot = rateCard.data.length > 1 && Platform.OS !== 'web';
+
+  if (useDraggableScrollRoot) {
+    return (
+      <RateCardPackageList
+        packages={rateCard.data}
+        scrollRoot={{
+          eyebrow: t('tabs.assets'),
+          title: t('pricingScreen.title'),
+          lead: t('pricingScreen.description'),
+          footer: nextSteps,
+        }}
+      />
+    );
+  }
+
   return (
     <HubScreen eyebrow={t('tabs.assets')} title={t('pricingScreen.title')} lead={t('pricingScreen.description')}>
       <RateCardPackageList packages={rateCard.data} />
-
-      <HubLinkGroup
-        title={t('pricingScreen.nextStepsTitle')}
-        links={[
-          {
-            label: t('pricingScreen.ctaCreateProposal'),
-            href: '/proposal/sample',
-            icon: 'document-text-outline',
-            hint: t('pricingScreen.ctaCreateProposalHint'),
-          },
-          {
-            label: t('pricingScreen.ctaOpenMediaKit'),
-            icon: 'images-outline',
-            hint: t('pricingScreen.ctaOpenMediaKitHint'),
-            onPress: () => assetsNav.openMediaKit(),
-          },
-        ]}
-      />
+      {nextSteps}
     </HubScreen>
   );
 }

@@ -30,7 +30,7 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
     },
     classificationSortScore: 920,
     pipelinePhase: 'INQUIRY',
-    budgetLabel: '$2.8k – $4.5k',
+    budgetDisplay: '$2.8k – $4.5k',
     riskLabel: 'Medium risk · Claims review',
     ownerLabel: 'You',
     nextActionLabel: 'inboxPriority.nextAction.sendQuote',
@@ -95,7 +95,7 @@ const MOCK_INBOX_THREAD_DETAILS_BASE: Record<string, InboxThreadDetail> = {
       risk: 15,
     },
     classificationSortScore: 780,
-    budgetLabel: 'Budget unclear',
+    budgetDisplay: 'Budget unclear',
     riskLabel: 'High risk · Broad usage',
     ownerLabel: 'You',
     nextActionLabel: 'inboxPriority.nextAction.replyToday',
@@ -230,7 +230,7 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
 function threadSummaryFromDetail(detail: InboxThreadDetail): InboxThread {
   const { messages: _m, riskFlags, recommendedActions: _a, suggestedDraftIds: _s, ...rest } = detail;
   const { contractRisks } = partitionRiskFlags(riskFlags, {
-    budgetLabel: rest.budgetLabel,
+    budgetDisplay: rest.budgetDisplay,
     usageRights: detail.usageRights,
     deliverables: detail.deliverables,
     packages: detail.packages,
@@ -272,7 +272,7 @@ export function getMockInboxThreadReplyContext(threadId: string) {
   return {
     brandName: detail.brandName,
     cooperationTitle: detail.subject,
-    budgetLabel: detail.budgetLabel,
+    budgetDisplay: detail.budgetDisplay,
     deliverables: detail.deliverables?.length ? detail.deliverables.join(', ') : undefined,
     postingSchedule: detail.postingSchedule,
   };

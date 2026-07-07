@@ -94,6 +94,26 @@ function useDecisionCategoryLabels(): Record<DecisionCategory, CategoryVisual> {
   );
 }
 
+function DecisionEstimatedMinutesLabel({ minutes }: { minutes?: number }) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  if (!minutes || minutes <= 0) return null;
+
+  return (
+    <Text style={[styles.estimatedMinutesLabel, { color: theme.mutedForeground }]}>
+      {t('today.estimatedMinutesShort', { minutes })}
+    </Text>
+  );
+}
+
+function openDecisionCard(router: ReturnType<typeof useRouter>, card: DecisionCard) {
+  if (card.sourceHref) {
+    router.push(card.sourceHref as Href);
+  }
+}
+
 // ─── 进度条 ────────────────────────────────────────────────────────────────
 
 // ─── 进度条（绿=已解决 / 黄=已推迟） ────────────────────────────────────
@@ -180,6 +200,7 @@ function UndoDecisionBanner({
 
 function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const categoryLabels = useDecisionCategoryLabels();
   const { leadValueBandLabel, inboxPriorityLabel } = useDomainLabels();
   const colorScheme = useColorScheme() ?? 'light';
@@ -189,9 +210,14 @@ function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
   const displayPriority = resolveDecisionCardPriority(card);
   const { display } = getLocalizedDecisionPresentation(card, t);
   const brandLabel = decisionCardBrandLabel(card);
+  const canNavigate = !!card.sourceHref;
 
   return (
-    <View style={styles.categoryRow}>
+    <Pressable
+      accessibilityRole={canNavigate ? 'link' : undefined}
+      disabled={!canNavigate}
+      onPress={() => openDecisionCard(router, card)}
+      style={({ pressed }) => [styles.categoryRow, pressed && canNavigate ? { opacity: 0.88 } : null]}>
       {bandAccent && displayPriority ? (
         <InboxPriorityIconShell priority={displayPriority} icon={cfg.icon} />
       ) : bandAccent && card.leadValueBand ? (
@@ -219,7 +245,9 @@ function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
       {card.amountLabel ? (
         <Text style={[styles.amountLabel, { color: bandAccent?.iconColor ?? cfg.color }]}>{card.amountLabel}</Text>
       ) : null}
-    </View>
+      <DecisionEstimatedMinutesLabel minutes={card.estimatedMinutes} />
+      {canNavigate ? <Ionicons name="chevron-forward" size={14} color={theme.mutedForeground} /> : null}
+    </Pressable>
   );
 }
 
@@ -241,7 +269,7 @@ function DecisionCardIdentityBlock({ card }: { card: DecisionCard }) {
     <Pressable
       accessibilityRole={canNavigate ? 'link' : undefined}
       disabled={!canNavigate}
-      onPress={() => card.sourceHref && router.push(card.sourceHref as Href)}
+      onPress={() => openDecisionCard(router, card)}
       style={({ pressed }) => [styles.identityBlock, pressed && canNavigate ? { opacity: 0.88 } : null]}>
       {!brandLabel ? (
         <View style={styles.identityHeaderRow}>
@@ -326,7 +354,7 @@ function DecisionCardSourceRow({ card }: { card: DecisionCard }) {
     <Pressable
       accessibilityRole={card.sourceHref ? 'link' : undefined}
       disabled={!card.sourceHref}
-      onPress={() => card.sourceHref && router.push(card.sourceHref as Href)}
+      onPress={() => openDecisionCard(router, card)}
       style={styles.sourceRow}>
       <Text style={[styles.sourceEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.source')}</Text>
       <View style={styles.sourceLinkRow}>
@@ -578,13 +606,20 @@ function DecisionRowStatusDetail({
   brandLabel,
   statusLabel,
   detailAccent,
+  estimatedMinutes,
 }: {
   brandLabel: string | null;
   statusLabel: string;
   detailAccent?: boolean;
+  estimatedMinutes?: number;
 }) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const minutesLabel =
+    estimatedMinutes && estimatedMinutes > 0
+      ? t('today.estimatedMinutesShort', { minutes: estimatedMinutes })
+      : null;
 
   if (brandLabel) {
     return (
@@ -593,7 +628,22 @@ function DecisionRowStatusDetail({
           style={[hubListStyles.detail, { color: detailAccent ? theme.primary : theme.mutedForeground, textAlign: 'right' }]}>
           {statusLabel}
         </Text>
+        {minutesLabel ? (
+          <Text style={[styles.queueMinutesLabel, { color: theme.mutedForeground }]}>{minutesLabel}</Text>
+        ) : null}
         <BrandChip label={brandLabel} compact />
+      </View>
+    );
+  }
+
+  if (minutesLabel) {
+    return (
+      <View style={styles.brandBelowStatusColumn}>
+        <Text
+          style={[hubListStyles.detail, { color: detailAccent ? theme.primary : theme.mutedForeground, textAlign: 'right' }]}>
+          {statusLabel}
+        </Text>
+        <Text style={[styles.queueMinutesLabel, { color: theme.mutedForeground }]}>{minutesLabel}</Text>
       </View>
     );
   }
@@ -659,12 +709,11 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
                     brandLabel={brandLabel}
                     statusLabel={detail}
                     detailAccent={bandAccent?.detailAccent}
+                    estimatedMinutes={item.estimatedMinutes}
                   />
                 }
                 detailAccent={bandAccent?.detailAccent}
-                onPress={() => {
-                  if (item.sourceHref) router.push(item.sourceHref as Href);
-                }}
+                onPress={() => openDecisionCard(router, item)}
               />
             );
           })}
@@ -754,12 +803,11 @@ function DoneState({
                     brandLabel={brandLabel}
                     statusLabel={detail}
                     detailAccent={bandAccent?.detailAccent}
+                    estimatedMinutes={c.estimatedMinutes}
                   />
                 }
                 detailAccent={bandAccent?.detailAccent}
-                onPress={() => {
-                  if (c.sourceHref) router.push(c.sourceHref as Href);
-                }}
+                onPress={() => openDecisionCard(router, c)}
               />
             );
           })}
@@ -884,6 +932,11 @@ export default function DecisionQueueScreen() {
 
   const toolbar = (
     <>
+      {!displayDone && queue.pendingEstimatedMinutes > 0 ? (
+        <Text style={[styles.totalMinutesSummary, { color: theme.mutedForeground }]}>
+          {t('today.totalEstimatedMinutes', { minutes: queue.pendingEstimatedMinutes })}
+        </Text>
+      ) : null}
       {queue.totalCount > 0 ? (
         <ProgressBar
           total={queue.totalCount}
@@ -993,6 +1046,9 @@ const styles = StyleSheet.create({
   },
   categoryIcon: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 'auto' },
+  estimatedMinutesLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  totalMinutesSummary: { fontSize: fontSize.bodySmall, fontWeight: '600' },
+  queueMinutesLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'right' },
   identityBlock: { gap: spacing.sm },
   identityHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   brandAvatar: {

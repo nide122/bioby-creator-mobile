@@ -26,6 +26,7 @@ import {
   shareMediaKitPdf,
 } from '@/src/lib/media-kit-share';
 import { useMediaKitDocument, useMediaKitPreview } from '@/src/hooks/use-growth';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 
 export default function MediaKitScreen() {
   const { t } = useTranslation();
@@ -34,6 +35,7 @@ export default function MediaKitScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const [sharingPdf, setSharingPdf] = useState(false);
+  const { openProposal } = useOpenProposal();
 
   const kit = useMediaKitPreview();
   const documentQuery = useMediaKitDocument();
@@ -165,8 +167,8 @@ export default function MediaKitScreen() {
           },
           {
             label: t('mediaKitScreen.ctaCreateProposal'),
-            href: '/proposal/sample',
             icon: 'document-text-outline',
+            onPress: () => void openProposal(),
           },
           {
             label: t('mediaKitScreen.ctaBattleReports'),

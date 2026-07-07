@@ -1,19 +1,19 @@
+import type { RateCardPackageView, RateCardUpsertRequest } from '@/src/types/api';
 import type { RateCardPackage } from '@/src/types/domain';
 
-export type RateCardPackageDto = {
-  id: string;
-  externalKey?: string | null;
-  name: string;
-  payload: Record<string, unknown>;
-};
+/** @deprecated Use RateCardPackageView from `@/src/types/api`. */
+export type RateCardPackageDto = RateCardPackageView;
 
-export function mapRateCardDto(dto: RateCardPackageDto): RateCardPackage {
-  const p = dto.payload ?? {};
+/** @deprecated Use RateCardUpsertRequest from `@/src/types/api`. */
+export type RateCardUpsertRequestDto = RateCardUpsertRequest;
+
+export function mapRateCardDto(dto: RateCardPackageView): RateCardPackage {
+  const p = (dto.payload ?? {}) as Record<string, unknown>;
   const deliverables = Array.isArray(p.deliverables) ? (p.deliverables as string[]) : [];
   const highlights = Array.isArray(p.highlights) ? (p.highlights as string[]) : [];
   return {
-    id: dto.externalKey ?? dto.id,
-    name: dto.name,
+    id: dto.externalKey ?? dto.id ?? '',
+    name: dto.name ?? '',
     tagline: String(p.tagline ?? ''),
     priceLabel: String(p.priceLabel ?? ''),
     deliverables,
@@ -26,23 +26,7 @@ export function mapRateCardDto(dto: RateCardPackageDto): RateCardPackage {
   };
 }
 
-export type RateCardUpsertRequestDto = {
-  packages: Array<{
-    id: string;
-    name: string;
-    tagline: string;
-    priceLabel: string;
-    deliverables: string[];
-    revisionRounds: string;
-    usageRights: string;
-    prepayLabel: string;
-    addOnHint: string;
-    highlights: string[];
-    recommended?: boolean;
-  }>;
-};
-
-export function toRateCardUpsertRequest(packages: RateCardPackage[]): RateCardUpsertRequestDto {
+export function toRateCardUpsertRequest(packages: RateCardPackage[]): RateCardUpsertRequest {
   return {
     packages: packages.map((pkg) => ({
       id: pkg.id,

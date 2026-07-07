@@ -201,15 +201,20 @@ function mapSectionOrder(raw: unknown): MediaKitSectionId[] | undefined {
 function mapCreatorSnapshot(raw: unknown): CreatorPublicSnapshot | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const root = raw as JsonObject;
-  const headline = asString(root.headline);
-  const bio = asString(root.bio);
-  if (!headline || !bio) return undefined;
+  const headline = asString(root.headline) ?? '';
+  const bio = asString(root.bio) ?? '';
+  const heroStats = mapHeroStats(root.heroStats);
+  const platforms = mapPlatforms(root.platforms);
+  const cases = mapCases(root.cases);
+  if (!headline && !bio && heroStats.length === 0 && platforms.length === 0 && cases.length === 0) {
+    return undefined;
+  }
   return {
-    headline,
+    headline: headline || 'Creator',
     bio,
-    heroStats: mapHeroStats(root.heroStats),
-    platforms: mapPlatforms(root.platforms),
-    cases: mapCases(root.cases),
+    heroStats,
+    platforms,
+    cases,
   };
 }
 
@@ -322,6 +327,8 @@ export function mapProposalPreview(dto: unknown): ProposalPreview {
   const id = asString(root.id) ?? 'sample';
   return {
     id,
+    packageId: asString(root.packageId) ?? undefined,
+    opportunityId: asString(root.opportunityId) ?? undefined,
     title: asString(root.title) ?? 'Proposal',
     brandHint: asString(root.brandHint) ?? '',
     creatorDisplayName: asString(root.creatorDisplayName) ?? 'Creator',
@@ -331,5 +338,8 @@ export function mapProposalPreview(dto: unknown): ProposalPreview {
     paymentBullets: mapStringList(root.paymentBullets),
     riskBullets: mapStringList(root.riskBullets),
     creatorSnapshot: mapCreatorSnapshot(root.creatorSnapshot),
+    preview: root.preview === true,
+    saved: root.saved === true || root.preview !== true,
+    generationSource: asString(root.generationSource) ?? undefined,
   };
 }

@@ -59,9 +59,14 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
   const packages = detail.packages ?? [];
   const deliverables =
     packages.length > 0
-      ? packages.map((pkg) => (pkg.budgetLabel ? `${pkg.budgetLabel} · ${pkg.deliverable}` : pkg.deliverable))
+      ? packages.map((pkg) => (pkg.quoteDisplay ? `${pkg.quoteDisplay} · ${pkg.deliverable}` : pkg.deliverable))
       : (detail.deliverables ?? []);
-  const missingFields = visibleMissingFields(detail.missingFields, detail.budgetLabel);
+  const missingFields = visibleMissingFields(detail.missingFields, detail.budgetDisplay, {
+    deliverables: detail.deliverables,
+    packages: detail.packages,
+    usageRights: detail.usageRights,
+    postingSchedule: detail.postingSchedule,
+  });
   const signals = mergeDetailSignals(detail.signals, detail.classificationSignals)
     .slice(0, 5)
     .map((signal) => translateDetailSignal(t, signal));
@@ -83,9 +88,9 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
             <Ionicons name="sparkles" size={14} color={theme.primary} />
           </View>
           <Text style={[styles.eyebrow, { color: theme.primary }]}>{t('draftDetail.opportunityBriefTitle')}</Text>
-          {detail.budgetLabel ? (
+          {detail.budgetDisplay ? (
             <View style={[styles.budgetBadge, { borderColor: theme.primary + '50', backgroundColor: theme.primary + '10' }]}>
-              <Text style={[styles.budgetText, { color: theme.primary }]}>{detail.budgetLabel}</Text>
+              <Text style={[styles.budgetText, { color: theme.primary }]}>{detail.budgetDisplay}</Text>
             </View>
           ) : null}
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.mutedForeground} />

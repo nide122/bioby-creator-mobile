@@ -1,3 +1,4 @@
+import type { DisputeCaseView, PaymentLineView, PaymentsOverviewView } from '@/src/types/api';
 import type {
   DisputeCase,
   DisputeEvidenceItem,
@@ -24,36 +25,14 @@ const EVIDENCE_STATUSES: DisputeEvidenceStatus[] = [
   'accepted',
 ];
 
-export type PaymentLineDto = {
-  id: string;
-  dealId?: string | null;
-  label: string;
-  amountCents: number;
-  currency: string;
-  phase: string;
-  dealTitle?: string | null;
-  nextStepHint?: string | null;
-  expectedReleaseLabel?: string | null;
-};
+/** @deprecated Use PaymentLineView from `@/src/types/api`. */
+export type PaymentLineDto = PaymentLineView;
 
-export type PaymentsOverviewDto = {
-  currency: string;
-  inEscrowCents: number;
-  pendingVerificationCents: number;
-  awaitingSettlementCents: number;
-  footnote: string;
-};
+/** @deprecated Use PaymentsOverviewView from `@/src/types/api`. */
+export type PaymentsOverviewDto = PaymentsOverviewView;
 
-export type DisputeCaseDto = {
-  id: string;
-  dealId?: string | null;
-  title: string;
-  state: string;
-  causeCode?: string | null;
-  slaHint?: string | null;
-  nextActionLabel?: string | null;
-  evidenceItems?: unknown;
-};
+/** @deprecated Use DisputeCaseView from `@/src/types/api`. */
+export type DisputeCaseDto = DisputeCaseView;
 
 function asPhase(value: string): EscrowLifecyclePhase {
   return ESCROW_PHASES.includes(value as EscrowLifecyclePhase)
@@ -67,31 +46,31 @@ function asEvidenceStatus(value: string): DisputeEvidenceStatus {
     : 'missing';
 }
 
-export function mapPaymentLine(dto: PaymentLineDto): PaymentLineItem {
+export function mapPaymentLine(dto: PaymentLineView): PaymentLineItem {
   return {
-    id: dto.id,
+    id: dto.id ?? '',
     dealId: dto.dealId ?? undefined,
-    label: dto.label,
-    amountCents: dto.amountCents,
+    label: dto.label ?? '',
+    amountCents: dto.amountCents ?? 0,
     currency: dto.currency === 'CNY' ? 'CNY' : 'USD',
-    phase: asPhase(dto.phase),
+    phase: asPhase(dto.phase ?? 'in_execution'),
     dealTitle: dto.dealTitle ?? undefined,
     nextStepHint: dto.nextStepHint ?? undefined,
     expectedReleaseLabel: dto.expectedReleaseLabel ?? undefined,
   };
 }
 
-export function mapPaymentsOverview(dto: PaymentsOverviewDto): PaymentsOverview {
+export function mapPaymentsOverview(dto: PaymentsOverviewView): PaymentsOverview {
   return {
     currency: dto.currency === 'CNY' ? 'CNY' : 'USD',
-    inEscrowCents: dto.inEscrowCents,
-    pendingVerificationCents: dto.pendingVerificationCents,
-    awaitingSettlementCents: dto.awaitingSettlementCents,
-    footnote: dto.footnote,
+    inEscrowCents: dto.inEscrowCents ?? 0,
+    pendingVerificationCents: dto.pendingVerificationCents ?? 0,
+    awaitingSettlementCents: dto.awaitingSettlementCents ?? 0,
+    footnote: dto.footnote ?? '',
   };
 }
 
-export function mapDisputeCase(dto: DisputeCaseDto): DisputeCase {
+export function mapDisputeCase(dto: DisputeCaseView): DisputeCase {
   const raw = dto.evidenceItems;
   const evidenceItems: DisputeEvidenceItem[] = Array.isArray(raw)
     ? raw.map((item) => {
@@ -107,9 +86,9 @@ export function mapDisputeCase(dto: DisputeCaseDto): DisputeCase {
   const state =
     dto.state === 'mediation' || dto.state === 'resolved' ? dto.state : 'open';
   return {
-    id: dto.id,
+    id: dto.id ?? '',
     dealId: dto.dealId ?? undefined,
-    title: dto.title,
+    title: dto.title ?? '',
     state,
     causeCode: dto.causeCode ?? undefined,
     slaHint: dto.slaHint ?? undefined,

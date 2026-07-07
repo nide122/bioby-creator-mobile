@@ -183,7 +183,7 @@ export default function RegisterScreen() {
       router.back();
       return;
     }
-    router.replace('/welcome' as Href);
+    router.replace('/home' as Href);
   };
 
   const emailFields = (

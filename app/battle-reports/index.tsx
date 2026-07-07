@@ -17,11 +17,13 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
 import { useBattleReports } from '@/src/hooks/use-battle-reports';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 
 export default function BattleReportsIndexScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const assetsNav = useAssetsHubNavigation();
+  const { openProposal } = useOpenProposal();
   const queryClient = useQueryClient();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -96,9 +98,9 @@ export default function BattleReportsIndexScreen() {
           },
           {
             label: t('battleReportsScreen.ctaAddToProposal'),
-            href: '/proposal/sample',
             icon: 'document-text-outline',
             hint: t('battleReportsScreen.ctaAddToProposalHint'),
+            onPress: () => void openProposal(),
           },
         ]}
       />

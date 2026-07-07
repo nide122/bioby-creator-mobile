@@ -5,36 +5,22 @@ import {
   type ReplyTemplateFieldValues,
 } from '@/src/lib/reply-template-render';
 import { useReplyTemplateStore } from '@/src/stores/reply-template-store';
+import type { RenderedReplyTemplateView, ReplyTemplateView } from '@/src/types/api';
 import type {
   RenderReplyTemplateInput,
   ReplyTemplate,
   UpsertReplyTemplateInput,
 } from '@/src/types/reply-template';
 
-type ReplyTemplateDto = {
-  id: string;
-  name: string;
-  body: string;
-  variables: string[];
-  isDefault: boolean;
-  sortOrder: number;
-  updatedAtISO: string;
-};
-
-type RenderedReplyTemplateDto = {
-  body: string;
-  variables: string[];
-};
-
-function mapTemplate(dto: ReplyTemplateDto): ReplyTemplate {
+function mapTemplate(dto: ReplyTemplateView): ReplyTemplate {
   return {
-    id: dto.id,
-    name: dto.name,
-    body: dto.body,
+    id: dto.id ?? '',
+    name: dto.name ?? '',
+    body: dto.body ?? '',
     variables: dto.variables ?? [],
-    isDefault: dto.isDefault,
-    sortOrder: dto.sortOrder,
-    updatedAtISO: dto.updatedAtISO,
+    isDefault: dto.isDefault ?? false,
+    sortOrder: dto.sortOrder ?? 0,
+    updatedAtISO: dto.updatedAtISO ?? '',
   };
 }
 
@@ -45,7 +31,7 @@ function toRenderPayload(input: RenderReplyTemplateInput) {
     creatorName: input.creatorName,
     cooperationTitle: input.cooperationTitle,
     threadSubject: input.cooperationTitle,
-    budgetLabel: input.budgetLabel,
+    budgetDisplay: input.budgetDisplay,
     deliverables: input.deliverables,
     postingSchedule: input.postingSchedule,
     usageRights: input.usageRights,
@@ -61,7 +47,7 @@ export async function fetchReplyTemplates(): Promise<ReplyTemplate[]> {
   if (!shouldUseBackendApi()) {
     return useReplyTemplateStore.getState().templates;
   }
-  const items = await apiRequest<ReplyTemplateDto[]>('/api/v1/reply-templates');
+  const items = await apiRequest<ReplyTemplateView[]>('/api/v1/reply-templates');
   return items.map(mapTemplate);
 }
 
@@ -71,7 +57,7 @@ export async function fetchReplyTemplate(id: string): Promise<ReplyTemplate> {
     if (!item) throw new Error('NOT_FOUND');
     return item;
   }
-  const item = await apiRequest<ReplyTemplateDto>(`/api/v1/reply-templates/${id}`);
+  const item = await apiRequest<ReplyTemplateView>(`/api/v1/reply-templates/${id}`);
   return mapTemplate(item);
 }
 
@@ -79,7 +65,7 @@ export async function createReplyTemplate(input: UpsertReplyTemplateInput): Prom
   if (!shouldUseBackendApi()) {
     return useReplyTemplateStore.getState().createTemplate(input);
   }
-  const created = await apiRequest<ReplyTemplateDto>('/api/v1/reply-templates', {
+  const created = await apiRequest<ReplyTemplateView>('/api/v1/reply-templates', {
     method: 'POST',
     body: input,
   });
@@ -90,7 +76,7 @@ export async function updateReplyTemplate(id: string, input: UpsertReplyTemplate
   if (!shouldUseBackendApi()) {
     return useReplyTemplateStore.getState().updateTemplate(id, input);
   }
-  const updated = await apiRequest<ReplyTemplateDto>(`/api/v1/reply-templates/${id}`, {
+  const updated = await apiRequest<ReplyTemplateView>(`/api/v1/reply-templates/${id}`, {
     method: 'PUT',
     body: input,
   });
@@ -114,11 +100,11 @@ export async function renderReplyTemplateOnServer(
     if (!item) throw new Error('NOT_FOUND');
     return renderReplyTemplate(item.body, input);
   }
-  const rendered = await apiRequest<RenderedReplyTemplateDto>(`/api/v1/reply-templates/${id}/render`, {
+  const rendered = await apiRequest<RenderedReplyTemplateView>(`/api/v1/reply-templates/${id}/render`, {
     method: 'POST',
     body: toRenderPayload(input),
   });
-  return rendered.body;
+  return rendered.body ?? '';
 }
 
 export function renderReplyTemplateLocally(body: string, input: RenderReplyTemplateInput): string {
@@ -126,7 +112,7 @@ export function renderReplyTemplateLocally(body: string, input: RenderReplyTempl
     brandName: input.brandName,
     cooperationTitle: input.cooperationTitle,
     creatorName: input.creatorName,
-    budgetLabel: input.budgetLabel,
+    budgetDisplay: input.budgetDisplay,
     deliverables: input.deliverables,
     postingSchedule: input.postingSchedule,
     usageRights: input.usageRights,

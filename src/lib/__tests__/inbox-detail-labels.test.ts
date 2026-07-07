@@ -1,12 +1,14 @@
 import {
-  commercialAttentionFallback,
+  buildAttentionList,
+  buildReplySuggestionList,
+  buildRiskNoteList,
+  buildSystemHintList,
   meaningfulRecommendedActions,
   mergeDetailSignals,
-  resolveAttentionCount,
-  translateDetailSignal,
+  resolveRiskCount,
   attentionItemText,
-  buildAttentionList,
   filterSignalsApartFromAttention,
+  translateDetailSignal,
   translateMissingField,
   translateRecommendedAction,
   translateRiskFlagLabel,
@@ -39,6 +41,19 @@ describe('inbox-detail-labels', () => {
     expect(visibleMissingFields(['budget', 'usageRights'], '$4,000')).toEqual(['usageRights']);
   });
 
+  it('hides deliverables missing hint when packages have items', () => {
+    expect(
+      visibleMissingFields(['deliverables', 'usageRights'], null, {
+        packages: [
+          {
+            items: [{ name: '1 TikTok', platform: 'tiktok', contentFormat: 'short_video', quantity: 1 }],
+            budgetDisplay: '$2,500',
+          },
+        ],
+      }),
+    ).toEqual(['usageRights']);
+  });
+
   it('hides stale budget unclear risk when budget label is populated', () => {
     expect(visibleRiskLabel('Budget unclear', '$4,000 USD + CNY 2,000')).toBeUndefined();
     expect(
@@ -62,20 +77,25 @@ describe('inbox-detail-labels', () => {
     expect(translateRiskFlagLabel(t, '授权条款有风险')).toBe('inboxThreadDetail.riskLabels.dangerUsage');
   });
 
-  it('builds a deduplicated attention list from actions and risk flags', () => {
-    const items = buildAttentionList(
-      ['Ask for budget range before quoting.'],
-      [
-        {
-          id: 'rf-missing_budget',
-          label: 'Budget unclear',
-          hint: 'Ask for a clear budget or rate before sending a quote.',
-          severity: 'warning',
-        },
-      ],
+  it('keeps suggestions and risks in separate lists', () => {
+    const systemHints = buildSystemHintList(
+      ['发送报价前先确认明确预算或费率。', '报价前确认自然流/付费投放、地域与时长。'],
       t
     );
-    expect(items).toHaveLength(2);
+    const suggestions = buildReplySuggestionList(['先核对档期与报价再回复。'], t);
+    const risks = buildRiskNoteList(['合同要求永久授权，需核实。']);
+    expect(systemHints.map((item) => item.text)).toEqual([
+      'inboxThreadDetail.riskHints.missingBudget',
+      'inboxThreadDetail.riskHints.usageScopeUnclear',
+    ]);
+    expect(suggestions.map((item) => item.text)).toEqual(['先核对档期与报价再回复。']);
+    expect(risks.map((item) => item.text)).toEqual(['合同要求永久授权，需核实。']);
+  });
+
+  it('builds reply suggestions without risk notes', () => {
+    const items = buildReplySuggestionList(['先核对档期与报价再回复。'], t);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.text).toBe('先核对档期与报价再回复。');
   });
 
   it('filters classification signals that duplicate attention items', () => {
@@ -99,20 +119,15 @@ describe('inbox-detail-labels', () => {
     ).toBe('inboxThreadDetail.riskHints.multiplePackages');
   });
 
-  it('counts attention items from risks and meaningful actions', () => {
-    expect(
-      resolveAttentionCount(
-        undefined,
-        [{ id: 'rf-usage', label: 'Usage scope unclear', severity: 'warning' }],
-        ['Confirm which package applies.', 'Review and reply']
-      )
-    ).toBe(2);
-    expect(meaningfulRecommendedActions(['Review and reply', 'Ask for budget range before quoting.'])).toEqual([
-      'Ask for budget range before quoting.',
+  it('filters rule-template recommended actions from reply suggestions', () => {
+    expect(meaningfulRecommendedActions(['Ask for budget range before quoting.', '先核对排期再回复。'])).toEqual([
+      '先核对排期再回复。',
     ]);
-    expect(resolveAttentionCount(undefined, [], [], true)).toBe(1);
-    expect(resolveAttentionCount(0, [{ id: 'rf-usage', label: 'Usage scope unclear', severity: 'warning' }], ['Confirm which package applies.'])).toBe(0);
-    expect(commercialAttentionFallback(true, true, [], [], 0)).toBe(false);
-    expect(commercialAttentionFallback(true, true, [], [], undefined)).toBe(true);
+  });
+
+  it('counts hub risks from LLM clause notes only', () => {
+    expect(resolveRiskCount(['合同要求永久授权，需核实。'])).toBe(1);
+    expect(resolveRiskCount([])).toBe(0);
+    expect(resolveRiskCount(undefined)).toBe(0);
   });
 });

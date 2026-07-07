@@ -7,10 +7,14 @@ import {
   fetchMediaKitPreview,
   fetchProposalPreview,
   fetchRateCardPackages,
+  createProposal,
+  saveProposal,
   upsertRateCardPackages,
   importBattleReportToMediaKit,
   upsertMediaKitDocument,
 } from '@/src/api/growth-api';
+import type { ProposalCreateInput } from '@/src/lib/proposal-from-package';
+import { isProposalPreviewDraft } from '@/src/lib/proposal-from-package';
 import { migrateLegacyProfileBasics } from '@/src/lib/creator-profile-aggregate';
 import { resolveMediaKitAboutTags } from '@/src/lib/media-kit-preview';
 import { resolveMediaKitPreviewPlatforms } from '@/src/lib/platform-matrix-sync';
@@ -24,7 +28,7 @@ import {
 import { mergeMediaKitPreviewPublicProofs } from '@/src/lib/public-proof';
 import { usePublicProofCatalog } from '@/src/hooks/use-trust-metrics';
 import { useSessionStore } from '@/src/stores/session-store';
-import type { MediaKitDocument, RateCardPackage } from '@/src/types/domain';
+import type { MediaKitDocument, ProposalPreview, RateCardPackage } from '@/src/types/domain';
 
 export function rateCardPackagesQueryKey(): unknown[] {
   return tenantQueryKey(getActiveTenantPublicId(), 'growth', 'rate-cards', { api: shouldUseBackendApi() });
@@ -48,14 +52,68 @@ export function useRateCardPackages() {
   });
 }
 
+export function proposalPreviewQueryKey(proposalId: string | undefined): unknown[] {
+  return tenantQueryKey(getActiveTenantPublicId(), 'growth', 'proposal', proposalId, {
+    api: shouldUseBackendApi(),
+  });
+}
+
+export function readCachedProposalPreview(
+  queryClient: QueryClient,
+  proposalId: string | undefined,
+): ProposalPreview | undefined {
+  if (!proposalId) return undefined;
+  return queryClient.getQueryData<ProposalPreview>(proposalPreviewQueryKey(proposalId));
+}
+
 export function useProposalPreview(proposalId: string | undefined) {
+  const queryClient = useQueryClient();
+  const tenantPublicId = useSessionStore((s) => s.tenantPublicId);
   const apiMode = shouldUseBackendApi();
-  const queryKey = useTenantQueryKey('growth', 'proposal', proposalId, { api: apiMode });
+  const queryKey = tenantQueryKey(tenantPublicId, 'growth', 'proposal', proposalId, { api: apiMode });
   const enabled = useTenantScopedQueryEnabled();
+  const cached = readCachedProposalPreview(queryClient, proposalId);
+  const cachedPreviewDraft = cached ? isProposalPreviewDraft(cached) : false;
+
   return useQuery({
     queryKey,
-    queryFn: () => fetchProposalPreview(proposalId as string),
-    enabled: enabled && !!proposalId,
+    queryFn: async () => {
+      const latest = queryClient.getQueryData<ProposalPreview>(queryKey);
+      if (latest && isProposalPreviewDraft(latest)) {
+        return latest;
+      }
+      return fetchProposalPreview(proposalId as string);
+    },
+    enabled: enabled && !!proposalId && !cachedPreviewDraft,
+    initialData: cached,
+    staleTime: cachedPreviewDraft ? Infinity : 0,
+    refetchOnMount: cachedPreviewDraft ? false : true,
+    refetchOnWindowFocus: !cachedPreviewDraft,
+    retry: cachedPreviewDraft ? false : undefined,
+  });
+}
+
+export function useCreateProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ProposalCreateInput) => createProposal(input),
+    onSuccess: async (proposal) => {
+      queryClient.setQueryData(proposalPreviewQueryKey(proposal.id), proposal);
+      if (!proposal.preview) {
+        await invalidateTenantScopedQueries(queryClient);
+      }
+    },
+  });
+}
+
+export function useSaveProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (proposal: ProposalPreview) => saveProposal(proposal),
+    onSuccess: async (proposal) => {
+      queryClient.setQueryData(proposalPreviewQueryKey(proposal.id), proposal);
+      await invalidateTenantScopedQueries(queryClient);
+    },
   });
 }
 

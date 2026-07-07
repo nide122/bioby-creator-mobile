@@ -2,7 +2,7 @@ import type { ReplyTemplate } from '@/src/types/reply-template';
 
 const SHRINK_SCOPE_BODY = `Hi ⟦brandName⟧,
 
-Thanks for sharing the brief. Based on the current scope (⟦deliverables⟧) and the budget noted (⟦budgetLabel⟧), I want to align on a package that works for both sides.
+Thanks for sharing the brief. Based on the current scope (⟦deliverables⟧) and the budget noted (⟦budgetDisplay⟧), I want to align on a package that works for both sides.
 
 Options I can offer:
 - Reduce deliverables or usage rights to fit the budget
@@ -15,7 +15,7 @@ const ASK_MORE_MONEY_BODY = `Hi ⟦brandName⟧,
 
 Thanks for the brief. For the scope you outlined (⟦deliverables⟧) and usage (⟦usageRights⟧), my rate-card floor for this type of work starts around ⟦rateCardFloor⟧.
 
-The budget mentioned (⟦budgetLabel⟧) is below what I can deliver at that scope. To move forward, we could:
+The budget mentioned (⟦budgetDisplay⟧) is below what I can deliver at that scope. To move forward, we could:
 - Increase the budget to align with the deliverables and usage
 - Adjust scope or usage so pricing matches your target
 - Split into phases with separate pricing
@@ -30,7 +30,7 @@ Given the current deliverables (⟦deliverables⟧) and the timeline noted (⟦p
 
 Could we extend the publish / delivery date? Once you confirm a revised deadline, I will update my quote and schedule accordingly.
 
-Current budget reference: ⟦budgetLabel⟧.`;
+Current budget reference: ⟦budgetDisplay⟧.`;
 
 const REQUEST_USAGE_RIGHTS_BODY = `Hi ⟦brandName⟧,
 
@@ -38,7 +38,7 @@ Before I finalize pricing, I want to align on usage rights for this campaign.
 
 From the brief, usage looks like: ⟦usageRights⟧.
 Deliverables: ⟦deliverables⟧.
-Budget noted: ⟦budgetLabel⟧.
+Budget noted: ⟦budgetDisplay⟧.
 
 Could you share written authorization or license terms (channels, duration, exclusivity, paid vs. organic use)? Once usage is documented, I can confirm a quote that reflects those rights.`;
 
@@ -65,7 +65,7 @@ export const DEFAULT_REPLY_TEMPLATES: ReplyTemplate[] = [
     id: 'tpl-shrink-scope',
     name: 'Reduce scope',
     body: SHRINK_SCOPE_BODY,
-    variables: ['brandName', 'deliverables', 'budgetLabel', 'postingSchedule'],
+    variables: ['brandName', 'deliverables', 'budgetDisplay', 'postingSchedule'],
     isDefault: false,
     sortOrder: 2,
     updatedAtISO: new Date().toISOString(),
@@ -74,7 +74,7 @@ export const DEFAULT_REPLY_TEMPLATES: ReplyTemplate[] = [
     id: 'tpl-ask-more-money',
     name: 'Ask for higher rate',
     body: ASK_MORE_MONEY_BODY,
-    variables: ['brandName', 'deliverables', 'usageRights', 'rateCardFloor', 'budgetLabel'],
+    variables: ['brandName', 'deliverables', 'usageRights', 'rateCardFloor', 'budgetDisplay'],
     isDefault: false,
     sortOrder: 3,
     updatedAtISO: new Date().toISOString(),
@@ -83,7 +83,7 @@ export const DEFAULT_REPLY_TEMPLATES: ReplyTemplate[] = [
     id: 'tpl-ask-extension',
     name: 'Request extension',
     body: ASK_EXTENSION_BODY,
-    variables: ['brandName', 'deliverables', 'postingSchedule', 'budgetLabel'],
+    variables: ['brandName', 'deliverables', 'postingSchedule', 'budgetDisplay'],
     isDefault: false,
     sortOrder: 4,
     updatedAtISO: new Date().toISOString(),
@@ -92,7 +92,7 @@ export const DEFAULT_REPLY_TEMPLATES: ReplyTemplate[] = [
     id: 'tpl-request-usage-rights',
     name: 'Written usage rights',
     body: REQUEST_USAGE_RIGHTS_BODY,
-    variables: ['brandName', 'usageRights', 'deliverables', 'budgetLabel'],
+    variables: ['brandName', 'usageRights', 'deliverables', 'budgetDisplay'],
     isDefault: false,
     sortOrder: 5,
     updatedAtISO: new Date().toISOString(),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type PropsWithChildren, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
@@ -49,6 +49,8 @@ import {
 import { migrateLegacyProfileBasics } from '@/src/lib/creator-profile-aggregate';
 import { useSessionStore } from '@/src/stores/session-store';
 import { useMediaKitDocument, useUpsertMediaKitDocument } from '@/src/hooks/use-growth';
+import { alertAction } from '@/src/lib/app-dialog';
+import { resolveMediaKitSaveErrorMessage } from '@/src/lib/media-kit-save-error';
 import { useBattleReports } from '@/src/hooks/use-battle-reports';
 import { usePublicProofCatalog } from '@/src/hooks/use-trust-metrics';
 import {
@@ -434,15 +436,25 @@ export default function MediaKitEditScreen() {
     [syncRateCards, syncBattleReports, t]
   );
 
-  const onSave = async () => {
-    if (!canSave) return;
-    try {
-      await saveMutation.mutateAsync(buildDocument());
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 2000);
-    } catch {
-      // mutation error surfaced via saveMutation.error if needed
-    }
+  const showSaveError = useCallback(
+    (error: unknown) => {
+      void alertAction(
+        t('mediaKitEditScreen.saveFailedTitle'),
+        resolveMediaKitSaveErrorMessage(error, t),
+      );
+    },
+    [t],
+  );
+
+  const onSave = () => {
+    if (!canSave || saveMutation.isPending) return;
+    saveMutation.mutate(buildDocument(), {
+      onSuccess: () => {
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 2000);
+      },
+      onError: showSaveError,
+    });
   };
 
   if (documentQuery.isPending) {

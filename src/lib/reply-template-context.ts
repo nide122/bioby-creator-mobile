@@ -6,6 +6,7 @@ import type {
   RateCardPackage,
 } from '@/src/types/domain';
 import type { RenderReplyTemplateInput } from '@/src/types/reply-template';
+import { resolveOpportunityBrandLabel } from '@/src/lib/cooperation-display-name';
 
 function joinList(values?: string[] | null): string | undefined {
   if (!values?.length) return undefined;
@@ -16,12 +17,34 @@ function joinList(values?: string[] | null): string | undefined {
 export function formatPackagesSummary(packages?: InboxDeliverablePackage[] | null): string | undefined {
   if (!packages?.length) return undefined;
   const lines = packages
-    .filter((pkg) => pkg.deliverable?.trim())
     .map((pkg) => {
-      const label = pkg.deliverable.trim();
-      return pkg.budgetLabel?.trim() ? `${label} (${pkg.budgetLabel.trim()})` : label;
-    });
+      const items = (pkg.items ?? [])
+        .map((item) => item.name?.trim())
+        .filter(Boolean)
+        .join(' + ');
+      if (!items) return null;
+      const prefix = pkg.label?.trim() ? `${pkg.label.trim()}: ` : '';
+      const summary = `${prefix}${items}`;
+      return pkg.quoteDisplay?.trim() ? `${summary} (${pkg.quoteDisplay.trim()})` : summary;
+    })
+    .filter((line): line is string => !!line);
   return lines.length ? lines.join('; ') : undefined;
+}
+
+function flatItemNames(packages?: InboxDeliverablePackage[] | null): string[] {
+  if (!packages?.length) return [];
+  return packages.flatMap((pkg) =>
+    (pkg.items ?? []).map((item) => item.name?.trim()).filter((name): name is string => !!name),
+  );
+}
+
+function firstItemSchedule(packages?: InboxDeliverablePackage[] | null): string | undefined {
+  for (const pkg of packages ?? []) {
+    for (const item of pkg.items ?? []) {
+      if (item.dueAtText?.trim()) return item.dueAtText.trim();
+    }
+  }
+  return undefined;
 }
 
 export function resolvePrimaryRisk(thread?: {
@@ -74,20 +97,28 @@ export type BuildReplyTemplateContextInput = {
   creatorName?: string;
   rateCardPackages?: RateCardPackage[];
   rateCardPackageId?: string;
+  /** UI-resolved brand label — wins over raw mailbox sender in thread.brandName. */
+  displayBrandName?: string;
+  /** Cooperation title when thread.subject is missing. */
+  displayCooperationTitle?: string;
 };
 
 export function buildReplyTemplateContext(input: BuildReplyTemplateContextInput): RenderReplyTemplateInput {
   const thread = input.thread;
   const selectedPackage = pickRateCardPackage(input.rateCardPackages, input.rateCardPackageId);
+  const brandName =
+    input.displayBrandName?.trim() ||
+    resolveOpportunityBrandLabel(thread?.brandName, thread?.subject, thread?.claimedBrandName) ||
+    undefined;
 
   return {
     opportunityId: input.opportunityId ?? thread?.id,
-    brandName: thread?.brandName,
-    cooperationTitle: thread?.subject,
+    brandName,
+    cooperationTitle: input.displayCooperationTitle?.trim() || thread?.subject,
     creatorName: input.creatorName,
-    budgetLabel: thread?.budgetLabel,
-    deliverables: joinList(thread?.deliverables),
-    postingSchedule: thread?.postingSchedule,
+    budgetDisplay: thread?.budgetDisplay,
+    deliverables: joinList(flatItemNames(thread?.packages)),
+    postingSchedule: firstItemSchedule(thread?.packages),
     usageRights: joinList(thread?.usageRights),
     packagesSummary: formatPackagesSummary(thread?.packages),
     primaryRisk: resolvePrimaryRisk(thread),

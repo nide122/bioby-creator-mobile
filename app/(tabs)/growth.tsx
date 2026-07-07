@@ -21,6 +21,7 @@ import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { useAssetsHubSummaries } from '@/src/hooks/use-assets-hub-summaries';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 
 export default function AssetsScreen() {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ export default function AssetsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const hub = useAssetsHubSummaries();
+  const { openProposal } = useOpenProposal();
 
   const refreshAssets = useCallback(async () => {
     await Promise.all([
@@ -116,7 +118,7 @@ export default function AssetsScreen() {
           title={t('assetsScreen.rows.proposal.title')}
           subtitle={t('assetsScreen.rows.proposal.subtitle')}
           detail={hub.proposalDetail}
-          onPress={() => router.push('/proposal/sample' as Href)}
+          onPress={() => void openProposal()}
         />
         <AssetRow
           testID="assets-row-reply-templates"

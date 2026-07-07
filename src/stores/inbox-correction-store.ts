@@ -64,7 +64,7 @@ export function applyInboxClassificationCorrection<T extends InboxThread>(
     ...thread,
     category: correction.category,
     leadStage: correctedAsCommercial && thread.leadStage === 'new' ? 'needs_reply' : thread.leadStage,
-    budgetLabel: correctedAsCommercial ? (thread.budgetLabel ?? 'Budget unclear') : undefined,
+    budgetDisplay: correctedAsCommercial ? (thread.budgetDisplay ?? 'Budget unclear') : undefined,
     riskLabel: correctedAsCommercial ? (thread.riskLabel ?? 'Needs review') : undefined,
     nextActionLabel: correctedAsCommercial
       ? (thread.nextActionLabel ?? 'Review as paid collab')

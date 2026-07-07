@@ -479,7 +479,7 @@ function contractedThread(
     dealId: linkedDeal?.id,
     pipelinePhase: pipelinePhaseForDeal(linkedDeal?.escrowPhase, settled),
     dealEscrowPhase: linkedDeal?.escrowPhase,
-    budgetLabel: extras.budgetLabel,
+    budgetDisplay: extras.budgetDisplay,
     riskLabel: extras.riskLabel,
     ownerLabel: 'You',
     nextActionLabel: extras.nextActionLabel ?? 'Open deal packet',
@@ -514,7 +514,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Must mention watermelon extract in first 5 seconds. Link in bio for 14 days.',
     2,
     {
-      budgetLabel: '$2.2k fixed',
+      budgetDisplay: '$2.2k fixed',
       riskLabel: 'Medium · PR review',
       deliverables: ['1 x 45s TikTok', '#ad + pinned comment'],
       usageRights: ['Organic TikTok', 'Brand repost · 90 days'],
@@ -537,7 +537,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     5,
     {
       actionTier: 'DECIDE_NOW',
-      budgetLabel: '$3,500',
+      budgetDisplay: '$3,500',
       riskLabel: 'Low · Above floor',
       deliverables: ['60–90s integration', 'Description link + #ad'],
       usageRights: ['YouTube + owned channels · 6 months'],
@@ -552,7 +552,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Brief confirmed. Finance will fund 50% prepay before shoot dates lock.',
     1,
     {
-      budgetLabel: '$2.8k',
+      budgetDisplay: '$2.8k',
       riskLabel: 'Low',
       deliverables: ['2 Reels', '3 Stories'],
       nextActionLabel: 'Wait for prepay · then schedule shoot',
@@ -565,7 +565,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Script v2 sent. Brand feedback expected within 48h.',
     3,
     {
-      budgetLabel: '$4.2k',
+      budgetDisplay: '$4.2k',
       deliverables: ['3 workout TikToks', 'Equipment visible in frame'],
       postingSchedule: 'One clip per week',
     },
@@ -577,7 +577,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Final cut approved. Submit verification metrics to release balance.',
     7,
     {
-      budgetLabel: '$2.8k + stay',
+      budgetDisplay: '$2.8k + stay',
       leadStage: 'quoted',
       nextActionLabel: 'Submit verification proof',
     },
@@ -589,7 +589,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Contract includes 30-day Spark Ads usage — flagged for dispute.',
     4,
     {
-      budgetLabel: '$1.9k',
+      budgetDisplay: '$1.9k',
       riskLabel: 'High · Spark Ads clause',
       riskFlags: [
         {
@@ -608,7 +608,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Brand requested reshoot after live read. Remediation path open.',
     6,
     {
-      budgetLabel: '$1.2k',
+      budgetDisplay: '$1.2k',
       riskLabel: 'Medium · Remediation',
       nextActionLabel: 'Upload reshoot clip',
     },
@@ -620,7 +620,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Deal settled. All deliverables verified and paid.',
     30,
     {
-      budgetLabel: '$3.1k',
+      budgetDisplay: '$3.1k',
       nextActionLabel: 'Archived · view packet',
       recommendedActions: ['Deal complete — archive for records.'],
     },
@@ -632,7 +632,7 @@ export const MOCK_DEAL_OPPORTUNITY_THREADS: Record<string, InboxThreadDetail> = 
     'Gift sample converted to paid deal. Closed successfully.',
     45,
     {
-      budgetLabel: '$950',
+      budgetDisplay: '$950',
       nextActionLabel: 'Closed',
     },
   ),

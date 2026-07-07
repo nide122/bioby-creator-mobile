@@ -3,7 +3,7 @@ import { isOpportunityPathClosed } from '@/src/lib/opportunity-path-step';
 import type { InboxPriority, InboxThread, LeadValueBand } from '@/src/types/domain';
 
 export type InboxPriorityInput = PriorityBandInput &
-  Pick<InboxThread, 'inboxPriority' | 'priorityScore'>;
+  Pick<InboxThread, 'inboxPriority' | 'priorityScore' | 'valueSortKey'>;
 
 const VISIBLE_PRIORITIES = ['p0', 'p1', 'p2'] as const satisfies readonly InboxPriority[];
 
@@ -99,6 +99,13 @@ function comparePriorityThreads(a: InboxThread, b: InboxThread, bucket: InboxPri
   if (bucket === 'p0') {
     return Date.parse(b.updatedAtISO) - Date.parse(a.updatedAtISO);
   }
+  const marginA = a.valueSortKey ?? a.dealEconomics?.valueSortKey ?? null;
+  const marginB = b.valueSortKey ?? b.dealEconomics?.valueSortKey ?? null;
+  if (marginA != null && marginB != null && marginB !== marginA) {
+    return marginB - marginA;
+  }
+  if (marginA != null && marginB == null) return -1;
+  if (marginA == null && marginB != null) return 1;
   const scoreA = a.priorityScore ?? a.classificationSortScore ?? 0;
   const scoreB = b.priorityScore ?? b.classificationSortScore ?? 0;
   if (scoreB !== scoreA) return scoreB - scoreA;

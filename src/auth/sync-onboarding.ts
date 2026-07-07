@@ -7,8 +7,7 @@ import {
   upsertCreatorProfile,
 } from '@/src/api/account-api';
 import { ApiError } from '@/src/api/api-client';
-import { triggerMailboxSync } from '@/src/api/opportunities-api';
-import type { MailSyncResult } from '@/src/api/opportunities-api';
+import { enqueueMailboxSync, type MailboxSyncEnqueueResult } from '@/src/api/mailbox-api';
 import type { CreatorProfileBasics, AgentSendMode } from '@/src/stores/session-store';
 
 import { normalizeOAuthRedirectUri } from '@/src/auth/google-oauth';
@@ -17,6 +16,10 @@ export type SyncResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string; code?: string; status?: number };
 
+export type MailboxInitialSyncEnqueue = MailboxSyncEnqueueResult | null;
+
+const FIRST_CONNECT_SYNC_LOOKBACK = 'ONE_MONTH' as const;
+
 const inFlightGoogleCodeExchanges = new Set<string>();
 
 function syncError(err: unknown, fallback: string): SyncResult<never> {
@@ -24,6 +27,10 @@ function syncError(err: unknown, fallback: string): SyncResult<never> {
     return { ok: false, error: err.message, code: err.code, status: err.status };
   }
   return { ok: false, error: err instanceof Error ? err.message : fallback };
+}
+
+async function enqueueFirstConnectMailboxSync(): Promise<MailboxInitialSyncEnqueue> {
+  return enqueueMailboxSync({ lookback: FIRST_CONNECT_SYNC_LOOKBACK });
 }
 
 export async function syncProfileToBackend(profile: CreatorProfileBasics): Promise<SyncResult> {
@@ -49,7 +56,7 @@ export async function syncMailboxOAuthToBackend(input: {
   accessToken: string;
   refreshToken?: string | null;
   clientId?: string;
-}): Promise<SyncResult<MailSyncResult | null>> {
+}): Promise<SyncResult<MailboxInitialSyncEnqueue>> {
   try {
     if (input.provider === 'google') {
       await connectMailboxGoogleOAuth({
@@ -63,8 +70,8 @@ export async function syncMailboxOAuthToBackend(input: {
         refreshToken: input.refreshToken,
       });
     }
-    const syncResult = await triggerMailboxSync();
-    return { ok: true, data: syncResult };
+    const enqueueResult = await enqueueFirstConnectMailboxSync();
+    return { ok: true, data: enqueueResult };
   } catch (err) {
     return syncError(err, 'Mailbox OAuth sync failed');
   }
@@ -75,7 +82,9 @@ export async function syncMailboxGoogleOAuthCodeToBackend(input: {
   redirectUri: string;
   codeVerifier: string;
   clientId?: string;
-}): Promise<SyncResult<{ emailAddress?: string | null; syncResult: MailSyncResult | null }>> {
+}): Promise<
+  SyncResult<{ emailAddress?: string | null; enqueueResult: MailboxInitialSyncEnqueue }>
+> {
   const normalizedRedirectUri = normalizeOAuthRedirectUri(input.redirectUri);
   const dedupeKey = `${input.code}:${normalizedRedirectUri}`;
   if (inFlightGoogleCodeExchanges.has(dedupeKey)) {
@@ -91,8 +100,8 @@ export async function syncMailboxGoogleOAuthCodeToBackend(input: {
       ...input,
       redirectUri: normalizedRedirectUri,
     });
-    const syncResult = await triggerMailboxSync();
-    return { ok: true, data: { emailAddress: connection?.emailAddress, syncResult } };
+    const enqueueResult = await enqueueFirstConnectMailboxSync();
+    return { ok: true, data: { emailAddress: connection?.emailAddress, enqueueResult } };
   } catch (err) {
     return syncError(err, 'Gmail mailbox OAuth code sync failed');
   } finally {
@@ -108,11 +117,11 @@ export async function syncMailboxToBackend(input: {
   imapPort?: number;
   smtpHost?: string;
   smtpPort?: number;
-}): Promise<SyncResult<MailSyncResult | null>> {
+}): Promise<SyncResult<MailboxInitialSyncEnqueue>> {
   try {
     await connectMailboxFromOnboarding(input);
-    const syncResult = await triggerMailboxSync();
-    return { ok: true, data: syncResult };
+    const enqueueResult = await enqueueFirstConnectMailboxSync();
+    return { ok: true, data: enqueueResult };
   } catch (err) {
     return syncError(err, 'Mailbox sync failed');
   }

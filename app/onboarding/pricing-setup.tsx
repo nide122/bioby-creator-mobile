@@ -18,7 +18,6 @@ export default function OnboardingPricingSetupScreen() {
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
   const profileBasics = useSessionStore((s) => s.profileBasics);
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
-  const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
   const completeRateCardStep = useSessionStore((s) => s.completeRateCardStep);
   const skipRateCardStep = useSessionStore((s) => s.skipRateCardStep);
@@ -33,7 +32,7 @@ export default function OnboardingPricingSetupScreen() {
 
   const onContinue = () => {
     if (!isAuthenticated) {
-      router.replace('/welcome' as Href);
+      router.replace('/home' as Href);
       return;
     }
     if (!profileBasics) {
@@ -42,10 +41,6 @@ export default function OnboardingPricingSetupScreen() {
     }
     if (!complianceAcceptedAt) {
       router.replace('/onboarding/consent' as Href);
-      return;
-    }
-    if (!inboxFilterStepFinished) {
-      router.replace('/onboarding/inbox-filter' as Href);
       return;
     }
     if (!emailWizardFinished) {
@@ -58,7 +53,7 @@ export default function OnboardingPricingSetupScreen() {
 
   const onSkip = () => {
     if (!isAuthenticated) {
-      router.replace('/welcome' as Href);
+      router.replace('/home' as Href);
       return;
     }
     skipRateCardStep();

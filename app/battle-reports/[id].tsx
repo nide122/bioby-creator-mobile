@@ -18,12 +18,14 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { alertAction } from '@/src/lib/app-dialog';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { useBattleReport, useUpdateBattleReportShareable } from '@/src/hooks/use-battle-reports';
 import { useImportBattleReportToMediaKit } from '@/src/hooks/use-growth';
 
 export default function BattleReportDetailScreen() {
   const { t } = useTranslation();
   const assetsNav = useAssetsHubNavigation();
+  const { openProposal } = useOpenProposal();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const rawId = params.id;
@@ -240,8 +242,8 @@ export default function BattleReportDetailScreen() {
           },
           {
             label: t('battleReportDetailScreen.ctaAddToProposal'),
-            href: '/proposal/sample',
             icon: 'document-text-outline',
+            onPress: () => void openProposal(),
           },
           {
             label: t('battleReportDetailScreen.ctaShareSummary'),

@@ -1,5 +1,7 @@
+import type { DealPacketWireView } from '@/src/types/api';
 import type {
   DealDeliveryStep,
+  DealFulfillmentStatusBlock,
   DealPacketContent,
   DealPacketView,
   DealFulfillmentStatusView,
@@ -124,17 +126,11 @@ export function parseDealPacketPayload(packet: unknown): DealPacketContent {
   };
 }
 
-export function mapDealPacketDto(dto: {
-  dealId: string;
-  title: string;
-  brandPlaceholder: string;
-  packet: unknown;
-  fulfillmentStatus?: unknown;
-}): DealPacketView {
+export function mapDealPacketDto(dto: DealPacketWireView): DealPacketView {
   return {
-    dealId: dto.dealId,
-    title: dto.title,
-    brandPlaceholder: dto.brandPlaceholder,
+    dealId: dto.dealId ?? '',
+    title: dto.title ?? '',
+    brandPlaceholder: dto.brandPlaceholder ?? '',
     packet: parseDealPacketPayload(dto.packet),
     fulfillmentStatus: parseFulfillmentStatus(dto.fulfillmentStatus),
   };
@@ -150,20 +146,21 @@ function parseFulfillmentStatus(raw: unknown): DealFulfillmentStatusView | undef
   return { payment, revision, brandReview };
 }
 
-function parseStatusBlock(raw: unknown) {
+function parseStatusBlock(raw: unknown): DealFulfillmentStatusBlock | null {
   if (!raw || typeof raw !== 'object') return null;
   const node = raw as Record<string, unknown>;
   const id = String(node.id ?? '');
-  const phase = String(node.phase ?? 'waiting');
+  const phaseRaw = String(node.phase ?? 'waiting');
   const statusKey = String(node.statusKey ?? '');
   const nextStepKey = String(node.nextStepKey ?? '');
   if (!id || !statusKey || !nextStepKey) return null;
+  const phase: DealFulfillmentStatusBlock['phase'] =
+    phaseRaw === 'done' || phaseRaw === 'active' || phaseRaw === 'waiting' || phaseRaw === 'blocked'
+      ? phaseRaw
+      : 'waiting';
   return {
     id,
-    phase:
-      phase === 'done' || phase === 'active' || phase === 'waiting' || phase === 'blocked'
-        ? phase
-        : ('waiting' as const),
+    phase,
     statusKey,
     nextStepKey,
     revisionCount: typeof node.revisionCount === 'number' ? node.revisionCount : null,

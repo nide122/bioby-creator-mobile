@@ -10,7 +10,7 @@ test.describe('BioBy Creator Web smoke', () => {
     await page.getByTestId('tab-today').click();
   });
 
-  test('route guard sends unauthenticated deep links to welcome', async ({ page }) => {
+  test('route guard sends unauthenticated deep links to home', async ({ page }) => {
     await expectUnauthenticated(page);
   });
 

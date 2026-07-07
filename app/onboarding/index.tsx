@@ -19,14 +19,13 @@ export default function OnboardingIndexScreen() {
   const onboardingComplete = useSessionStore((s) => s.onboardingComplete);
   const profileBasics = useSessionStore((s) => s.profileBasics);
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
-  const inboxFilterStepFinished = useSessionStore((s) => s.inboxFilterStepFinished);
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
   const rateCardStepFinished = useSessionStore((s) => s.rateCardStepFinished);
 
   useEffect(() => {
     if (!rootNavigationState?.key || !authReady) return;
     if (!isAuthenticated) {
-      router.replace('/welcome' as Href);
+      router.replace('/home' as Href);
       return;
     }
     if (onboardingComplete) {
@@ -39,10 +38,6 @@ export default function OnboardingIndexScreen() {
     }
     if (!complianceAcceptedAt) {
       router.replace('/onboarding/consent' as Href);
-      return;
-    }
-    if (!inboxFilterStepFinished) {
-      router.replace('/onboarding/inbox-filter' as Href);
       return;
     }
     if (!emailWizardFinished) {
@@ -61,7 +56,6 @@ export default function OnboardingIndexScreen() {
     onboardingComplete,
     profileBasics,
     complianceAcceptedAt,
-    inboxFilterStepFinished,
     emailWizardFinished,
     rateCardStepFinished,
     router,

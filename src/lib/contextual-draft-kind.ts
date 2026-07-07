@@ -1,5 +1,5 @@
 import type { DraftKind, InboxThread } from '@/src/types/domain';
-import { isUnclearBudgetLabel } from '@/src/lib/inbox-detail-labels';
+import { isUnclearBudgetDisplay } from '@/src/lib/inbox-detail-labels';
 
 export type ContextualDraftKind = Extract<
   DraftKind,
@@ -16,11 +16,11 @@ function hasReason(
 /** Mirrors backend ContextualDraftComposer.suggestedKind. */
 export function suggestedContextualDraftKind(thread: Pick<
   InboxThread,
-  'actionReasons' | 'leadValueBand' | 'budgetLabel'
+  'actionReasons' | 'leadValueBand' | 'budgetDisplay'
 >): ContextualDraftKind {
   if (
     hasReason(thread.actionReasons, 'MISSING_BUDGET') ||
-    isUnclearBudgetLabel(thread.budgetLabel)
+    isUnclearBudgetDisplay(thread.budgetDisplay)
   ) {
     return 'clarify_budget';
   }

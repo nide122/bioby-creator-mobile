@@ -8,6 +8,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -19,10 +21,13 @@ import {
 import { upsertCreatorProfile } from '@/src/api/account-api';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
 import { alertAction } from '@/src/lib/app-dialog';
+import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { useSessionStore } from '@/src/stores/session-store';
 
 export default function ProfileSettingsScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const assetsNav = useAssetsHubNavigation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -30,7 +35,6 @@ export default function ProfileSettingsScreen() {
   const setProfileBasics = useSessionStore((s) => s.setProfileBasics);
 
   const [editorState, setEditorState] = useState<CreatorProfileEditorState | null>(null);
-  const [savedFlash, setSavedFlash] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleEditorStateChange = useCallback((state: CreatorProfileEditorState) => {
@@ -45,9 +49,8 @@ export default function ProfileSettingsScreen() {
     try {
       setProfileBasics(editorState.payload);
       await upsertCreatorProfile(editorState.payload);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 2000);
-      await alertAction(t('profileSettingsScreen.saveSuccessTitle'), t('profileSettingsScreen.saveSuccessBody'));
+      await invalidateTenantScopedQueries(queryClient);
+      router.back();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('profileSettingsScreen.saveFailedBody');
       void alertAction(t('profileSettingsScreen.saveFailedTitle'), message);
@@ -106,11 +109,7 @@ export default function ProfileSettingsScreen() {
             pressed && canSave && { opacity: 0.9 },
           ]}>
           <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
-            {isSaving
-              ? t('profileSettingsScreen.saving')
-              : savedFlash
-                ? t('profileSettingsScreen.saved')
-                : t('profileSettingsScreen.save')}
+            {isSaving ? t('profileSettingsScreen.saving') : t('profileSettingsScreen.save')}
           </Text>
         </Pressable>
       </ScrollView>

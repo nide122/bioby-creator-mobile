@@ -140,20 +140,14 @@ export default function DraftDetailScreen() {
   const headerLead = cooperationLeadLine(brandDisplayName, cooperationTitle);
 
   const templateRenderContext = useMemo((): RenderReplyTemplateInput => {
-    const thread = threadQuery.data;
-    const base = buildReplyTemplateContext({
+    return buildReplyTemplateContext({
       opportunityId: effectiveThreadId,
-      thread: thread ?? (brandDisplayName ? { brandName: brandDisplayName, subject: cooperationTitle } : undefined),
+      thread: threadQuery.data,
+      displayBrandName: brandDisplayName,
+      displayCooperationTitle: cooperationTitle,
       creatorName: profileBasics?.displayName?.trim() || t('auth.creatorFallback'),
       rateCardPackages: rateCardQuery.data,
     });
-    if (!base.brandName && brandDisplayName) {
-      return { ...base, brandName: brandDisplayName };
-    }
-    if (!base.cooperationTitle && cooperationTitle) {
-      return { ...base, cooperationTitle };
-    }
-    return base;
   }, [
     brandDisplayName,
     cooperationTitle,
@@ -170,11 +164,7 @@ export default function DraftDetailScreen() {
   );
 
   const onInsertTemplate = useCallback((rendered: string) => {
-    setBody((current) => {
-      const trimmed = current.trim();
-      if (!trimmed) return rendered;
-      return `${trimmed}\n\n${rendered}`;
-    });
+    setBody(rendered);
   }, []);
 
   const onAiGenerated = useCallback(

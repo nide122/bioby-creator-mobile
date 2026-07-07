@@ -59,7 +59,7 @@ describe('NavigationBootstrap', () => {
     renderBootstrap();
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/welcome');
+      expect(mockReplace).toHaveBeenCalledWith('/home');
     });
   });
 

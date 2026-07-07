@@ -1,5 +1,5 @@
 import { completeAuthSession } from '@/src/auth/complete-auth-session';
-import { fetchAccountOverview } from '@/src/api/account-api';
+import { fetchAccountOverview, updateTenantSettings } from '@/src/api/account-api';
 import { useSessionStore } from '@/src/stores/session-store';
 
 jest.mock('@/src/api/api-config', () => ({
@@ -12,9 +12,11 @@ jest.mock('@/src/api/should-use-backend-api', () => ({
 
 jest.mock('@/src/api/account-api', () => ({
   fetchAccountOverview: jest.fn(),
+  updateTenantSettings: jest.fn(),
 }));
 
 const mockedFetchOverview = fetchAccountOverview as jest.MockedFunction<typeof fetchAccountOverview>;
+const mockedUpdateTenantSettings = updateTenantSettings as jest.MockedFunction<typeof updateTenantSettings>;
 
 const session = {
   accessToken: 'access',
@@ -30,6 +32,8 @@ describe('completeAuthSession', () => {
   beforeEach(() => {
     useSessionStore.getState().clearLocalSession();
     mockedFetchOverview.mockReset();
+    mockedUpdateTenantSettings.mockReset();
+    mockedUpdateTenantSettings.mockResolvedValue(undefined);
   });
 
   it('applies auth session then hydrates onboarding state from overview', async () => {
@@ -63,6 +67,9 @@ describe('completeAuthSession', () => {
     expect(state.isAuthenticated).toBe(true);
     expect(state.accountEmail).toBe('creator@outlook.com');
     expect(state.onboardingComplete).toBe(true);
+    expect(mockedUpdateTenantSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredLocale: expect.stringMatching(/^(en|zh)$/) }),
+    );
   });
 
   it('keeps JWT auth when overview hydration fails', async () => {
@@ -73,5 +80,6 @@ describe('completeAuthSession', () => {
     const state = useSessionStore.getState();
     expect(state.isAuthenticated).toBe(true);
     expect(state.onboardingComplete).toBe(false);
+    expect(mockedUpdateTenantSettings).toHaveBeenCalled();
   });
 });

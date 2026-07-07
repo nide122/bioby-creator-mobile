@@ -41,13 +41,33 @@ export type MailboxSyncJob = {
   upToDate?: boolean | null;
 };
 
-export async function syncMailbox(options?: { lookback?: MailboxSyncLookback }): Promise<MailSyncResult | null> {
+export async function enqueueMailboxSync(
+  options?: { lookback?: MailboxSyncLookback },
+): Promise<MailboxSyncEnqueueResult | null> {
   if (!shouldUseBackendApi()) return null;
   const response = await apiRequest<MailboxSyncEnqueueResult | MailSyncResult>('/api/v1/mailbox/sync', {
     method: 'POST',
     body: options?.lookback ? { lookback: options.lookback } : undefined,
   });
   if (response && 'jobId' in response && !('processed' in response)) {
+    return response;
+  }
+  return null;
+}
+
+export async function syncMailbox(options?: {
+  lookback?: MailboxSyncLookback;
+  wait?: boolean;
+}): Promise<MailSyncResult | null> {
+  if (!shouldUseBackendApi()) return null;
+  const response = await apiRequest<MailboxSyncEnqueueResult | MailSyncResult>('/api/v1/mailbox/sync', {
+    method: 'POST',
+    body: options?.lookback ? { lookback: options.lookback } : undefined,
+  });
+  if (response && 'jobId' in response && !('processed' in response)) {
+    if (options?.wait === false) {
+      return null;
+    }
     return waitForSyncJobCompletion(response.jobId);
   }
   return response as MailSyncResult;

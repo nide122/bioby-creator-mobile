@@ -6,6 +6,7 @@ export { EmptyStateCard } from './EmptyStateCard';
 export type { EmptyStateAction } from './EmptyStateCard';
 export { QueryRetryCard } from './QueryRetryCard';
 export { SectionCard } from './SectionCard';
+export { ProposalSkuLines } from './ProposalSkuLines';
 export { AgentSendModePicker } from './AgentSendModePicker';
 export {
   FilterChipRow,

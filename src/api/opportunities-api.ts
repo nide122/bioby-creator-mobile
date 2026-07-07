@@ -140,6 +140,12 @@ function applySort(
       if (countDelta !== 0) return countDelta * direction;
     }
     if (sortBy === 'CLASSIFICATION_SCORE') {
+      const marginA = a.valueSortKey ?? a.dealEconomics?.valueSortKey ?? null;
+      const marginB = b.valueSortKey ?? b.dealEconomics?.valueSortKey ?? null;
+      if (marginA != null && marginB != null) {
+        const marginDelta = marginA - marginB;
+        if (marginDelta !== 0) return marginDelta * direction;
+      }
       const scoreA = a.priorityScore ?? a.classificationSortScore ?? 0;
       const scoreB = b.priorityScore ?? b.classificationSortScore ?? 0;
       const scoreDelta = scoreA - scoreB;
@@ -274,7 +280,10 @@ export async function fetchOpportunityThreadDetail(threadId: string): Promise<In
   return resolveSuggestedDraftIds(threadId, mapped);
 }
 
-export { syncMailbox as triggerMailboxSync } from '@/src/api/mailbox-api';
+export {
+  enqueueMailboxSync,
+  syncMailbox as triggerMailboxSync,
+} from '@/src/api/mailbox-api';
 export type { MailSyncResult } from '@/src/api/mailbox-api';
 
 export async function updateOpportunityClassification(
@@ -329,4 +338,27 @@ export async function acknowledgeOpportunityBriefRisks(
     method: 'POST',
     body: { riskIds },
   });
+}
+
+export type ManualOpportunityInput = {
+  brandName: string;
+  platform: string;
+  budgetAmount?: number;
+  budgetCurrency?: string;
+  budgetLabel?: string;
+  deliverableLabel?: string;
+  notes?: string;
+  title?: string;
+};
+
+export async function createManualOpportunity(input: ManualOpportunityInput): Promise<InboxThreadDetail> {
+  if (!shouldUseBackendApi()) {
+    throw new Error('manual_opportunity_requires_backend');
+  }
+  const detail = await apiRequest<OpportunityDetail>('/api/v1/opportunities/manual', {
+    method: 'POST',
+    body: input,
+  });
+  const mapped = mapOpportunityToDetail(detail);
+  return resolveSuggestedDraftIds(detail.id, mapped);
 }

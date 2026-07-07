@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import appI18n from '@/src/i18n';
@@ -11,10 +11,10 @@ import {
   QueryRetryCard,
   SegmentedControl,
   SettingsBlock,
-  HubListRow,
   HubNavRow,
   SettingsGroup,
   SettingsRow,
+  hubListStyles,
 } from '@/components/product';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
@@ -27,20 +27,19 @@ import { alertAction } from '@/src/lib/app-dialog';
 import { resolveAccountProfileHeroMeta } from '@/src/lib/creator-profile-aggregate';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { ConnectedPlatformIcons } from '@/src/components/profile/ConnectedPlatformIcons';
+import { OnboardingStatusCard } from '@/components/account/OnboardingStatusCard';
 import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
-import { isCreatorAiInboxEnabled } from '@/src/lib/creator-verification';
-import { useClassificationStrictness } from '@/src/hooks/use-classification-strictness';
+import { isCreatorAiInboxEnabled, type CreatorVerificationStatus } from '@/src/lib/creator-verification';
 import { useCreatorFocusMode } from '@/src/hooks/use-creator-focus';
 import { useAccountOverview } from '@/src/hooks/use-account-overview';
+import { useOnboardingDashboardStatus } from '@/src/hooks/use-onboarding-dashboard-status';
 import { useAccountRowSummaries } from '@/src/hooks/use-account-row-summaries';
 import { usePendingTenantInvites } from '@/src/hooks/use-tenants';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
-import type { ClassificationStrictness } from '@/src/stores/session-store';
 import { useSessionStore } from '@/src/stores/session-store';
 
 const LANGUAGE_OPTIONS: LanguagePreference[] = ['en', 'zh', 'system'];
-const INBOX_FILTER_OPTIONS: ClassificationStrictness[] = ['relaxed', 'standard', 'strict'];
 
 export default function AccountScreen() {
   const { t } = useTranslation();
@@ -58,14 +57,13 @@ export default function AccountScreen() {
   const membershipRole = useSessionStore((s) => s.membershipRole);
   const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
   const { creatorFocusMode, setCreatorFocusMode } = useCreatorFocusMode();
-  const { classificationStrictness, setClassificationStrictness, isUpdatingStrictness } =
-    useClassificationStrictness();
   const { signOut } = useAuthActions();
   const replayOnboarding = useSessionStore((s) => s.replayOnboardingDemo);
   const languagePreference = useLocaleStore((s) => s.languagePreference);
   const setLanguagePreference = useLocaleStore((s) => s.setLanguagePreference);
 
   const overview = useAccountOverview();
+  const onboardingDashboard = useOnboardingDashboardStatus();
   const overviewMailbox = overview.data?.mailbox;
   const inboxEmail =
     overviewMailbox?.emailAddress ?? mailboxConnection?.email ?? accountEmail ?? '';
@@ -79,7 +77,7 @@ export default function AccountScreen() {
         ? overview.error.message
         : t('account.overviewError')
       : null;
-  const inboxRowDetail = useMemo(() => {
+  const inboxSyncSubtitle = useMemo(() => {
     if (!connectedEmail) return t('account.connectInbox');
     const lastSync = overviewMailbox?.lastSyncAtISO;
     if (lastSync) {
@@ -104,7 +102,8 @@ export default function AccountScreen() {
     useCallback(() => {
       if (!shouldUseBackendApi()) return;
       void pendingInvites.refetch();
-    }, [pendingInvites.refetch]),
+      void onboardingDashboard.refetch();
+    }, [onboardingDashboard.refetch, pendingInvites.refetch]),
   );
 
   const refreshAccount = useCallback(async () => {
@@ -202,7 +201,7 @@ export default function AccountScreen() {
           style={({ pressed }) => [styles.signOut, pressed && styles.signOutPressed]}
           onPress={async () => {
             await signOut();
-            router.replace('/welcome' as Href);
+            router.replace('/home' as Href);
           }}>
           <Text style={[styles.signOutLabel, { color: theme.mutedForeground }]}>{t('account.signOut')}</Text>
         </Pressable>
@@ -236,45 +235,20 @@ export default function AccountScreen() {
         </Pressable>
       ) : null}
 
+      <OnboardingStatusCard status={onboardingDashboard.status} />
+
       <SettingsGroup title={t('account.inboxTitle')}>
-        <View style={styles.inboxRowWrap}>
-          {connectedEmail ? (
-            <View style={styles.inboxBadgeRow}>
-              <CreatorVerificationBadge status={creatorVerificationStatus} compact />
-            </View>
-          ) : null}
-          <HubListRow
-            testID="account-inbox-row"
-            icon="mail-outline"
-            title={connectedEmail ? inboxEmail : t('account.inboxNotConnected')}
-            detail={inboxRowDetail}
-            detailAccent={!connectedEmail}
-            onPress={() => router.push('/onboarding/email?source=account' as Href)}
-          />
-        </View>
+        <AccountInboxRow
+          connected={connectedEmail}
+          email={inboxEmail}
+          syncSubtitle={inboxSyncSubtitle}
+          verificationStatus={creatorVerificationStatus}
+          onPress={() => router.push('/onboarding/email?source=account' as Href)}
+        />
       </SettingsGroup>
 
       {isCreatorAiInboxEnabled(creatorVerificationStatus) ? (
       <SettingsGroup title={t('account.automationHeading')} insetDividers={false}>
-        <SettingsBlock label={t('account.inboxFilterHeading')}>
-          <SegmentedControl
-            options={INBOX_FILTER_OPTIONS.map((id) => ({
-              id,
-              label: t(`account.inboxFilterModes.${id}.label`),
-            }))}
-            value={classificationStrictness}
-            onChange={setClassificationStrictness}
-            disabled={isUpdatingStrictness}
-          />
-          {isUpdatingStrictness ? (
-            <View style={styles.strictnessApplyingRow}>
-              <ActivityIndicator size="small" color={theme.primary} />
-              <Text style={[styles.strictnessApplyingText, { color: theme.mutedForeground }]}>
-                {t('account.inboxFilterApplying')}
-              </Text>
-            </View>
-          ) : null}
-        </SettingsBlock>
         <SettingsBlock label={t('account.focusHeading')}>
           <SegmentedControl options={focusModes} value={creatorFocusMode} onChange={setCreatorFocusMode} />
         </SettingsBlock>
@@ -353,7 +327,75 @@ export default function AccountScreen() {
           onPress={confirmReplayOnboarding}
         />
       </SettingsGroup>
+
+      <SettingsGroup title={t('account.legalHeading')} insetDividers={false}>
+        <NavRow
+          testID="account-legal-home-row"
+          title={t('legal.footerHome')}
+          onPress={() => router.push('/home' as Href)}
+        />
+        <NavRow
+          testID="account-legal-privacy-row"
+          title={t('legal.footerPrivacy')}
+          onPress={() => router.push('/privacy' as Href)}
+        />
+        <NavRow
+          testID="account-legal-terms-row"
+          title={t('legal.footerTerms')}
+          onPress={() => router.push('/terms' as Href)}
+        />
+      </SettingsGroup>
     </HubScreen>
+  );
+}
+
+function AccountInboxRow({
+  connected,
+  email,
+  syncSubtitle,
+  verificationStatus,
+  onPress,
+}: {
+  connected: boolean;
+  email: string;
+  syncSubtitle: string;
+  verificationStatus: CreatorVerificationStatus;
+  onPress: () => void;
+}) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  return (
+    <Pressable
+      testID="account-inbox-row"
+      accessibilityRole="button"
+      onPress={onPress}
+      android_ripple={{ color: `${theme.primary}18`, borderless: false }}
+      style={({ pressed }) => [pressed && hubListStyles.pressablePressed]}>
+      <View style={styles.accountInboxContentRow}>
+        <View style={[hubListStyles.icon, { backgroundColor: theme.muted }]}>
+          <Ionicons name="mail-outline" size={17} color={theme.primary} />
+        </View>
+        <View style={hubListStyles.body}>
+          <Text style={[hubListStyles.title, { color: theme.foreground }]} numberOfLines={2}>
+            {connected ? email : t('account.inboxNotConnected')}
+          </Text>
+          <Text
+            style={[
+              hubListStyles.subtitle,
+              { color: connected ? theme.mutedForeground : theme.primary },
+            ]}
+            numberOfLines={2}>
+            {syncSubtitle}
+          </Text>
+        </View>
+        <View style={styles.accountInboxTrailing}>
+          <Ionicons name="chevron-forward" size={16} color={theme.foregroundEyebrow} />
+          {connected ? <CreatorVerificationBadge status={verificationStatus} compact /> : null}
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -412,14 +454,18 @@ const styles = StyleSheet.create({
   inviteBannerText: { flex: 1, gap: spacing.xs },
   inviteBannerTitle: { fontSize: fontSize.body, fontWeight: '700', lineHeight: lineHeight.body },
   inviteBannerLead: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
-  strictnessApplyingRow: {
+  accountInboxContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+    minHeight: layout.touchMin - 4,
   },
-  strictnessApplyingText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed, flex: 1 },
-  inboxRowWrap: { gap: spacing.xs },
-  inboxBadgeRow: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  accountInboxTrailing: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    flexShrink: 0,
+  },
 });

@@ -73,12 +73,6 @@ import {
   applyMailboxLastSyncToCache,
   refreshInboxQueries,
 } from '@/src/lib/mailbox-sync-display';
-import {
-  globalRulesProcessingScope,
-  rulesProcessingScope,
-  rulesScopeI18nKey,
-  threadUsesRulesProcessing,
-} from '@/src/lib/ai-processing-labels';
 import { inboxRiskReasons } from '@/src/lib/inbox-risk-badges';
 import { localizedVisibleRiskLabel } from '@/src/lib/inbox-detail-labels';
 import { contractWarningSeverity, listContractWarningFlags, isContractRiskLabel } from '@/src/lib/contract-warning';
@@ -110,8 +104,14 @@ import {
   type InboxViewMode,
 } from '@/src/stores/inbox-view-store';
 
-const DEFAULT_SYNC_LOOKBACK: MailboxSyncLookback = 'ONE_WEEK';
-const SYNC_LOOKBACK_OPTIONS: readonly MailboxSyncLookback[] = ['ONE_WEEK', 'ONE_MONTH', 'THREE_MONTHS', 'ALL'];
+const DEFAULT_SYNC_LOOKBACK: MailboxSyncLookback = 'INCREMENTAL';
+const SYNC_LOOKBACK_OPTIONS: readonly MailboxSyncLookback[] = [
+  'INCREMENTAL',
+  'ONE_WEEK',
+  'ONE_MONTH',
+  'THREE_MONTHS',
+  'ALL',
+];
 const INBOX_TIME_RANGE_OPTIONS: readonly InboxTimeRangeFilter[] = ['ALL', 'ONE_WEEK', 'ONE_MONTH', 'THREE_MONTHS'];
 const SCROLL_TOP_THRESHOLD = 360;
 const LOAD_MORE_THRESHOLD = 360;
@@ -206,6 +206,7 @@ function InboxMailboxStatusCard({
   const pushRegistrationConfigured = subscription?.pushRegistrationConfigured ?? false;
   const pushRegistrationMissingReason = subscription?.pushRegistrationMissingReason ?? null;
   const pushUnavailable = nativeSyncEnabled && !pushRegistrationConfigured;
+  const aiInboxEnabled = isCreatorAiInboxEnabled(verificationStatus);
   const showWatchRepair =
     nativeSyncEnabled &&
     !connection.reconsentRequired &&
@@ -289,7 +290,7 @@ function InboxMailboxStatusCard({
         </View>
         {syncing || processingActive ? (
           <Text style={[styles.mailboxSyncingText, { color: theme.primary }]}>
-            {t('inboxScreen.syncingInline')}
+            {t(aiInboxEnabled ? 'inboxScreen.syncingInline' : 'inboxScreen.syncingInlineMailbox')}
           </Text>
         ) : null}
         <View style={styles.mailboxChipRow}>
@@ -675,6 +676,26 @@ function InboxSyncProgressCard({
   );
 }
 
+function InboxManualEntryBanner() {
+  const { t } = useTranslation();
+  const router = useRouter();
+
+  if (!shouldUseBackendApi()) {
+    return null;
+  }
+
+  return (
+    <HubBanner
+      testID="inbox-manual-entry-banner"
+      primaryTestID="inbox-manual-entry-cta"
+      title={t('inboxScreen.manualEntryBannerTitle')}
+      body={t('inboxScreen.manualEntryBannerBody')}
+      primaryLabel={t('inboxScreen.manualEntryBannerCta')}
+      onPrimary={() => router.push('/inbox/manual' as Href)}
+    />
+  );
+}
+
 function InboxRateCardBanner() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -714,25 +735,6 @@ function InboxReclassificationBanner() {
         {t('inboxScreen.reclassificationBanner')}
       </Text>
     </View>
-  );
-}
-
-function InboxAiRulesBanner({ syncStatus }: { syncStatus?: MailboxSyncStatus | null }) {
-  const { t } = useTranslation();
-  const [dismissed, setDismissed] = useState(false);
-  const scope = globalRulesProcessingScope(syncStatus?.aiProcessing ?? null);
-
-  if (!shouldUseBackendApi() || dismissed || !scope) return null;
-
-  return (
-    <HubBanner
-      title={t('inboxScreen.aiRulesBannerTitle')}
-      body={t(rulesScopeI18nKey(scope, 'inboxScreen.aiRulesBannerBody'))}
-      primaryLabel={t('inboxScreen.aiRulesBannerDismiss')}
-      onPrimary={() => setDismissed(true)}
-      secondaryLabel={t('inboxScreen.later')}
-      onSecondary={() => setDismissed(true)}
-    />
   );
 }
 
@@ -1080,13 +1082,13 @@ function commercialProgressPillColors(
 }
 
 function CommercialTrailingMeta({
-  budgetLabel,
+  budgetDisplay,
   brandLabel,
   progressLabel,
   progressPill,
   theme,
 }: {
-  budgetLabel?: string;
+  budgetDisplay?: string;
   brandLabel?: string | null;
   progressLabel?: string;
   progressPill: ReturnType<typeof commercialProgressPillColors>;
@@ -1096,7 +1098,7 @@ function CommercialTrailingMeta({
     <View style={styles.threadTrailingTop}>
       <View style={styles.threadBudgetSlot}>
         <Text style={[styles.threadBudget, { color: theme.foregroundSubtitle }]} numberOfLines={1}>
-          {budgetLabel ?? ''}
+          {budgetDisplay ?? ''}
         </Text>
       </View>
       {brandLabel || progressLabel ? (
@@ -1170,7 +1172,7 @@ function InboxThreadHubRow({
     subtitleParts.push(item.preview);
   }
   if (isCommercialRow) {
-    const visibleRisk = localizedVisibleRiskLabel(t, item.riskLabel, item.budgetLabel);
+    const visibleRisk = localizedVisibleRiskLabel(t, item.riskLabel, item.budgetDisplay);
     if (visibleRisk && isContractRiskLabel(visibleRisk)) subtitleParts.push(visibleRisk);
     else if (priorityBand === 'high_value') {
       inboxRiskReasons(item.actionReasons).forEach((reason) => subtitleParts.push(reason.message));
@@ -1192,7 +1194,6 @@ function InboxThreadHubRow({
     subtitleParts.push(item.actionReasons[0].message);
   }
   if (corrected) subtitleParts.push(t('inboxScreen.userCorrected'));
-  if (threadUsesRulesProcessing(item)) subtitleParts.push(t('inboxScreen.threadRulesLabel'));
 
   const metaLineSuffix = subtitleParts.length > 0 ? subtitleParts.join(' · ') : null;
   const subtitleLine =
@@ -1217,20 +1218,20 @@ function InboxThreadHubRow({
   const detail =
     isCommercialRow && (progressPill || brandLabel) ? (
       <CommercialTrailingMeta
-        budgetLabel={item.budgetLabel}
+        budgetDisplay={item.budgetDisplay}
         brandLabel={brandLabel}
         progressLabel={progressLabel}
         progressPill={progressPill ?? commercialProgressPillColors(item, theme)}
         theme={theme}
       />
     ) : isCommercialRow ? (
-      item.budgetLabel
+      item.budgetDisplay
     ) : priorityUiEnabled ? (
-      item.budgetLabel
+      item.budgetDisplay
     ) : !showCommercialMeta ? (
       inboxCategoryLabel[item.category]
     ) : (
-      item.budgetLabel
+      item.budgetDisplay
     );
 
   const detailAccent = isCommercialRow
@@ -1399,7 +1400,6 @@ export default function InboxScreen() {
   const shouldRestoreScrollRef = useRef(false);
   const scrollYByViewModeRef = useRef<Record<InboxViewMode, number>>({ priority: 0, all: 0 });
   const scrollYByCategoryRef = useRef<Partial<Record<InboxCategoryFilter, number>>>({});
-  const autoSyncedMailboxRef = useRef<string | null>(null);
   const lastProcessingSignatureRef = useRef<string | null>(null);
   const wasProcessingActiveRef = useRef(false);
   const scrollTopVisibleUntilRef = useRef(0);
@@ -1703,16 +1703,6 @@ export default function InboxScreen() {
     shouldRestoreScrollRef.current = false;
   }, [restoreScrollY]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const emailAddress = mailbox.data?.emailAddress;
-      if (!shouldUseBackendApi() || !authReady || !isAuthenticated || !emailAddress) return;
-      if (autoSyncedMailboxRef.current === emailAddress) return;
-      autoSyncedMailboxRef.current = emailAddress;
-      void runMailboxSync(DEFAULT_SYNC_LOOKBACK);
-    }, [authReady, isAuthenticated, mailbox.data?.emailAddress, runMailboxSync])
-  );
-
   if (inbox.error && !inbox.data?.length) {
     return (
       <PlaceholderScreen title={t('inboxScreen.errorTitle')} description={t('inboxScreen.errorDesc')}>
@@ -1733,7 +1723,7 @@ export default function InboxScreen() {
           thread.brandName,
           thread.subject,
           thread.preview,
-          thread.budgetLabel,
+          thread.budgetDisplay,
           thread.riskLabel,
           thread.nextActionLabel,
           inboxCategoryLabel[thread.category],
@@ -1786,9 +1776,9 @@ export default function InboxScreen() {
     <>
       <InboxConnectionBanner />
       <CreatorVerificationBanner status={creatorVerificationStatus} />
+      {aiInboxEnabled ? <InboxManualEntryBanner /> : null}
       {aiInboxEnabled ? <InboxRateCardBanner /> : null}
       {aiInboxEnabled ? <InboxReclassificationBanner /> : null}
-      {aiInboxEnabled ? <InboxAiRulesBanner syncStatus={syncStatus.data} /> : null}
       <InboxMailboxStatusCard
         onSync={onRefresh}
         syncing={refreshing || inbox.isRefetching}

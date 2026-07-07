@@ -36,7 +36,7 @@ async function devNavigate(page: Page, path: string) {
 
 /** Seed demo workspace via DevTestSeed (?testWorkspace=1). */
 export async function enterDemoWorkspace(page: Page) {
-  await page.goto(withTestWorkspace('/welcome'));
+  await page.goto(withTestWorkspace('/home'));
   await expect(page.getByTestId('tab-inbox')).toBeVisible({ timeout: 90_000 });
   await waitForDemoSession(page);
 }
@@ -102,5 +102,5 @@ export async function gotoProtected(page: Page, path: string) {
 /** Fresh context with no demo session. */
 export async function expectUnauthenticated(page: Page) {
   await page.goto('/inbox');
-  await expect(page).toHaveURL(/\/welcome/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/home/, { timeout: 30_000 });
 }

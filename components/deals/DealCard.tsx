@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { PressableProps } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -64,7 +64,7 @@ export function DealCard({
 
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,

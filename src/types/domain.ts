@@ -1,4 +1,6 @@
-/** 领域类型桩 — 对齐 PRD（Outcome-Based / Creator 端），后续可由 OpenAPI 生成替换 */
+import type { PriorityAssessmentView } from '@/src/lib/priority-assessment';
+
+/** UI 领域类型 — 对齐 PRD；API wire 类型见 src/types/generated/api.ts 与 src/types/api.ts */
 
 import type { PresetPlatformKey } from '@/src/types/creator-profile';
 
@@ -49,6 +51,8 @@ export type DecisionCard = {
   inboxPriority?: InboxPriority;
   /** Contract risks surfaced on opportunity decision cards. */
   contractRiskFlags?: InboxRiskFlag[];
+  /** Estimated minutes to complete this decision (from API). */
+  estimatedMinutes?: number;
   actions: DecisionAction[];
 };
 
@@ -121,6 +125,7 @@ export type PriorityBreakdown = {
   relationshipValue: number;
   effort: number;
   risk: number;
+  rulesVersion?: string | null;
 };
 
 export type InboxMessageStats = {
@@ -133,6 +138,11 @@ export type InboxMessageStats = {
 };
 
 export type AiProcessingSource = 'llm' | 'rules' | 'snapshot';
+
+export type MoneyAmount = {
+  amount: number;
+  currency: string;
+};
 
 export type InboxThread = {
   id: string;
@@ -151,12 +161,16 @@ export type InboxThread = {
   /** P0–P3 优先级（PR-P3） */
   inboxPriority?: InboxPriority;
   priorityScore?: number | null;
+  valueSortKey?: number | null;
+  dealEconomics?: PriorityAssessmentView['dealEconomics'];
+  priorityAssessment?: PriorityAssessmentView | null;
   priorityBreakdown?: PriorityBreakdown | null;
   classificationSortScore?: number;
   /** 可解释分类/分档理由 */
   actionReasons?: { code: string; message: string }[];
   /** 预算区间展示文案（摘录自信号，非成交价承诺） */
-  budgetLabel?: string;
+  budgetDisplay?: string;
+  budgetAmount?: MoneyAmount;
   riskLabel?: string;
   /** Primary contract risk from brief extraction (list API). */
   contractRiskPreview?: InboxRiskFlag;
@@ -217,10 +231,23 @@ export type RiskClearedCheck = {
   detail?: string;
 };
 
+export type InboxDeliverableItem = {
+  name: string;
+  contentFormat?: string | null;
+  platform?: string | null;
+  quantity?: number;
+  dueAtISO?: string | null;
+  dueAtKind?: string | null;
+  dueAtText?: string | null;
+  dueAtUncertainty?: string | null;
+  rateCardLineKeys?: string[];
+};
+
 export type InboxDeliverablePackage = {
-  deliverable: string;
-  budgetLabel?: string | null;
-  currency?: string | null;
+  label?: string | null;
+  quoteDisplay?: string | null;
+  quoteAmount?: MoneyAmount | null;
+  items: InboxDeliverableItem[];
 };
 
 export type LatestApprovedScript = {
@@ -244,6 +271,8 @@ export type InboxThreadDetail = InboxThread & {
   /** Checks evaluated on the latest thread with no active risk. */
   clearedRiskChecks?: RiskClearedCheck[];
   recommendedActions: string[];
+  riskNotes?: string[];
+  systemHints?: string[];
   packages?: InboxDeliverablePackage[];
   attentionCount?: number;
   /** Mock：一键打开对应草稿模板 ID */
@@ -251,9 +280,10 @@ export type InboxThreadDetail = InboxThread & {
   extractionStatus?: 'PENDING' | 'COMPLETE' | 'FAILED' | 'SKIPPED';
   extractionConfidence?: number;
   missingFields?: string[];
-  deliverables?: string[];
   usageRights?: string[];
-  postingSchedule?: string;
+  deadlineAtISO?: string;
+  deadlineKind?: string;
+  deadlineText?: string;
   classificationSource?: AiProcessingSource;
   briefExtractionSource?: AiProcessingSource;
   contractSummary?: ContractSummary;
@@ -430,6 +460,8 @@ export type CreatorPublicSnapshot = {
 
 export type ProposalPreview = {
   id: string;
+  packageId?: string;
+  opportunityId?: string;
   title: string;
   brandHint: string;
   creatorDisplayName: string;
@@ -439,6 +471,9 @@ export type ProposalPreview = {
   paymentBullets: string[];
   riskBullets: string[];
   creatorSnapshot?: CreatorPublicSnapshot;
+  preview?: boolean;
+  saved?: boolean;
+  generationSource?: string;
 };
 
 export type MediaKitPlatformRow = {

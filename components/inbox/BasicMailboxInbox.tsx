@@ -89,7 +89,9 @@ export function BasicMailboxInbox({
       {syncing || refreshing ? (
         <View style={[styles.syncingBanner, { backgroundColor: theme.secondary }]}>
           <ActivityIndicator size="small" color={theme.primary} />
-          <Text style={[styles.syncingText, { color: theme.mutedForeground }]}>{t('inboxScreen.syncingInline')}</Text>
+          <Text style={[styles.syncingText, { color: theme.mutedForeground }]}>
+            {t('inboxScreen.syncingInlineMailbox')}
+          </Text>
         </View>
       ) : null}
       <Text style={[styles.sectionTitle, { color: theme.foregroundSubtitle }]}>

@@ -15,6 +15,7 @@ import type { GoogleAuthCodePayload } from '@/src/auth/google-oauth';
 import { completeAuthSession } from '@/src/auth/complete-auth-session';
 import { resolveAuthApiErrorMessage } from '@/src/auth/auth-api-errors';
 import { clearAllQueries, invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
+import { revokeRegisteredPushDevice } from '@/src/push/register-push-device';
 import { useSessionStore } from '@/src/stores/session-store';
 
 async function hydrateAfterAuth(
@@ -158,6 +159,7 @@ export function useAuthActions() {
   );
 
   const signOut = useCallback(async () => {
+    await revokeRegisteredPushDevice();
     if (isApiConfigured()) {
       await logoutAccount();
     }

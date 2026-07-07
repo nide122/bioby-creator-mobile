@@ -51,12 +51,12 @@ export default function OnboardingProfileScreen() {
 
   const switchAccount = async () => {
     await signOut();
-    router.replace('/welcome' as Href);
+    router.replace('/home' as Href);
   };
 
   const onContinue = () => {
     if (!isAuthenticated) {
-      router.replace('/welcome' as Href);
+      router.replace('/home' as Href);
       return;
     }
     if (!editorState?.canSubmit) return;

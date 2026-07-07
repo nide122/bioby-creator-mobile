@@ -13,10 +13,12 @@ import type {
   InboxThread,
   InboxThreadDetail,
   LeadValueBand,
+  MoneyAmount,
   OpportunityPipelinePhase,
   PriorityBreakdown,
   RiskClearedCheck,
 } from '@/src/types/domain';
+import type { PriorityAssessmentView } from '@/src/lib/priority-assessment';
 
 const EMAIL_CATEGORIES: InboxEmailCategory[] = ['commercial', 'pr_sample', 'media', 'personal', 'spam', 'other'];
 const LEAD_STAGES: InboxLeadStage[] = ['new', 'needs_reply', 'draft_ready', 'quoted', 'negotiating'];
@@ -66,6 +68,7 @@ function mapPriorityBreakdown(raw: OpportunityListItem['priorityBreakdown']): Pr
     relationshipValue: raw.relationshipValue,
     effort: raw.effort,
     risk: raw.risk,
+    rulesVersion: raw.rulesVersion ?? undefined,
   };
 }
 
@@ -110,6 +113,18 @@ function mapMessageStats(raw: OpportunityListItem['messageStats']): InboxMessage
   };
 }
 
+function mapMoneyAmount(raw: MoneyAmount | null | undefined): MoneyAmount | undefined {
+  if (!raw || raw.amount == null || !raw.currency) return undefined;
+  const amount = typeof raw.amount === 'number' ? raw.amount : Number(raw.amount);
+  if (Number.isNaN(amount)) return undefined;
+  return { amount, currency: String(raw.currency) };
+}
+
+function mapPriorityAssessment(raw: PriorityAssessmentView | null | undefined): PriorityAssessmentView | undefined {
+  if (!raw) return undefined;
+  return raw;
+}
+
 export function mapOpportunityToThread(item: OpportunityListItem): InboxThread {
   return {
     id: item.id,
@@ -124,10 +139,14 @@ export function mapOpportunityToThread(item: OpportunityListItem): InboxThread {
     leadValueBand: asLeadValueBand(item.leadValueBand),
     inboxPriority: asInboxPriority(item.inboxPriority),
     priorityScore: item.priorityScore ?? undefined,
+    valueSortKey: item.valueSortKey ?? undefined,
+    dealEconomics: item.dealEconomics ?? undefined,
+    priorityAssessment: mapPriorityAssessment(item.priorityAssessment),
     priorityBreakdown: mapPriorityBreakdown(item.priorityBreakdown),
     classificationSortScore: item.classificationSortScore,
     actionReasons: item.actionReasons,
-    budgetLabel: item.budgetLabel ?? undefined,
+    budgetDisplay: item.budgetDisplay ?? undefined,
+    budgetAmount: mapMoneyAmount(item.budgetAmount ?? undefined),
     riskLabel: item.riskLabel ?? undefined,
     contractRiskPreview: parseRiskFlag(item.contractRiskPreview),
     nextActionLabel: item.nextActionLabel ?? undefined,
@@ -269,13 +288,31 @@ export function mapOpportunityToDetail(detail: OpportunityDetail, timeline?: Opp
     attentionFlags: attentionFlags.length > 0 ? attentionFlags : undefined,
     clearedRiskChecks: clearedRiskChecks.length > 0 ? clearedRiskChecks : undefined,
     recommendedActions: detail.recommendedActions ?? [],
+    riskNotes: detail.riskNotes ?? [],
+    systemHints: detail.systemHints ?? [],
     extractionStatus: detail.extractionStatus,
     extractionConfidence: detail.extractionConfidence ?? undefined,
     missingFields,
-    deliverables: detail.deliverables ?? [],
     usageRights: detail.usageRights ?? [],
-    postingSchedule: detail.postingSchedule ?? undefined,
-    packages: detail.packages ?? [],
+    deadlineAtISO: detail.deadlineAtISO ?? undefined,
+    deadlineKind: detail.deadlineKind ?? undefined,
+    deadlineText: detail.deadlineText ?? undefined,
+    packages: (detail.packages ?? []).map((pkg) => ({
+      label: pkg.label ?? undefined,
+      quoteDisplay: pkg.quoteDisplay ?? undefined,
+      quoteAmount: mapMoneyAmount(pkg.quoteAmount ?? undefined),
+      items: (pkg.items ?? []).map((item) => ({
+        name: item.name,
+        contentFormat: item.contentFormat ?? undefined,
+        platform: item.platform ?? undefined,
+        quantity: item.quantity ?? 1,
+        dueAtISO: item.dueAtISO ?? undefined,
+        dueAtKind: item.dueAtKind ?? undefined,
+        dueAtText: item.dueAtText ?? undefined,
+        dueAtUncertainty: item.dueAtUncertainty ?? undefined,
+        rateCardLineKeys: item.rateCardLineKeys ?? undefined,
+      })),
+    })),
     attentionCount: detail.attentionCount ?? undefined,
     classificationSource: detail.classificationSource ?? undefined,
     briefExtractionSource: detail.briefExtractionSource ?? undefined,

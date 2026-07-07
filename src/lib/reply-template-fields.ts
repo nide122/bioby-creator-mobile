@@ -2,7 +2,7 @@ export const REPLY_TEMPLATE_FIELD_KEYS = [
   'brandName',
   'cooperationTitle',
   'creatorName',
-  'budgetLabel',
+  'budgetDisplay',
   'deliverables',
   'postingSchedule',
   'usageRights',
@@ -25,7 +25,7 @@ export const REPLY_TEMPLATE_FIELD_META: Record<ReplyTemplateFieldKey, ReplyTempl
   brandName: { i18nKey: 'replyTemplateFields.brandName', tone: 'sky' },
   cooperationTitle: { i18nKey: 'replyTemplateFields.cooperationTitle', tone: 'amber' },
   creatorName: { i18nKey: 'replyTemplateFields.creatorName', tone: 'violet' },
-  budgetLabel: { i18nKey: 'replyTemplateFields.budgetLabel', tone: 'mint' },
+  budgetDisplay: { i18nKey: 'replyTemplateFields.budgetDisplay', tone: 'mint' },
   deliverables: { i18nKey: 'replyTemplateFields.deliverables', tone: 'rose' },
   postingSchedule: { i18nKey: 'replyTemplateFields.postingSchedule', tone: 'slate' },
   usageRights: { i18nKey: 'replyTemplateFields.usageRights', tone: 'slate' },
@@ -37,6 +37,7 @@ export const REPLY_TEMPLATE_FIELD_META: Record<ReplyTemplateFieldKey, ReplyTempl
 
 const LEGACY_KEY_ALIASES: Record<string, ReplyTemplateFieldKey> = {
   threadSubject: 'cooperationTitle',
+  ['budget' + 'Label']: 'budgetDisplay',
 };
 
 export function isReplyTemplateFieldKey(value: string): value is ReplyTemplateFieldKey {

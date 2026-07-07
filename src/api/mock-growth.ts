@@ -11,6 +11,7 @@ import { MOCK_BATTLE_REPORTS } from '@/src/api/mock-battle-reports';
 import { MOCK_PUBLIC_PROOF_ITEMS } from '@/src/api/mock-trust';
 import { battleReportToCaseCard } from '@/src/lib/battle-report-media-kit';
 import { toCreatorPublicSnapshot } from '@/src/lib/media-kit-creator-snapshot';
+import { buildProposalFromPackage, type ProposalCreateInput } from '@/src/lib/proposal-from-package';
 import { mockDelay } from '@/src/lib/mock-delay';
 import { useSessionStore } from '@/src/stores/session-store';
 
@@ -80,44 +81,36 @@ let RATE_CARD_PACKAGES: RateCardPackage[] = [
   },
 ];
 
-const PROPOSALS: Record<string, ProposalPreview> = {
-  sample: {
-    id: 'sample',
-    title: 'Short-form collaboration proposal',
+const PROPOSALS: Record<string, ProposalPreview> = {};
+
+function mockCreatorDisplayName(): string {
+  return useSessionStore.getState().profileBasics?.displayName?.trim() || 'Mia Skin Notes';
+}
+
+function ensureMockSampleProposal(): ProposalPreview {
+  if (PROPOSALS.sample) {
+    return PROPOSALS.sample;
+  }
+  const pkg = RATE_CARD_PACKAGES.find((row) => row.recommended) ?? RATE_CARD_PACKAGES[0];
+  if (!pkg) {
+    throw new Error('proposal_not_found:sample');
+  }
+  const proposal = buildProposalFromPackage('sample', pkg, {
     brandHint: 'ClearSkin Lab · Skincare',
-    creatorDisplayName: 'Mia Skin Notes',
-    executiveSummary:
-      'Recommended package: two short-form videos with standard organic usage. Claims review window included before publish.',
-    skuLines: [
-      {
-        id: 'sku-1',
-        platform: 'TikTok',
-        deliverable: '2 vertical short-form videos, including 2 script rounds',
-        turnaroundLabel: 'First publish within 12 business days',
-        priceLabel: '$2,800+',
-      },
-      {
-        id: 'sku-2',
-        platform: 'Add-on',
-        deliverable: 'Paid social edit / remix rights',
-        turnaroundLabel: 'Timeline scoped separately',
-        priceLabel: '+$900+',
-      },
-    ],
-    rightsBullets: [
-      'Default usage: organic campaign use + owned channels for 90 days.',
-      'Paid usage, remix, and long-term retention require separate approval.',
-    ],
-    paymentBullets: [
-      'Recommended path: prepay -> delivery -> verification -> settlement.',
-      'This proposal is not a contract until both sides confirm the packet.',
-    ],
-    riskBullets: [
-      'Claims may require brand legal review.',
-      'Extra revision rounds may change fee or timing.',
-    ],
-  },
-};
+    creatorDisplayName: mockCreatorDisplayName(),
+    mediaKitPreview: buildMockMediaKitPreview(MEDIA_KIT_DOCUMENT),
+  });
+  PROPOSALS.sample = proposal;
+  return proposal;
+}
+
+function requireMockPackage(packageId: string): RateCardPackage {
+  const pkg = RATE_CARD_PACKAGES.find((row) => row.id === packageId);
+  if (!pkg) {
+    throw new Error(`rate_card_package_not_found:${packageId}`);
+  }
+  return pkg;
+}
 
 const MEDIA_KIT_DOCUMENT: MediaKitDocument = {
   aboutTags: ['Skincare education', 'Ingredient-first reviews', 'Family-friendly tone'],
@@ -203,11 +196,44 @@ export async function upsertMockRateCardPackages(packages: RateCardPackage[]): P
   return structuredClone(RATE_CARD_PACKAGES);
 }
 
+export async function createMockProposal(input: ProposalCreateInput): Promise<ProposalPreview> {
+  await mockDelay(160);
+  const pkg = requireMockPackage(input.packageId);
+  const mediaKitPreview = buildMockMediaKitPreview(MEDIA_KIT_DOCUMENT);
+  const proposalId = `proposal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const proposal = buildProposalFromPackage(proposalId, pkg, {
+    brandHint: input.brandHint,
+    opportunityId: input.opportunityId,
+    creatorDisplayName: mockCreatorDisplayName(),
+    mediaKitPreview,
+    previewOnly: input.previewOnly ?? true,
+  });
+  if (!proposal.preview) {
+    PROPOSALS[proposalId] = proposal;
+  }
+  return structuredClone(proposal);
+}
+
+export async function saveMockProposal(proposal: ProposalPreview): Promise<ProposalPreview> {
+  await mockDelay(140);
+  const saved: ProposalPreview = {
+    ...proposal,
+    preview: false,
+    saved: true,
+    generationSource: proposal.generationSource ?? 'manual',
+  };
+  PROPOSALS[proposal.id] = saved;
+  return structuredClone(saved);
+}
+
 export async function fetchMockProposalPreview(proposalId: string): Promise<ProposalPreview> {
   await mockDelay(140);
-  const proposal = PROPOSALS[proposalId];
+  const proposal = PROPOSALS[proposalId] ?? (proposalId === 'sample' ? ensureMockSampleProposal() : undefined);
   if (!proposal) {
     throw new Error(`proposal_not_found:${proposalId}`);
+  }
+  if (proposal.creatorSnapshot) {
+    return structuredClone(proposal);
   }
   const mediaKitPreview = buildMockMediaKitPreview(MEDIA_KIT_DOCUMENT);
   return {

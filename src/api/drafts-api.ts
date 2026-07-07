@@ -1,20 +1,14 @@
 import { apiRequest } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
-import { mapDraftDetail, mapDraftSummary, type DraftDetailDto, type DraftListItemDto } from '@/src/api/draft-mappers';
+import { mapDraftDetail, mapDraftSummary } from '@/src/api/draft-mappers';
 import { fetchMockDraftDetail, fetchMockDrafts } from '@/src/api/mock-draft';
+import type { GeneratedReplyDraftView, SuggestedReplyPurposeView } from '@/src/types/api';
+import type { DraftDetailView, DraftListItemView } from '@/src/types/api';
 import type { ReplyDraftPurpose } from '@/src/lib/reply-draft-purpose';
 import type { DraftDetail, DraftKind, DraftSummary } from '@/src/types/domain';
 import type { NegotiationDraftKind } from '@/src/lib/negotiation-draft-kinds';
 
-export type GeneratedReplyDraftDto = {
-  draft: DraftDetailDto | null;
-  source: 'llm' | 'rules';
-  purpose: string;
-  suggestedPurpose: string;
-  preview: boolean;
-  previewBody?: string | null;
-  previewSubject?: string | null;
-};
+export type GeneratedReplyDraftDto = GeneratedReplyDraftView;
 
 export type GeneratedReplyDraft = {
   draft: DraftDetail | null;
@@ -26,10 +20,7 @@ export type GeneratedReplyDraft = {
   previewSubject?: string | null;
 };
 
-export type SuggestedReplyPurposeDto = {
-  purpose: string;
-  draftKind: string;
-};
+export type SuggestedReplyPurposeDto = SuggestedReplyPurposeView;
 
 export type GenerateReplyDraftInput = {
   purpose?: ReplyDraftPurpose;
@@ -45,7 +36,7 @@ export async function fetchDraftList(): Promise<DraftSummary[]> {
   if (!shouldUseBackendApi()) {
     return fetchMockDrafts();
   }
-  const items = await apiRequest<DraftListItemDto[]>('/api/v1/drafts');
+  const items = await apiRequest<DraftListItemView[]>('/api/v1/drafts');
   return items.map(mapDraftSummary);
 }
 
@@ -53,7 +44,7 @@ export async function fetchDraftDetail(draftId: string): Promise<DraftDetail> {
   if (!shouldUseBackendApi()) {
     return fetchMockDraftDetail(draftId);
   }
-  const item = await apiRequest<DraftDetailDto>(`/api/v1/drafts/${draftId}`);
+  const item = await apiRequest<DraftDetailView>(`/api/v1/drafts/${draftId}`);
   return mapDraftDetail(item);
 }
 
@@ -64,7 +55,7 @@ export async function createDraftForOpportunity(
   if (!shouldUseBackendApi()) {
     return fetchMockDraftDetail(kind === 'quote' ? 'draft-quote-02' : 'draft-reply-01');
   }
-  const item = await apiRequest<DraftDetailDto>('/api/v1/drafts', {
+  const item = await apiRequest<DraftDetailView>('/api/v1/drafts', {
     method: 'POST',
     body: { opportunityId, kind },
   });
@@ -79,7 +70,7 @@ export async function applyDraftScenarioKind(
   if (!shouldUseBackendApi()) {
     return fetchMockDraftDetail(draftId);
   }
-  const item = await apiRequest<DraftDetailDto>(`/api/v1/drafts/${draftId}/apply-kind`, {
+  const item = await apiRequest<DraftDetailView>(`/api/v1/drafts/${draftId}/apply-kind`, {
     method: 'POST',
     body: { kind, body: body?.trim() || undefined },
   });
@@ -90,7 +81,7 @@ export async function approveDraftOnServer(draftId: string): Promise<DraftDetail
   if (!shouldUseBackendApi()) {
     return fetchMockDraftDetail(draftId);
   }
-  const item = await apiRequest<DraftDetailDto>(`/api/v1/drafts/${draftId}/approve`, { method: 'POST' });
+  const item = await apiRequest<DraftDetailView>(`/api/v1/drafts/${draftId}/approve`, { method: 'POST' });
   return mapDraftDetail(item);
 }
 
@@ -135,8 +126,8 @@ function mapGeneratedReplyDraft(dto: GeneratedReplyDraftDto): GeneratedReplyDraf
   return {
     draft: dto.draft ? mapDraftDetail(dto.draft) : null,
     source: dto.source === 'llm' ? 'llm' : 'rules',
-    purpose: dto.purpose as ReplyDraftPurpose,
-    suggestedPurpose: dto.suggestedPurpose as ReplyDraftPurpose,
+    purpose: (dto.purpose ?? 'pre_outreach') as ReplyDraftPurpose,
+    suggestedPurpose: (dto.suggestedPurpose ?? 'pre_outreach') as ReplyDraftPurpose,
     preview: dto.preview === true,
     previewBody: dto.previewBody ?? null,
     previewSubject: dto.previewSubject ?? null,
@@ -153,8 +144,8 @@ export async function fetchSuggestedReplyPurpose(
     `/api/v1/opportunities/${opportunityId}/drafts/suggested-purpose`,
   );
   return {
-    purpose: item.purpose as ReplyDraftPurpose,
-    draftKind: item.draftKind as DraftKind,
+    purpose: (item.purpose ?? 'pre_outreach') as ReplyDraftPurpose,
+    draftKind: (item.draftKind ?? 'ai_reply') as DraftKind,
   };
 }
 

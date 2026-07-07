@@ -1,14 +1,38 @@
 import { apiRequest } from '@/src/api/api-client';
+import {
+  mapAccountOverview,
+  mapCreatorProfileResponse,
+  mapCreatorVerification,
+  mapOnboardingStatus,
+  mapSubscriptionUsage,
+  mapTeamRole,
+  type AccountOverviewResponse,
+  type CreatorVerificationResponse,
+  type MailboxConnectionResponse,
+  type MailboxOAuthProviderStatusResponse,
+} from '@/src/api/account-mappers';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { normalizeOAuthRedirectUri } from '@/src/auth/google-oauth';
-import {
-  buildCreatorProfileBasics,
-  migrateLegacyProfileBasics,
-} from '@/src/lib/creator-profile-aggregate';
-import type { SubscriptionUsageSnapshot, TeamRoleCard } from '@/src/types/domain';
-import type { CreatorPlatformProfile, PresetPlatformKey } from '@/src/types/creator-profile';
+import type {
+  AccountOverviewView,
+  CreatorProfileView,
+  CreatorVerificationView,
+  MailboxConnectionView,
+  MailboxOAuthProviderStatusView,
+  OnboardingStatusView,
+  SubscriptionUsageView,
+  TeamRoleView,
+} from '@/src/types/api';
+import type { OnboardingDashboardStatus } from '@/src/lib/onboarding-status';
 import type { AgentSendMode, ClassificationStrictness, CreatorFocusMode, CreatorProfileBasics } from '@/src/stores/session-store';
-import type { CreatorVerificationStatus } from '@/src/lib/creator-verification';
+
+export {
+  mapCreatorProfileResponse,
+  type AccountOverviewResponse,
+  type CreatorVerificationResponse,
+  type MailboxConnectionResponse,
+  type MailboxOAuthProviderStatusResponse,
+} from '@/src/api/account-mappers';
 
 export async function upsertCreatorProfile(profile: CreatorProfileBasics): Promise<void> {
   if (!shouldUseBackendApi()) return;
@@ -80,137 +104,64 @@ export async function updateAgentSendMode(mode: AgentSendMode): Promise<void> {
   await updateTenantSettings({ agentSendMode: mode });
 }
 
-type CreatorProfileResponse = {
-  displayName: string;
-  bio?: string | null;
-  profileUrl?: string | null;
-  platform?: string | null;
-  nicheTags?: string[];
-  platforms?: string[];
-  platformProfiles?: Partial<Record<PresetPlatformKey, CreatorPlatformProfile>>;
-};
-
-export function mapCreatorProfileResponse(view: CreatorProfileResponse): CreatorProfileBasics {
-  const partial: CreatorProfileBasics = {
-    displayName: view.displayName,
-    niche: (view.nicheTags ?? []).join(' / ') || view.bio || '',
-    platforms: view.platforms ?? [],
-    profileUrl: view.profileUrl ?? undefined,
-    platform: (view.platform as CreatorProfileBasics['platform']) ?? 'other',
-    platformLabel: view.platform ?? 'Other',
-    bio: view.bio ?? undefined,
-    nicheTags: view.nicheTags ?? [],
-    platformProfiles: view.platformProfiles as CreatorProfileBasics['platformProfiles'],
-  };
-  const migrated = migrateLegacyProfileBasics(partial);
-  return buildCreatorProfileBasics({
-    summary: migrated.summary,
-    platformProfiles: migrated.platformProfiles,
-  });
-}
-
-export type AccountOverviewResponse = {
-  profile: CreatorProfileResponse | null;
-  subscription: SubscriptionUsageSnapshot;
-  mailbox: {
-    connected: boolean;
-    emailAddress: string | null;
-    provider: string | null;
-    status: string | null;
-    lastSyncAtISO?: string | null;
-  };
-  tenantDisplayName: string;
-  tenantType: string;
-  agentSendMode: AgentSendMode;
-  creatorFocusMode: CreatorFocusMode;
-  classificationStrictness?: ClassificationStrictness;
-  inboxFilterConfigured?: boolean;
-  onboardingCompletedAt?: string | null;
-  inboxSetupSkipped?: boolean;
-  creatorVerificationStatus?: CreatorVerificationStatus | string;
-  creatorVerified?: boolean;
-};
-
 export async function fetchAccountOverview(): Promise<AccountOverviewResponse | null> {
   if (!shouldUseBackendApi()) return null;
-  return apiRequest<AccountOverviewResponse>('/api/v1/account/overview');
+  const view = await apiRequest<AccountOverviewView>('/api/v1/account/overview');
+  return mapAccountOverview(view);
 }
 
-export type CreatorVerificationResponse = {
-  status: CreatorVerificationStatus | string;
-  creatorVerified: boolean;
-  verifiedAtISO?: string | null;
-  homepageEmail?: string | null;
-  boundMailboxEmail?: string | null;
-  inboxBackfillEnqueued?: number;
-};
+export async function fetchOnboardingStatus(): Promise<OnboardingDashboardStatus | null> {
+  if (!shouldUseBackendApi()) return null;
+  const view = await apiRequest<OnboardingStatusView>(
+    '/api/v1/account/onboarding-status',
+  );
+  return mapOnboardingStatus(view);
+}
 
 export async function fetchCreatorVerificationStatus(): Promise<CreatorVerificationResponse | null> {
   if (!shouldUseBackendApi()) return null;
-  return apiRequest<CreatorVerificationResponse>('/api/v1/account/creator-verification');
+  const view = await apiRequest<CreatorVerificationView>('/api/v1/account/creator-verification');
+  return mapCreatorVerification(view);
 }
 
 export async function verifyCreatorEmail(): Promise<CreatorVerificationResponse> {
-  return apiRequest<CreatorVerificationResponse>('/api/v1/account/creator-verification/verify-email', {
+  const view = await apiRequest<CreatorVerificationView>('/api/v1/account/creator-verification/verify-email', {
     method: 'POST',
   });
+  return mapCreatorVerification(view);
 }
 
 /** Dev-only: skip homepage/mailbox comparison and mark verified. */
 export async function forceVerifyCreatorEmailDev(): Promise<CreatorVerificationResponse> {
-  return apiRequest<CreatorVerificationResponse>('/api/v1/account/creator-verification/dev/force-verify', {
+  const view = await apiRequest<CreatorVerificationView>('/api/v1/account/creator-verification/dev/force-verify', {
     method: 'POST',
   });
+  return mapCreatorVerification(view);
 }
 
 export async function fetchCreatorProfile(): Promise<CreatorProfileBasics | null> {
   if (!shouldUseBackendApi()) return null;
   try {
-    const view = await apiRequest<CreatorProfileResponse>('/api/v1/account/creator-profile');
+    const view = await apiRequest<CreatorProfileView>('/api/v1/account/creator-profile');
     return mapCreatorProfileResponse(view);
   } catch {
     return null;
   }
 }
 
-export type MailboxConnectionResponse = {
-  emailAddress: string;
-  provider?: string;
-  status: string;
-  lastSyncAtISO?: string | null;
-  syncCursor?: string | null;
-  providerAccountId?: string | null;
-  grantedScopes?: string[];
-  capabilities?: string[];
-  reconsentRequired?: boolean;
-  watchExpiresAtISO?: string | null;
-  imapHost?: string | null;
-  imapPort?: number | null;
-  smtpHost?: string | null;
-  smtpPort?: number | null;
-};
-
 export async function fetchMailboxConnection(): Promise<MailboxConnectionResponse | null> {
   if (!shouldUseBackendApi()) return null;
   try {
-    return await apiRequest<MailboxConnectionResponse>('/api/v1/mailbox/connection');
+    return await apiRequest<MailboxConnectionView>('/api/v1/mailbox/connection');
   } catch {
     return null;
   }
 }
 
-export type MailboxOAuthProviderStatusResponse = {
-  provider: string;
-  clientConfigured: boolean;
-  codeExchangeEnabled: boolean;
-  refreshTokenSupported: boolean;
-  scopes: string[];
-};
-
 export async function fetchGoogleMailboxOAuthStatus(): Promise<MailboxOAuthProviderStatusResponse | null> {
   if (!shouldUseBackendApi()) return null;
   try {
-    return await apiRequest<MailboxOAuthProviderStatusResponse>('/api/v1/mailbox/oauth/google/status');
+    return await apiRequest<MailboxOAuthProviderStatusView>('/api/v1/mailbox/oauth/google/status');
   } catch {
     return null;
   }
@@ -221,7 +172,8 @@ export async function fetchTeamRoles(): Promise<TeamRoleCard[]> {
     const { fetchMockTeamRoles } = await import('@/src/api/mock-account');
     return fetchMockTeamRoles();
   }
-  return apiRequest<TeamRoleCard[]>('/api/v1/account/team-roles');
+  const items = await apiRequest<TeamRoleView[]>('/api/v1/account/team-roles');
+  return items.map(mapTeamRole);
 }
 
 export async function fetchSubscriptionUsage(): Promise<SubscriptionUsageSnapshot> {
@@ -229,7 +181,8 @@ export async function fetchSubscriptionUsage(): Promise<SubscriptionUsageSnapsho
     const { fetchMockSubscriptionUsage } = await import('@/src/api/mock-account');
     return fetchMockSubscriptionUsage();
   }
-  return apiRequest<SubscriptionUsageSnapshot>('/api/v1/account/subscription');
+  const view = await apiRequest<SubscriptionUsageView>('/api/v1/account/subscription');
+  return mapSubscriptionUsage(view);
 }
 
 export async function connectMailboxGoogleOAuth(input: {
@@ -238,7 +191,7 @@ export async function connectMailboxGoogleOAuth(input: {
   clientId?: string;
 }): Promise<MailboxConnectionResponse | null> {
   if (!shouldUseBackendApi()) return null;
-  return apiRequest<MailboxConnectionResponse>('/api/v1/mailbox/connect/oauth/google', {
+  return apiRequest<MailboxConnectionView>('/api/v1/mailbox/connect/oauth/google', {
     method: 'POST',
     body: {
       accessToken: input.accessToken,
@@ -256,7 +209,7 @@ export async function connectMailboxGoogleOAuthCode(input: {
   clientId?: string;
 }): Promise<MailboxConnectionResponse | null> {
   if (!shouldUseBackendApi()) return null;
-  return apiRequest<MailboxConnectionResponse>('/api/v1/mailbox/connect/oauth/google', {
+  return apiRequest<MailboxConnectionView>('/api/v1/mailbox/connect/oauth/google', {
     method: 'POST',
     body: {
       code: input.code,
@@ -272,7 +225,7 @@ export async function connectMailboxMicrosoftOAuth(input: {
   refreshToken?: string | null;
 }): Promise<MailboxConnectionResponse | null> {
   if (!shouldUseBackendApi()) return null;
-  return apiRequest<MailboxConnectionResponse>('/api/v1/mailbox/connect/oauth/microsoft', {
+  return apiRequest<MailboxConnectionView>('/api/v1/mailbox/connect/oauth/microsoft', {
     method: 'POST',
     body: {
       accessToken: input.accessToken,
@@ -288,7 +241,7 @@ export async function connectMailboxMicrosoftOAuthCode(input: {
   codeVerifier: string;
 }): Promise<MailboxConnectionResponse | null> {
   if (!shouldUseBackendApi()) return null;
-  return apiRequest<MailboxConnectionResponse>('/api/v1/mailbox/connect/oauth/microsoft', {
+  return apiRequest<MailboxConnectionView>('/api/v1/mailbox/connect/oauth/microsoft', {
     method: 'POST',
     body: {
       code: input.code,

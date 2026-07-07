@@ -3,7 +3,7 @@ import type { DealPacketView } from '@/src/types/deal-workflow';
 import { mockDelay } from '@/src/lib/mock-delay';
 
 export async function fetchMockDealPacket(dealId: string): Promise<DealPacketView> {
-  await mockDelay();
+  await mockDelay(200);
   const row = MOCK_DEAL_PACKET_BY_ID[dealId];
   if (!row) {
     return {

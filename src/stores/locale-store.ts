@@ -37,7 +37,8 @@ export const useLocaleStore = create<LocaleState>()(
         const deviceLocale = readDeviceLocale();
         await i18n.changeLanguage(deviceLocale);
         set({ languagePreference: deviceLocale, localeDefaultsMigrated: true });
-        await syncTenantPreferredLocale();
+        const { syncTenantPreferredLocaleAfterAuth } = await import('@/src/lib/sync-tenant-locale');
+        await syncTenantPreferredLocaleAfterAuth();
       },
       setLanguagePreference: (next) => {
         void (async () => {

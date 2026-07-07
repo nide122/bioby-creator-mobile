@@ -209,35 +209,135 @@ function normalizeAttentionKey(text: string): string {
   return text.trim().toLowerCase().replace(/[。．.!！?？\s]+$/g, '');
 }
 
-/** Merge AI reply suggestions and rule-detected gaps into one deduplicated list. */
-export function buildAttentionList(
-  actions: string[],
-  flags: InboxRiskFlag[],
-  t: TFunction,
-  fallbackText?: string | null
-): AttentionListItem[] {
+type AttentionTopic =
+  | 'budget'
+  | 'usage'
+  | 'deliverables'
+  | 'packages'
+  | 'early_collab'
+  | 'floor'
+  | 'exclusive'
+  | 'timeline'
+  | 'claims';
+
+function attentionTopicsForText(text: string): AttentionTopic[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const lower = trimmed.toLowerCase();
+  const topics: AttentionTopic[] = [];
+  if (/预算|费率|budget|rate card|before quot|报价前.*(预算|费率|报价)/i.test(trimmed)) {
+    topics.push('budget');
+  }
+  if (/授权|usage|自然流|付费投放|地域|territory|duration|二次使用|remix/i.test(trimmed)) {
+    topics.push('usage');
+  }
+  if (/交付|deliverable|format and count|形式与数量/i.test(trimmed)) {
+    topics.push('deliverables');
+  }
+  if (/多个方案|multiple package|which package|哪条交付|适用哪条/i.test(trimmed)) {
+    topics.push('packages');
+  }
+  if (/首次|first-touch|初次合作|early collaboration|交付.*授权|deliverables, usage/i.test(trimmed)) {
+    topics.push('early_collab');
+  }
+  if (/底价|floor|还价|counter with rate/i.test(trimmed)) {
+    topics.push('floor');
+  }
+  if (/独家|exclusiv|置顶|展示期限/i.test(trimmed)) {
+    topics.push('exclusive');
+  }
+  if (/截止|deadline|时间较紧|hours left|days left|档期/i.test(lower)) {
+    topics.push('timeline');
+  }
+  if (/审核|claims review|修改轮次/i.test(trimmed)) {
+    topics.push('claims');
+  }
+  return topics;
+}
+
+function collectAttentionTopics(texts: string[]): Set<AttentionTopic> {
+  const topics = new Set<AttentionTopic>();
+  for (const text of texts) {
+    for (const topic of attentionTopicsForText(text)) {
+      topics.add(topic);
+    }
+  }
+  return topics;
+}
+
+function addAttentionItem(
+  items: AttentionListItem[],
+  seenKeys: Set<string>,
+  coveredTopics: Set<AttentionTopic>,
+  text: string,
+  idPrefix: string
+): void {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const key = normalizeAttentionKey(trimmed);
+  if (seenKeys.has(key)) return;
+  const topics = attentionTopicsForText(trimmed);
+  if (topics.length > 0 && topics.every((topic) => coveredTopics.has(topic))) {
+    return;
+  }
+  seenKeys.add(key);
+  for (const topic of topics) {
+    coveredTopics.add(topic);
+  }
+  items.push({ id: `${idPrefix}-${items.length}`, text: trimmed });
+}
+
+/** B-layer system hints — separate from creator reply suggestions. */
+export function buildSystemHintList(hints: string[], t: TFunction): AttentionListItem[] {
   const items: AttentionListItem[] = [];
-  const seen = new Set<string>();
-
-  const add = (text: string, meta: Omit<AttentionListItem, 'text'>) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const key = normalizeAttentionKey(trimmed);
-    if (seen.has(key)) return;
-    seen.add(key);
-    items.push({ ...meta, text: trimmed });
-  };
-
-  for (const action of meaningfulRecommendedActions(actions)) {
-    add(translateRecommendedAction(t, action), { id: `action-${items.length}` });
-  }
-  for (const flag of flags) {
-    add(attentionItemText(flag, t), { id: flag.id });
-  }
-  if (fallbackText?.trim()) {
-    add(fallbackText, { id: 'attention-fallback' });
+  const seenKeys = new Set<string>();
+  const coveredTopics = new Set<AttentionTopic>();
+  for (const hint of hints) {
+    const mapped = mapLocalizedCopy(hint, RISK_HINT_KEYS, 'inboxThreadDetail.riskHints', t) ?? hint;
+    addAttentionItem(items, seenKeys, coveredTopics, mapped, 'system');
   }
   return items;
+}
+
+/**
+ * A-layer reply suggestions: LLM recommendedActions only.
+ */
+export function buildReplySuggestionList(
+  actions: string[],
+  t: TFunction
+): AttentionListItem[] {
+  const items: AttentionListItem[] = [];
+  const seenKeys = new Set<string>();
+  const coveredTopics = new Set<AttentionTopic>();
+  for (const action of meaningfulRecommendedActions(actions)) {
+    addAttentionItem(items, seenKeys, coveredTopics, translateRecommendedAction(t, action), 'action');
+  }
+  return items;
+}
+
+/** LLM email-grounded clause risks — separate from reply suggestions. */
+export function buildRiskNoteList(riskNotes: string[] | undefined): AttentionListItem[] {
+  const items: AttentionListItem[] = [];
+  const seenKeys = new Set<string>();
+  const coveredTopics = new Set<AttentionTopic>();
+  for (const note of riskNotes ?? []) {
+    addAttentionItem(items, seenKeys, coveredTopics, note, 'risk-note');
+  }
+  return items;
+}
+
+/** @deprecated Use buildReplySuggestionList + buildRiskNoteList */
+export function buildAttentionList(
+  actions: string[],
+  _flags: InboxRiskFlag[],
+  t: TFunction,
+  _fallbackText?: string | null,
+  narrative?: { systemHints?: string[]; riskNotes?: string[] }
+): AttentionListItem[] {
+  return [
+    ...buildReplySuggestionList(actions, t),
+    ...buildRiskNoteList(narrative?.riskNotes),
+  ];
 }
 
 export function filterSignalsApartFromAttention(
@@ -267,7 +367,7 @@ export function mergeDetailSignals(
   return Array.from(merged);
 }
 
-export function isUnclearBudgetLabel(label?: string | null): boolean {
+export function isUnclearBudgetDisplay(label?: string | null): boolean {
   if (!label?.trim()) return true;
   const normalized = label.trim().toLowerCase();
   return (
@@ -281,11 +381,25 @@ export function isUnclearBudgetLabel(label?: string | null): boolean {
 
 export function visibleMissingFields(
   missingFields: string[] | undefined,
-  budgetLabel?: string | null
+  budgetDisplay?: string | null,
+  options?: {
+    packages?: { items?: { name?: string | null; dueAtText?: string | null; dueAtISO?: string | null }[] }[];
+    usageRights?: string[];
+  }
 ): string[] {
   if (!missingFields?.length) return [];
+  const hasDeliverables =
+      options?.packages?.some((pkg) => (pkg.items?.length ?? 0) > 0) ?? false;
+  const hasUsageRights = (options?.usageRights?.length ?? 0) > 0;
+  const hasPostingSchedule =
+      options?.packages?.some((pkg) =>
+        (pkg.items ?? []).some((item) => !!item.dueAtText?.trim() || !!item.dueAtISO?.trim()),
+      ) ?? false;
   return missingFields.filter((field) => {
-    if (field === 'budget' && !isUnclearBudgetLabel(budgetLabel)) return false;
+    if (field === 'budget' && !isUnclearBudgetDisplay(budgetDisplay)) return false;
+    if (field === 'deliverables' && hasDeliverables) return false;
+    if (field === 'usageRights' && hasUsageRights) return false;
+    if (field === 'postingSchedule' && hasPostingSchedule) return false;
     return true;
   });
 }
@@ -298,17 +412,17 @@ export function isStaleBudgetUnclearRisk(label?: string | null): boolean {
 
 export function visibleRiskFlags(
   riskFlags: InboxRiskFlag[],
-  budgetLabel?: string | null
+  budgetDisplay?: string | null
 ): InboxRiskFlag[] {
-  if (!isUnclearBudgetLabel(budgetLabel)) {
+  if (!isUnclearBudgetDisplay(budgetDisplay)) {
     return riskFlags.filter((flag) => !isStaleBudgetUnclearRisk(flag.label));
   }
   return riskFlags;
 }
 
-export function visibleRiskLabel(riskLabel: string | undefined, budgetLabel?: string | null): string | undefined {
+export function visibleRiskLabel(riskLabel: string | undefined, budgetDisplay?: string | null): string | undefined {
   if (!riskLabel) return undefined;
-  if (isStaleBudgetUnclearRisk(riskLabel) && !isUnclearBudgetLabel(budgetLabel)) {
+  if (isStaleBudgetUnclearRisk(riskLabel) && !isUnclearBudgetDisplay(budgetDisplay)) {
     return undefined;
   }
   return riskLabel;
@@ -317,15 +431,16 @@ export function visibleRiskLabel(riskLabel: string | undefined, budgetLabel?: st
 export function localizedVisibleRiskLabel(
   t: TFunction,
   riskLabel: string | undefined,
-  budgetLabel?: string | null
+  budgetDisplay?: string | null
 ): string | undefined {
-  const visible = visibleRiskLabel(riskLabel, budgetLabel);
+  const visible = visibleRiskLabel(riskLabel, budgetDisplay);
   return visible ? translateRiskLabelText(t, visible) : undefined;
 }
 
 export function isGenericRecommendedAction(action: string): boolean {
   const trimmed = action.trim();
   if (!trimmed) return true;
+  if (RECOMMENDED_ACTION_KEYS[trimmed]) return true;
   const lower = trimmed.toLowerCase();
   return lower.includes('review extracted brief') || lower === 'review and reply';
 }
@@ -334,34 +449,6 @@ export function meaningfulRecommendedActions(actions: string[]): string[] {
   return actions.filter((action) => !isGenericRecommendedAction(action));
 }
 
-export function commercialAttentionFallback(
-  isCommercial: boolean,
-  briefComplete: boolean,
-  riskFlags: InboxRiskFlag[],
-  recommendedActions: string[],
-  attentionCount?: number
-): boolean {
-  if (attentionCount != null) {
-    return false;
-  }
-  if (!isCommercial || !briefComplete) {
-    return false;
-  }
-  return riskFlags.length === 0 && meaningfulRecommendedActions(recommendedActions).length === 0;
-}
-
-export function resolveAttentionCount(
-  attentionCount: number | undefined,
-  riskFlags: InboxRiskFlag[],
-  recommendedActions: string[],
-  showFallback = false
-): number {
-  if (attentionCount != null) {
-    return attentionCount;
-  }
-  const computed = riskFlags.length + meaningfulRecommendedActions(recommendedActions).length;
-  if (computed > 0) {
-    return computed;
-  }
-  return showFallback ? 1 : 0;
+export function resolveRiskCount(riskNotes?: string[]): number {
+  return (riskNotes ?? []).filter((note) => note?.trim()).length;
 }

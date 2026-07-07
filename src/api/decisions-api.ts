@@ -2,38 +2,8 @@ import { apiRequest } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { fetchMockDecisions } from '@/src/api/mock-decisions';
 import { asLeadValueBand, asInboxPriority, parseRiskFlags } from '@/src/api/opportunity-mappers';
+import type { DecisionActionView, DecisionCardView, TodayDecisionsResponse } from '@/src/types/api';
 import type { DecisionAction, DecisionCard, DecisionCategory } from '@/src/types/domain';
-
-type DecisionActionDto = {
-  id: string;
-  label: string;
-  style?: string | null;
-  href?: string | null;
-};
-
-type DecisionCardDto = {
-  id: string;
-  category: string;
-  entityName: string;
-  claimedBrandName?: string | null;
-  headline: string;
-  aiNote: string;
-  urgencyNote?: string | null;
-  interruptReason?: string | null;
-  amountLabel?: string | null;
-  sourceHint?: string | null;
-  sourceHref?: string | null;
-  /** @deprecated Prefer inboxPriority. Kept for legacy clients. */
-  leadValueBand?: string | null;
-  inboxPriority?: 'p0' | 'p1' | 'p2' | 'p3' | null;
-  contractRiskFlags?: unknown;
-  actions: DecisionActionDto[];
-};
-
-type TodayDecisionsResponse = {
-  items: DecisionCardDto[];
-  totalEstimatedMinutes: number;
-};
 
 const CATEGORIES: DecisionCategory[] = [
   'payout',
@@ -43,18 +13,19 @@ const CATEGORIES: DecisionCategory[] = [
   'verification',
 ];
 
-function asCategory(value: string): DecisionCategory {
-  return CATEGORIES.includes(value as DecisionCategory) ? (value as DecisionCategory) : 'approval';
+function asCategory(value: string | undefined): DecisionCategory {
+  return value && CATEGORIES.includes(value as DecisionCategory) ? (value as DecisionCategory) : 'approval';
 }
 
-function mapCard(dto: DecisionCardDto): DecisionCard {
+function mapCard(dto: DecisionCardView): DecisionCard {
   return {
-    id: dto.id,
+    id: dto.id ?? '',
+    estimatedMinutes: dto.estimatedMinutes ?? undefined,
     category: asCategory(dto.category),
-    entityName: dto.entityName,
+    entityName: dto.entityName ?? '',
     claimedBrandName: dto.claimedBrandName ?? undefined,
-    headline: dto.headline,
-    aiNote: dto.aiNote,
+    headline: dto.headline ?? '',
+    aiNote: dto.aiNote ?? '',
     urgencyNote: dto.urgencyNote ?? undefined,
     interruptReason: dto.interruptReason ?? undefined,
     amountLabel: dto.amountLabel ?? undefined,
@@ -64,12 +35,12 @@ function mapCard(dto: DecisionCardDto): DecisionCard {
     inboxPriority: asInboxPriority(dto.inboxPriority ?? undefined),
     contractRiskFlags: parseRiskFlags(dto.contractRiskFlags),
     actions: (dto.actions ?? []).map(
-      (a): DecisionAction => ({
-        id: a.id,
-        label: a.label,
+      (a: DecisionActionView): DecisionAction => ({
+        id: a.id ?? '',
+        label: a.label ?? '',
         style: (a.style as DecisionAction['style']) ?? 'ghost',
         href: a.href ?? undefined,
-      })
+      }),
     ),
   };
 }
@@ -80,12 +51,15 @@ export async function fetchTodayDecisions(): Promise<{
 }> {
   if (!shouldUseBackendApi()) {
     const cards = await fetchMockDecisions();
-    return { cards, totalEstimatedMinutes: cards.length * 10 };
+    return {
+      cards,
+      totalEstimatedMinutes: cards.reduce((sum, card) => sum + (card.estimatedMinutes ?? 0), 0),
+    };
   }
   const res = await apiRequest<TodayDecisionsResponse>('/api/v1/decisions/today');
   return {
-    cards: res.items.map(mapCard),
-    totalEstimatedMinutes: res.totalEstimatedMinutes,
+    cards: (res.items ?? []).map(mapCard),
+    totalEstimatedMinutes: res.totalEstimatedMinutes ?? 0,
   };
 }
 

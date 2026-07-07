@@ -1,5 +1,6 @@
 import {
   countInboxPriorities,
+  groupThreadsByInboxPriority,
   resolveDisplayInboxPriority,
 } from '@/src/lib/resolve-inbox-priority';
 import { isInboxPriorityUiEnabled } from '@/src/lib/inbox-priority-feature';
@@ -75,5 +76,27 @@ describe('countInboxPriorities', () => {
       thread({ id: '3', inboxPriority: 'p3', priorityScore: 10 }),
     ]);
     expect(counts).toEqual({ p0: 1, p1: 1, p2: 0 });
+  });
+});
+
+describe('groupThreadsByInboxPriority', () => {
+  it('sorts p1 threads by valueSortKey before attention score', () => {
+    const grouped = groupThreadsByInboxPriority([
+      thread({
+        id: 'low-margin',
+        inboxPriority: 'p1',
+        priorityScore: 90,
+        valueSortKey: 200,
+        updatedAtISO: '2026-06-23T12:00:00Z',
+      }),
+      thread({
+        id: 'high-margin',
+        inboxPriority: 'p1',
+        priorityScore: 70,
+        valueSortKey: 600,
+        updatedAtISO: '2026-06-23T10:00:00Z',
+      }),
+    ]);
+    expect(grouped.p1.map((item) => item.id)).toEqual(['high-margin', 'low-margin']);
   });
 });

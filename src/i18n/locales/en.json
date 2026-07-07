@@ -48,7 +48,24 @@
     "inboxFilter": "Inbox filter",
     "inboxSetup": "Inbox Setup",
     "pricingSetup": "Rate card setup",
-    "ready": "Ready"
+    "ready": "Ready",
+    "home": "About Bioby Creator",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "opportunityManual": "Add deal"
+  },
+  "legal": {
+    "languageToggle": "Language",
+    "languageToggleA11y": "Choose legal page language",
+    "language": {
+      "en": "English",
+      "zh": "中文"
+    },
+    "footerHome": "About",
+    "footerPrivacy": "Privacy Policy",
+    "footerTerms": "Terms of Service",
+    "footerSupport": "Support: {{email}}",
+    "lastUpdated": "Last updated: {{date}}"
   },
   "welcome": {
     "devSkip": "Skip (dev)",
@@ -306,6 +323,8 @@
     "auditTodaySummary": "{{count}} actions today",
     "aiHandledTitle": "Handled for you",
     "apiHandledSummary": "AI estimated ~{{minutes}} min of decisions today.",
+    "totalEstimatedMinutes": "Today's est. processing time: {{minutes}} min",
+    "estimatedMinutesShort": "Est. processing time: {{minutes}} min",
     "shortcuts": {
       "mail": "Inbox",
       "deals": "Deals",
@@ -686,6 +705,12 @@
       "usageSubtitle": "Organic vs paid use, territory, and duration",
       "scheduleSubtitle": "Go-live or delivery deadline"
     },
+    "briefLayout": {
+      "usagePrefix": "Rights · ",
+      "deadlinePrefix": "Timing · ",
+      "optionLabel": "Option {{label}}",
+      "optionFallback": "Option {{index}}"
+    },
     "contractWarning": {
       "title": "Contract warning",
       "subtitle": "Review usage rights, payment, and compliance terms before quoting or confirming.",
@@ -696,10 +721,36 @@
       "clearedCollapsed": "Tap to view checked items"
     },
     "attentionTitle": "Before you reply",
+    "riskNotesTitle": "Clause risks",
+    "systemHintsTitle": "System notes",
     "attentionSubtitle": "Review these before replying or quoting.",
     "attentionFallback": "Early collaboration — confirm deliverables, usage, timeline, and payment before committing.",
     "usageRightsTitle": "Usage rights",
     "postingScheduleTitle": "Posting schedule",
+    "deadlineCountdown": {
+      "title": "Deadline",
+      "subtitle": "Parsed from the thread — updates as time passes",
+      "hoursRemaining": "{{hours}} hours left",
+      "daysRemaining": "{{days}} days left",
+      "daysOverdue": "{{days}} day(s) overdue",
+      "lineWithCountdown": "{{kind}} · {{date}} ({{relative}})",
+      "lineDateOnly": "{{kind}} · {{date}}",
+      "itemScheduleWithCountdown": "{{kind}} {{date}} ({{relative}})",
+      "itemScheduleNoKindWithCountdown": "{{date}} ({{relative}})",
+      "itemScheduleDateOnly": "{{kind}} {{date}}",
+      "kinds": {
+        "reply_by": "Reply by",
+        "deliver_by": "Deliver by",
+        "post_by": "Post by",
+        "contract_review_by": "Contract review by",
+        "script_due": "Script due",
+        "go_live": "Go live",
+        "review_by": "Review by",
+        "other": "Due",
+        "unknown": "Deadline",
+        "fallback": "Deadline"
+      }
+    },
     "missingFieldsHint": "Still missing: {{fields}}",
     "signalsTitle": "Why it's commercial",
     "signalsSubtitle": "How the system classified this thread—not a reply checklist.",
@@ -868,7 +919,127 @@
       "reviewWhenFree": "Review when you have time"
     },
     "breakdownTitle": "Priority score breakdown",
-    "breakdownHint": "Tap to see score factors",
+    "breakdownHint": "Tap for a short explanation",
+    "rankingExplain": {
+      "button": "Why?",
+      "a11y": "See why this deal is ordered here in your inbox"
+    },
+    "explain": {
+      "title": "Why it's ranked here",
+      "subtitle": "Quote, brand fit, timeline, and risk combined",
+      "tier": {
+        "p0": "Handle today",
+        "p1": "High-value deal",
+        "p2": "Review later",
+        "p3": "Low priority",
+        "unknown": "Unranked"
+      },
+      "section": {
+        "urgency": "Urgency",
+        "value": "Quote",
+        "match": "Fit & risk",
+        "order": "Within this tier"
+      },
+      "urgency": {
+        "generic": "Time or reply pressure — needs attention first.",
+        "deadlineWithHint": "Email mentions \"{{hint}}\" — follow up soon.",
+        "deadlineWithHintAndHours": "Email mentions \"{{hint}}\" — {{hours}} hours left.",
+        "deadlineWithHintOverdue": "Email mentions \"{{hint}}\" — overdue by {{days}} day(s).",
+        "deadlineHours": "Deadline near — {{hours}} hours left.",
+        "deadlineOverdue": "Deadline passed {{days}} day(s) ago.",
+        "needsReply": "They're waiting for a reply (activity in the last {{hours}} hours)."
+      },
+      "value": {
+        "unknown": "No clear quote yet.",
+        "simple": "Quoted {{quote}}.",
+        "aboveTarget": "Quote {{quote}} — above target {{target}} (+{{delta}}).",
+        "atTarget": "Quote {{quote}} — meets target {{target}}.",
+        "inRange": "Quote {{quote}} — between floor {{floor}} and target {{target}}.",
+        "belowFloor": "Quote {{quote}} — below floor {{floor}} (−{{shortfall}}).",
+        "needsWork": "Quote {{quote}} — not strong enough for high value yet.",
+        "p3": "Non-commercial or archived — no quote evaluation."
+      },
+      "match": {
+        "unavailable": "Not enough fit signals — quote drives most of the ranking.",
+        "brand": {
+          "high": "Brand & content fit: strong",
+          "mid": "Brand & content fit: okay",
+          "low": "Brand & content fit: weak"
+        },
+        "timeline": {
+          "high": "Timeline: tight",
+          "mid": "Timeline: normal",
+          "low": "Timeline: relaxed"
+        },
+        "relationship": {
+          "high": "History: worked together before",
+          "mid": "History: some prior contact",
+          "low": "History: new brand"
+        },
+        "risk": {
+          "high": "Terms risk: worth a closer look",
+          "mid": "Terms risk: moderate",
+          "low": "Terms risk: low"
+        }
+      },
+      "order": {
+        "p0": "Urgent threads always rank above other deals.",
+        "p3": "Ranked below commercial deals.",
+        "byHeadroom": "Within this tier: headroom first ({{headroom}} here), then fit & risk.",
+        "byShortfall": "Within this tier: shortfall vs floor first (−{{shortfall}} here), then fit & risk.",
+        "even": "Within this tier: even with floor — fit & risk break ties.",
+        "fallback": "Without a clear quote, ranked behind deals with known budgets in the same tier."
+      },
+      "package": {
+        "unnamed": "Unnamed option",
+        "best": "Multiple options — ranking uses \"{{deliverable}}\" ({{quote}}) for most headroom.",
+        "bestUnnamed": "Multiple options — ranking uses \"{{deliverable}}\" for most headroom."
+      },
+      "footnoteDefaultFloor": "Some deliverables weren't on your rate card — default floor used.",
+      "footnoteNoRateCard": "No rate card yet — default floor used."
+    },
+    "plain": {
+      "title": "How inbox ranking works",
+      "subtitle": "Tier rules, quote comparison, and order within tier",
+      "sectionTier": "① Why this tier",
+      "sectionQuote": "② How the quote was scored",
+      "sectionOrder": "③ Order within this tier",
+      "sectionFactors": "④ Data you can verify",
+      "tier": {
+        "p0": "P0 · Handle today",
+        "p1": "P1 · High value",
+        "p2": "P2 · Review later",
+        "p3": "P3 · Low priority",
+        "unknown": "Unranked"
+      },
+      "reason": {
+        "p0": "P0 triggers: deadline within 48h, contract risk, or they're waiting for a recent reply. Quote size doesn't matter — P0 sits at the top.",
+        "p1": "The quote meets or exceeds your rate-card target, so this is P1 (high value) and ranks ahead of P2/P3.",
+        "p2": "The quote falls in your floor–target range, or details aren't strong enough for high value yet — P2 (review later).",
+        "p2Negotiate": "Quote is below floor, budget is unclear, or deliverables don't fully match your rate card — ranks behind deals with clearer high quotes.",
+        "p3": "Non-commercial, marketing, or unrelated mail — P3 (low priority).",
+        "default": "Tier is set from thread content, your rate-card range, and urgency signals."
+      },
+      "quoteOnly": "They quoted about {{quote}}.",
+      "quoteWithFloor": "They quoted about {{quote}}; your combined floor is about {{floor}}, {{marginPhrase}}.",
+      "quoteNeedsWork": "The quote isn't clear enough yet, or doesn't meet your high-value line.",
+      "marginAbove": "about {{amount}} above your floor",
+      "marginBelow": "about {{amount}} below your floor",
+      "marginEven": "roughly at your floor",
+      "order": {
+        "p0": "P0 always ranks above P1–P3; within P0, recent activity breaks ties.",
+        "marginPositive": "Primary sort within tier: headroom (quote − combined floor) — more headroom ranks higher.",
+        "marginNegative": "Primary sort within tier: shortfall below floor — smaller gap ranks higher.",
+        "marginUnknown": "Without a clear quote, headroom can't be computed — ranks behind deals with known budgets.",
+        "brandStrong": "Secondary sort: strong brand fit (≥70) ranks slightly higher.",
+        "brandWeak": "Secondary sort: weak brand/format fit (<50) ranks slightly lower.",
+        "timelineTight": "Secondary sort: tight timeline (≥70) ranks slightly higher.",
+        "relationship": "Secondary sort: prior brand relationship ranks slightly higher.",
+        "risk": "Secondary sort: higher contract/collab risk (≥50) ranks slightly lower."
+      },
+      "footnoteDefaultFloor": "Some deliverables weren't on your rate card; we used the default floor. Update your rate card for a tighter estimate.",
+      "footnoteNoRateCard": "No rate card yet — floor uses the system default. Add your rates for accurate sorting."
+    },
     "breakdown": {
       "brandFit": "Brand fit",
       "budgetValue": "Budget value",
@@ -876,6 +1047,114 @@
       "relationshipValue": "Relationship",
       "effort": "Effort",
       "risk": "Risk"
+    },
+    "breakdownV3": {
+      "title": "Ranking & score breakdown",
+      "attentionScore": "Attention score {{score}}",
+      "legacyScore": "Combined score {{score}}",
+      "dealValueSection": "Deal value (P-tier & inbox order)",
+      "dealValueHint": "Under v3 rules, headroom vs your combined floor drives value band and list order — not the bars below.",
+      "attentionSection": "Attention factors (order within tier)",
+      "attentionHint": "Brand, timeline, relationship, and risk — budget is excluded.",
+      "legacySection": "Factor scores",
+      "quote": "Quote",
+      "floor": "Combined floor",
+      "margin": "Headroom",
+      "sortKey": "Sort headroom",
+      "bandHighValue": "Value band: high value",
+      "bandNeedsNegotiation": "Value band: needs negotiation",
+      "defaultFloorHint": "Some deliverables used the default floor — update your rate card for a tighter estimate.",
+      "noRateCardHint": "No rate card yet — floor uses the system default threshold."
+    },
+    "assessment": {
+      "title": "Inbox ranking",
+      "valueFollowUpLabel": "About the quote",
+      "summary": {
+        "highValueAboveTarget": "They quoted {{quoteDisplay}}, above your target rate of {{targetDisplay}} ({{unitCount}} deliverable(s)). This meets your high-value bar and sits near the top of your inbox.",
+        "highValueInRange": "They quoted {{quoteDisplay}}, which meets your target rate of {{targetDisplay}}. By your rate card, this is worth prioritizing.",
+        "inRange": "They quoted {{quoteDisplay}}, within your {{floorDisplay}}–{{targetDisplay}} range ({{unitCount}} deliverable(s)). Fine to explore, but deals with stronger quotes rank ahead.",
+        "belowFloor": "They quoted {{quoteDisplay}}, below your floor of {{floorDisplay}}. Consider countering or clarifying scope before committing.",
+        "budgetUnknown": "No clear quote in the email yet. Ranked behind deals with known budgets — ask for budget first.",
+        "noRateCard": "You haven't set a rate card yet, so we're estimating from {{floorDisplay}}. Add your rates for more accurate sorting.",
+        "rateCardKeyMiss": "Some deliverables didn't match your rate card; unmatched items use the default floor of {{defaultFloorDisplay}} each. Update your rate card for a tighter estimate.",
+        "multiDeliverable": "Quote {{quoteDisplay}} covers {{unitCount}} deliverable(s); expected floor about {{floorDisplay}} combined.",
+        "multiplePackagesLead": "{{packageCount}} quote options. Inbox ranking uses the option with the most headroom vs your combined floor ({{bestOptionQuoteDisplay}} · {{bestDeliverable}}, {{bestUnitCount}} deliverable(s), {{bestQuoteDisplay}}, {{bestMarginMagnitudeDisplay}} headroom). Each option:",
+        "multiplePackagesLeadBelow": "{{packageCount}} quote options. All are below your combined floor; ranking uses the smallest shortfall ({{bestOptionQuoteDisplay}} · {{bestDeliverable}}, {{bestUnitCount}} deliverable(s), {{bestQuoteDisplay}}, {{bestMarginMagnitudeDisplay}} below floor). Each option:",
+        "multiplePackagesLeadEven": "{{packageCount}} quote options. Ranking uses the option closest to your combined floor ({{bestOptionQuoteDisplay}} · {{bestDeliverable}}, {{bestUnitCount}} deliverable(s), {{bestQuoteDisplay}}). Each option:",
+        "packageOption": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor, {{marginMagnitudeDisplay}} headroom.",
+        "packageOptionDefault": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor ({{unmatchedCount}} not on rate card — {{defaultFloorDisplay}}/item default), {{marginMagnitudeDisplay}} headroom.",
+        "packageOptionRanking": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor, {{marginMagnitudeDisplay}} headroom — used for inbox ranking.",
+        "packageOptionRankingDefault": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor ({{unmatchedCount}} not on rate card — {{defaultFloorDisplay}}/item default), {{marginMagnitudeDisplay}} headroom — used for inbox ranking.",
+        "packageOptionBelow": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor, {{marginMagnitudeDisplay}} below floor.",
+        "packageOptionBelowDefault": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor ({{unmatchedCount}} not on rate card — {{defaultFloorDisplay}}/item default), {{marginMagnitudeDisplay}} below floor.",
+        "packageOptionRankingBelow": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor, {{marginMagnitudeDisplay}} below floor — used for inbox ranking.",
+        "packageOptionRankingBelowDefault": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor ({{unmatchedCount}} not on rate card — {{defaultFloorDisplay}}/item default), {{marginMagnitudeDisplay}} below floor — used for inbox ranking.",
+        "packageOptionEven": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor, matches your floor.",
+        "packageOptionEvenDefault": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor ({{unmatchedCount}} not on rate card — {{defaultFloorDisplay}}/item default), matches your floor.",
+        "packageOptionRankingEven": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor, matches your floor — used for inbox ranking.",
+        "packageOptionRankingEvenDefault": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): {{quoteDisplay}} quote, {{floorDisplay}} combined floor ({{unmatchedCount}} not on rate card — {{defaultFloorDisplay}}/item default), matches your floor — used for inbox ranking.",
+        "packageQuoteUnknown": "{{optionQuoteDisplay}} · {{deliverable}} ({{unitCount}} deliverable(s)): quote unclear — can't estimate yet."
+      },
+      "body": {
+        "marginAboveTarget": "Quote {{quoteDisplay}} is {{targetMarginMagnitudeDisplay}} above your target of {{targetDisplay}}.",
+        "marginInRange": "Quote {{quoteDisplay}} sits between your floor {{floorDisplay}} and target {{targetDisplay}}, with {{marginMagnitudeDisplay}} headroom vs the floor.",
+        "marginBelowFloor": "Quote {{quoteDisplay}} is {{marginMagnitudeDisplay}} below your floor of {{floorDisplay}}.",
+        "multiDeliverable": "{{unitCount}} deliverable(s); your combined floor is about {{floorDisplay}} (~{{perUnitFloorDisplay}} each).",
+        "multiplePackages": "Pick one package before you reply. Ranking uses whichever option has the most headroom vs your combined floor.",
+        "attentionStrong": "Brand, timeline, and relationship are a strong match — this ranks slightly higher among similar deals.",
+        "attentionModerate": "Brand and timeline are an okay match; within this group, quote size matters most.",
+        "attentionWeak": "Brand or timeline is a weaker match — check better-fit deals first.",
+        "attentionP0": "Because of {{urgencyReason}}, handle this today — quote size doesn't change that.",
+        "queueP1ByMargin": "Within this tier, deals sort by headroom vs your floor ({{floorDisplay}}). This one has {{marginMagnitudeDisplay}} headroom — more ranks higher.",
+        "queueP2InRange": "Among \"review when you can\" deals, stronger quotes rank first.",
+        "queueP2HighValueLowAttention": "(Legacy rule) Good quote, but other signals were weaker."
+      },
+      "section": {
+        "value": "About the quote",
+        "attention": "Other factors",
+        "queue": "Where it sits in your inbox"
+      },
+      "headline": {
+        "p0": "Handle today",
+        "p0Deadline": "Time-sensitive",
+        "p0Reply": "They're waiting for you",
+        "p0Contract": "Review contract today",
+        "p1": "High-value deal",
+        "p1MultiplePackages": "High-value · multiple options",
+        "p2": "Review when you can",
+        "p2Clarify": "Clarify budget first",
+        "p3": "Archived"
+      },
+      "factor": {
+        "quote": "Brand quote",
+        "floor": "Expected floor",
+        "target": "Target price",
+        "margin": "Headroom vs floor",
+        "units": "Deliverable count",
+        "band": "Value band",
+        "priority": "Priority tier",
+        "attention": "Attention score",
+        "brandFit": "Brand fit"
+      },
+      "urgencyReason": {
+        "deadline": "an approaching deadline",
+        "needsReply": "they're waiting for your reply"
+      },
+      "urgency": {
+        "deadline": "This thread has a tight timeline — follow up within about 48 hours. That's why it's at the top today, regardless of quote size.",
+        "deadlineWithHint": "They mentioned \"{{deadlineHint}}\" — the timeline is tight, so this sits at the top today regardless of quote size.",
+        "deadlineWithRemaining": "The deadline is approaching ({{hoursRemaining}} hours left), so this sits at the top today regardless of quote size.",
+        "deadlineWithHintAndRemaining": "They mentioned \"{{deadlineHint}}\" — {{hoursRemaining}} hours left to follow up, so this sits at the top today regardless of quote size.",
+        "deadlineOverdue": "The deadline passed {{daysOverdue}} day(s) ago and still needs action, so this sits at the top today.",
+        "deadlineWithHintOverdue": "They mentioned \"{{deadlineHint}}\" — overdue by {{daysOverdue}} day(s), so this sits at the top today.",
+        "contractDeadlineWithRemaining": "The contract or brief has a deadline ({{hoursRemaining}} hours left) and terms that need your review. Read it today before replying.",
+        "contractDeadlineWithHintAndRemaining": "The contract or brief mentions \"{{deadlineHint}}\" with {{hoursRemaining}} hours left, plus terms that need your review. Read it today before replying.",
+        "contractDeadlineOverdue": "The contract or brief deadline passed {{daysOverdue}} day(s) ago and terms still need your review. Read it today before replying.",
+        "contractDeadlineWithHintOverdue": "The contract or brief mentions \"{{deadlineHint}}\" — overdue by {{daysOverdue}} day(s) — and terms still need your review. Read it today before replying.",
+        "needsReply": "They're waiting for your reply, with activity in the last {{hoursAgo}} hours. Handle this today first.",
+        "contractDeadline": "The contract or brief has both a tight timeline and clauses worth reviewing. Read it today before replying.",
+        "generic": "This thread has urgent timing or reply expectations, so it's at the top of your inbox today."
+      }
     }
   },
   "creatorVerification": {
@@ -917,6 +1196,9 @@
     "rateCardMissingTitle": "Set a rate card to unlock high-value sorting",
     "rateCardMissingBody": "Without floor rates, deals stay in the follow-up band until you add pricing.",
     "rateCardMissingCta": "Set rates",
+    "manualEntryBannerTitle": "Add a deal from social DMs",
+    "manualEntryBannerBody": "Track brand partnerships from TikTok, YouTube, Instagram, and other platforms—without waiting for email.",
+    "manualEntryBannerCta": "Add deal",
     "aiRulesBannerTitle": "Rule-based processing active",
     "aiRulesBannerBody": {
       "both": "LLM is not configured or unavailable. Classification and briefs use keyword rules, so results may be less accurate than AI.",
@@ -960,11 +1242,13 @@
     "mailboxLastSync": "Last sync · {{time}}",
     "mailboxNeverSynced": "Not synced yet",
     "syncingInline": "Syncing. AI is classifying new mail…",
+    "syncingInlineMailbox": "Syncing mailbox…",
     "syncNowA11y": "Sync mailbox now",
     "syncMailboxCta": "Sync inbox",
     "syncMailboxCtaBusy": "Syncing…",
     "syncLookbackLabel": "Sync range",
     "syncLookback": {
+      "INCREMENTAL": "New only",
       "ONE_WEEK": "1 week",
       "ONE_MONTH": "1 month",
       "THREE_MONTHS": "3 months",
@@ -1917,7 +2201,11 @@
     "deliverablesMore": "+{{count}} more",
     "ctaAddPackage": "Add package",
     "ctaAddPackageHint": "Create one package, then return to the list after saving",
-    "ctaEditPackage": "Edit package"
+    "ctaEditPackage": "Edit package",
+    "dragHandleA11y": "Hold to reorder {{name}}",
+    "reorderSavingA11y": "Saving package order",
+    "reorderFailedTitle": "Couldn't save order",
+    "reorderFailedBody": "We couldn't save the new package order. Please try again."
   },
   "pricingEditScreen": {
     "loadingA11y": "Loading rate card editor",
@@ -2054,6 +2342,10 @@
     "mediaKitCardTitle": "Media kit",
     "mediaKitCardHint": "Profile and wins.",
     "lineItemsTitle": "Line items",
+    "lineItemsSubtitle": "{{count}} items · price and deliverables",
+    "skuPlatformPackage": "Package",
+    "skuPlatformAddon": "Add-on",
+    "skuQuotedSeparately": "Quoted separately",
     "moneyTermsTitle": "Terms that affect money and rights",
     "moneyTermsSubtitle": "Check price, rights, delivery promises.",
     "reviewRights": "Usage rights",
@@ -2073,7 +2365,26 @@
     "creatorSnapshotTitle": "Creator snapshot",
     "creatorSnapshotSubtitle": "Shared from your Media Kit",
     "creatorSnapshotCta": "Open Media Kit",
-    "creatorSnapshotCtaHint": "Edit profile, platforms, and case studies"
+    "creatorSnapshotCtaHint": "Edit profile, platforms, and case studies",
+    "draftTitle": "Review proposal draft",
+    "draftEditHint": "Draft is editable · Saving locks it as your proposal",
+    "moneyTermsDraftSubtitle": "Check price, rights, and delivery (editable)",
+    "badgeDraft": "Draft",
+    "badgeAiDraft": "AI draft",
+    "badgeRulesDraft": "Template draft",
+    "metaBrandPrefix": "Brand:",
+    "fieldTitle": "Proposal title",
+    "fieldSummary": "Executive summary",
+    "ctaSaveDraft": "Save proposal",
+    "ctaSaveDraftSubtitle": "Confirm edits before sharing with the brand",
+    "ctaShareBlockedSubtitle": "Save the draft before sharing",
+    "saveBeforeShareTitle": "Save first",
+    "saveBeforeShareDesc": "Review and save your proposal draft before sharing it with the brand.",
+    "saveSuccessTitle": "Proposal saved",
+    "saveSuccessDesc": "Your edits are saved. You can share when ready.",
+    "saveFailedTitle": "Couldn't save",
+    "saveFailedDesc": "Please try again.",
+    "savingA11y": "Saving…"
   },
   "mediaKitFormats": {
     "image_post": "Image post",
@@ -2690,7 +3001,8 @@
     "consentTitle": "AI settings not saved",
     "mailboxTitle": "Inbox not synced",
     "mailboxSuccessTitle": "Inbox connected",
-    "mailboxWorking": "Syncing mailbox...",
+    "mailboxWorking": "Connecting mailbox...",
+    "mailboxConnectEnqueued": "Mailbox connected. Recent mail is syncing in the background.",
     "mailboxBackendBypassed": "Backend API is off, so sync was skipped.",
     "mailboxUpToDate": "Mailbox is already up to date.",
     "mailboxSyncDoneEmpty": "Connection saved, but no new messages were found.",
@@ -2772,6 +3084,7 @@
     "modeReviewSubtitle": "You approve every send.",
     "boundaryTitle": "Anything touching money or rights always needs you",
     "boundaryBody": "Quotes, rights, payouts, exclusivity, and disputes stay manual.",
+    "legalLead": "Read our",
     "continueEmail": "Continue to inbox filter"
   },
   "onboardingInboxFilterScreen": {
@@ -2871,6 +3184,7 @@
     "pendingInviteBannerTitle": "{{count}} workspace invite(s)",
     "pendingInviteBannerLead": "Tap to review and accept.",
     "prefsHeading": "Preferences",
+    "legalHeading": "Legal",
     "summaries": {
       "teamRoles": "{{count}} roles",
       "dataHub": "Export hub",
@@ -2906,6 +3220,25 @@
       "confirm": "Run setup",
       "errorTitle": "Couldn't restart setup",
       "errorBody": "We couldn't reset your workspace on the server. Please try again."
+    },
+    "onboardingDashboard": {
+      "title": "Setup progress",
+      "summary": "{{completed}} of {{total}} complete",
+      "completed": "Done",
+      "steps": {
+        "profile": {
+          "title": "Creator profile",
+          "action": "Complete your profile"
+        },
+        "email": {
+          "title": "Deal inbox",
+          "action": "Connect your inbox"
+        },
+        "verification": {
+          "title": "Identity verification",
+          "action": "Verify your identity"
+        }
+      }
     }
   },
   "replyStyleScreen": {
@@ -2949,6 +3282,36 @@
     "saveFailedTitle": "Couldn't save template",
     "saveFailedBody": "Please try again."
   },
+  "opportunityManualScreen": {
+    "eyebrow": "Inbox",
+    "title": "Add deal",
+    "lead": "Log brand partnerships from TikTok, YouTube, Instagram, and other social DMs.",
+    "backendRequired": "Manual entry requires a connected backend API.",
+    "basicSectionTitle": "Basics",
+    "brandNameLabel": "Brand name *",
+    "brandNamePlaceholder": "e.g. Acme Beauty",
+    "platformLabel": "Platform *",
+    "platform": {
+      "tiktok": "TikTok",
+      "youtube": "YouTube",
+      "instagram": "Instagram",
+      "other": "Other"
+    },
+    "budgetSectionTitle": "Budget (optional)",
+    "budgetAmountLabel": "Amount",
+    "budgetAmountPlaceholder": "2500",
+    "budgetLabelFieldLabel": "Or free text",
+    "budgetLabelPlaceholder": "e.g. $2,500",
+    "deliverablesSectionTitle": "Deliverables & notes (optional)",
+    "deliverableLabel": "Deliverable",
+    "deliverablePlaceholder": "e.g. 1 TikTok short video",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Context, timeline, or other details",
+    "saveCta": "Save & view",
+    "saveFailedTitle": "Couldn't add deal",
+    "saveFailedBody": "Please try again later.",
+    "cancel": "Cancel"
+  },
   "replyTemplateBodyEditor": {
     "tagsLead": "Cooperation info",
     "helpTitle": "Cooperation info",
@@ -2964,7 +3327,7 @@
     "brandName": "Brand",
     "cooperationTitle": "Cooperation title",
     "creatorName": "Sign-off name",
-    "budgetLabel": "Budget range",
+    "budgetDisplay": "Budget range",
     "deliverables": "Deliverables",
     "postingSchedule": "Posting schedule",
     "usageRights": "Usage rights",
@@ -2991,8 +3354,12 @@
   },
   "replyDraftGenerator": {
     "title": "AI generate reply",
-    "lead": "Combines this opportunity, your rate card, and email purpose into a draft you can edit before send.",
-    "purposeLabel": "Email purpose",
+    "lead": "Combines this opportunity, your rate card, and email scenario into a draft you can edit before send.",
+    "scenarioLabel": "Email scenario",
+    "scenariosMore": "More scenarios",
+    "scenariosLess": "Show less",
+    "scenariosMoreA11y": "Show more email scenarios",
+    "scenariosLessA11y": "Hide more email scenarios",
     "rateCardLabel": "Rate card package",
     "noRateCard": "Add a rate card package under Pricing for sharper quotes.",
     "generateCta": "Generate draft",
@@ -3018,12 +3385,43 @@
       "highlights": "Highlights"
     },
     "subjectLabel": "Suggested subject",
-    "purpose": {
-      "pre_outreach": "Pre-outreach",
-      "quote_follow_up": "Quote follow-up",
-      "clarify_scope": "Clarify scope",
+    "scenario": {
+      "pre_outreach": "First reply",
+      "clarify_brief": "Clarify brief",
+      "quote_follow_up": "Share / follow up quote",
       "counter_offer": "Counter offer",
-      "ack_and_schedule": "Confirm & schedule"
+      "ack_and_schedule": "Confirm & schedule",
+      "confirm_terms": "Confirm terms",
+      "request_extension": "Request extension",
+      "request_product": "Request product",
+      "share_for_review": "Submit for review",
+      "request_changes": "Respond to revisions",
+      "follow_up_no_reply": "Follow up (no reply)",
+      "polite_decline": "Polite decline",
+      "clarify_scope": "Clarify brief",
+      "clarify_usage_rights": "Clarify brief",
+      "request_written_approval": "Confirm terms",
+      "confirm_payment_terms": "Confirm terms",
+      "confirm_deliverables": "Confirm terms"
+    },
+    "purpose": {
+      "pre_outreach": "First reply",
+      "clarify_brief": "Clarify brief",
+      "quote_follow_up": "Share / follow up quote",
+      "counter_offer": "Counter offer",
+      "ack_and_schedule": "Confirm & schedule",
+      "confirm_terms": "Confirm terms",
+      "request_extension": "Request extension",
+      "request_product": "Request product",
+      "share_for_review": "Submit for review",
+      "request_changes": "Respond to revisions",
+      "follow_up_no_reply": "Follow up (no reply)",
+      "polite_decline": "Polite decline",
+      "clarify_scope": "Clarify brief",
+      "clarify_usage_rights": "Clarify brief",
+      "request_written_approval": "Confirm terms",
+      "confirm_payment_terms": "Confirm terms",
+      "confirm_deliverables": "Confirm terms"
     }
   },
   "tagInput": {
@@ -3110,6 +3508,8 @@
     "recordsHeading": "Financial records",
     "footer": "Payments and disputes open in their own screens.",
     "rows": {
+      "pipelineTitle": "Pipeline CSV",
+      "pipelineSubtitle": "Brand, stage, budget, and core fields",
       "workspaceTitle": "Workspace snapshot",
       "workspaceSubtitle": "Deals, drafts, profile (JSON)",
       "inboxTitle": "Inbox threads",
@@ -3126,6 +3526,10 @@
     "inboxAlert": {
       "title": "Export queued",
       "message": "Summaries only—not full mailbox. (Demo)"
+    },
+    "pipelineExport": {
+      "failedTitle": "Export failed",
+      "failedMessage": "Could not download the pipeline CSV. Check your connection and try again."
     }
   }
 }

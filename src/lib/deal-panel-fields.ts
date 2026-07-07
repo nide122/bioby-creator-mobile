@@ -36,7 +36,7 @@ export function buildDealPanelTermLines(
   thread: InboxThreadDetail | undefined,
 ): DealPanelTermLine[] {
   const lines: DealPanelTermLine[] = [];
-  const budget = thread?.budgetLabel ?? deal.recommendPayoutNote;
+  const budget = thread?.budgetDisplay ?? deal.recommendPayoutNote;
   if (budget?.trim()) {
     lines.push({ id: 'budget', label: 'budget', value: budget.trim() });
   }

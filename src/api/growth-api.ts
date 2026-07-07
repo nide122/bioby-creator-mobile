@@ -1,6 +1,7 @@
 import { apiRequest, ApiError } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
-import { mapRateCardDto, toRateCardUpsertRequest, type RateCardPackageDto } from '@/src/api/growth-mappers';
+import { mapRateCardDto, toRateCardUpsertRequest } from '@/src/api/growth-mappers';
+import type { RateCardPackageView } from '@/src/types/api';
 import { mapMediaKitDocument, mapMediaKitDto, mapProposalPreview, mapPublicMediaKitPayload } from '@/src/api/media-kit-mappers';
 import { fetchPublicProofCatalog } from '@/src/api/trust-api';
 import { parseContactSlug } from '@/src/lib/media-kit-contact-url';
@@ -12,6 +13,8 @@ import {
   fetchMockMediaKitPreview,
   fetchMockProposalPreview,
   fetchMockRateCardPackages,
+  createMockProposal,
+  saveMockProposal,
   upsertMockRateCardPackages,
   importMockBattleReportToMediaKit,
   upsertMockMediaKitDocument,
@@ -23,6 +26,7 @@ import type {
   ProposalPreview,
   RateCardPackage,
 } from '@/src/types/domain';
+import type { ProposalCreateInput } from '@/src/lib/proposal-from-package';
 
 export type PublicMediaKitPayload = {
   preview: MediaKitPreview;
@@ -33,7 +37,7 @@ export async function fetchRateCardPackages(): Promise<RateCardPackage[]> {
   if (!shouldUseBackendApi()) {
     return fetchMockRateCardPackages();
   }
-  const items = await apiRequest<RateCardPackageDto[]>('/api/v1/rate-cards');
+  const items = await apiRequest<RateCardPackageView[]>('/api/v1/rate-cards');
   return items.map(mapRateCardDto);
 }
 
@@ -41,7 +45,7 @@ export async function upsertRateCardPackages(packages: RateCardPackage[]): Promi
   if (!shouldUseBackendApi()) {
     return upsertMockRateCardPackages(packages);
   }
-  const items = await apiRequest<RateCardPackageDto[]>('/api/v1/rate-cards', {
+  const items = await apiRequest<RateCardPackageView[]>('/api/v1/rate-cards', {
     method: 'PUT',
     body: toRateCardUpsertRequest(packages),
   });
@@ -52,11 +56,36 @@ export async function fetchProposalPreview(proposalId: string): Promise<Proposal
   if (!shouldUseBackendApi()) {
     return fetchMockProposalPreview(proposalId);
   }
-  const dto = await apiRequest<unknown>(`/api/v1/proposals/${proposalId}`);
+  const dto = await apiRequest<unknown>(`/api/v1/proposals/${encodeURIComponent(proposalId)}`);
   const proposal = mapProposalPreview(dto);
   if (proposal.creatorSnapshot) return proposal;
   const mediaKitPreview = await fetchMediaKitPreview();
   return { ...proposal, creatorSnapshot: toCreatorPublicSnapshot(mediaKitPreview) };
+}
+
+export async function createProposal(input: ProposalCreateInput): Promise<ProposalPreview> {
+  if (!shouldUseBackendApi()) {
+    return createMockProposal(input);
+  }
+  const dto = await apiRequest<unknown>('/api/v1/proposals', {
+    method: 'POST',
+    body: input,
+  });
+  return mapProposalPreview(dto);
+}
+
+export async function saveProposal(proposal: ProposalPreview): Promise<ProposalPreview> {
+  if (!shouldUseBackendApi()) {
+    return saveMockProposal(proposal);
+  }
+  const dto = await apiRequest<unknown>(`/api/v1/proposals/${encodeURIComponent(proposal.id)}`, {
+    method: 'PUT',
+    body: { document: proposal },
+  });
+  const saved = mapProposalPreview(dto);
+  if (saved.creatorSnapshot) return saved;
+  const mediaKitPreview = await fetchMediaKitPreview();
+  return { ...saved, creatorSnapshot: toCreatorPublicSnapshot(mediaKitPreview) };
 }
 
 export async function fetchMediaKitDocument(): Promise<MediaKitDocument> {

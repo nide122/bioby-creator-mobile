@@ -1,5 +1,6 @@
 import { type Href, useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { SettingsGroup, SettingsRow } from '@/components/product';
@@ -7,12 +8,14 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, spacing } from '@/constants/tokens';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { alertAction } from '@/src/lib/app-dialog';
+import { exportAndSharePipelineCsv } from '@/src/lib/pipeline-export';
 
 export default function DataExportSettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const [exportingPipeline, setExportingPipeline] = useState(false);
 
   const exportWorkspace = () => {
     void alertAction(t('dataExportScreen.workspaceAlert.title'), t('dataExportScreen.workspaceAlert.message'));
@@ -20,6 +23,21 @@ export default function DataExportSettingsScreen() {
 
   const exportInbox = () => {
     void alertAction(t('dataExportScreen.inboxAlert.title'), t('dataExportScreen.inboxAlert.message'));
+  };
+
+  const exportPipeline = async () => {
+    if (exportingPipeline) return;
+    setExportingPipeline(true);
+    try {
+      await exportAndSharePipelineCsv();
+    } catch {
+      void alertAction(
+        t('dataExportScreen.pipelineExport.failedTitle'),
+        t('dataExportScreen.pipelineExport.failedMessage'),
+      );
+    } finally {
+      setExportingPipeline(false);
+    }
   };
 
   return (
@@ -31,6 +49,13 @@ export default function DataExportSettingsScreen() {
       <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('dataExportScreen.lead')}</Text>
 
       <SettingsGroup title={t('dataExportScreen.exportHeading')}>
+        <ExportRow
+          title={t('dataExportScreen.rows.pipelineTitle')}
+          subtitle={t('dataExportScreen.rows.pipelineSubtitle')}
+          onPress={() => void exportPipeline()}
+          testID="data-export-pipeline"
+          loading={exportingPipeline}
+        />
         <ExportRow
           title={t('dataExportScreen.rows.workspaceTitle')}
           subtitle={t('dataExportScreen.rows.workspaceSubtitle')}
@@ -72,22 +97,28 @@ function ExportRow({
   subtitle,
   onPress,
   testID,
+  loading = false,
 }: {
   title: string;
   subtitle: string;
   onPress: () => void;
   testID?: string;
+  loading?: boolean;
 }) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
   return (
-    <SettingsRow testID={testID} onPress={onPress}>
+    <SettingsRow testID={testID} onPress={loading ? undefined : onPress}>
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, { color: theme.foreground }]}>{title}</Text>
         <Text style={[styles.rowSubtitle, { color: theme.mutedForeground }]}>{subtitle}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={theme.foregroundEyebrow} />
+      {loading ? (
+        <ActivityIndicator size="small" color={theme.foregroundEyebrow} />
+      ) : (
+        <Ionicons name="chevron-forward" size={16} color={theme.foregroundEyebrow} />
+      )}
     </SettingsRow>
   );
 }

@@ -25,7 +25,7 @@ describe('contract-warning', () => {
       { id: 'crf-exclusive', label: 'Exclusive clause', severity: 'warning' },
     ];
     const { contractRisks, attentionFlags } = partitionRiskFlags(flags, {
-      budgetLabel: '$4,000',
+      budgetDisplay: '$4,000',
     });
     expect(contractRisks.map((flag) => flag.id)).toEqual(['rf-broad_usage', 'crf-exclusive']);
     expect(attentionFlags.map((flag) => flag.id)).toEqual(['rf-early_collab_review']);

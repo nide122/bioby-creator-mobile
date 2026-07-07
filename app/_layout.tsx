@@ -1,7 +1,9 @@
+import 'react-native-gesture-handler';
 import '@/src/auth/complete-oauth-session';
 import '@/src/i18n';
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
@@ -16,6 +18,8 @@ import { AuthSessionSync } from '@/components/AuthSessionSync';
 import { DevTestSeed } from '@/components/DevTestSeed';
 import { LanguagePreferenceSync } from '@/components/LanguagePreferenceSync';
 import { NavigationBootstrap } from '@/components/NavigationBootstrap';
+import { PushNotificationHandler } from '@/src/push/push-notification-handler';
+import { PushRegistrationSync } from '@/src/push/push-registration-sync';
 import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
 import { queryClient } from '@/src/lib/query-client';
@@ -27,8 +31,8 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  /** Start in auth to avoid a blank tab flash. */
-  initialRouteName: '(auth)',
+  /** Public OAuth-compliant landing; auth forms live at /login and /register. */
+  initialRouteName: 'home',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -66,10 +70,11 @@ function RootLayoutNav() {
   const theme = palette[colorScheme];
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AppDialogHost>
-        <Stack screenOptions={stackHeaderOptions(theme, t)}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <AppDialogHost>
+          <Stack screenOptions={stackHeaderOptions(theme, t)}>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -90,13 +95,20 @@ function RootLayoutNav() {
           <Stack.Screen name="c" options={{ headerShown: false }} />
           <Stack.Screen name="trust-passport" options={{ title: t('stacks.trustPassport') }} />
           <Stack.Screen name="team" options={{ headerShown: false }} />
+          <Stack.Screen name="home" options={{ headerShown: false }} />
+          <Stack.Screen name="privacy" options={{ title: t('stacks.privacy') }} />
+          <Stack.Screen name="terms" options={{ title: t('stacks.terms') }} />
+          <Stack.Screen name="opportunity-manual" options={{ title: t('stacks.opportunityManual') }} />
         </Stack>
         <LanguagePreferenceSync />
         <AuthSessionSync />
+        <PushRegistrationSync />
+        <PushNotificationHandler />
         <DevTestSeed />
         <NavigationBootstrap />
-        </AppDialogHost>
-      </ThemeProvider>
-    </QueryClientProvider>
+          </AppDialogHost>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

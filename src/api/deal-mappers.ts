@@ -1,3 +1,4 @@
+import type { DealListItemView } from '@/src/types/api';
 import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
 
 const ESCROW_PHASES: EscrowLifecyclePhase[] = [
@@ -10,39 +11,23 @@ const ESCROW_PHASES: EscrowLifecyclePhase[] = [
   'disputed',
 ];
 
-export type DealListItemDto = {
-  id: string;
-  brandId?: string | null;
-  brandPlaceholder: string;
-  brandName?: string | null;
-  title: string;
-  opportunityId?: string | null;
-  opportunityThreadId?: string | null;
-  escrowPhase: string;
-  paymentStatusLabel?: string | null;
-  nextMilestone?: string | null;
-  outcomeSummary?: string | null;
-  source: string;
-  recommendBadge?: string | null;
-  recommendReasons?: string[] | null;
-  recommendPayoutNote?: string | null;
-  recommendRiskNote?: string | null;
-};
+/** @deprecated use DealListItemView from @/src/types/api */
+export type DealListItemDto = DealListItemView;
 
-function asEscrowPhase(value: string): EscrowLifecyclePhase {
-  return ESCROW_PHASES.includes(value as EscrowLifecyclePhase)
+function asEscrowPhase(value: string | undefined): EscrowLifecyclePhase {
+  return value && ESCROW_PHASES.includes(value as EscrowLifecyclePhase)
     ? (value as EscrowLifecyclePhase)
     : 'in_execution';
 }
 
-export function mapDealDto(item: DealListItemDto): DealSummary {
+export function mapDealDto(item: DealListItemView): DealSummary {
   return {
-    id: item.id,
+    id: item.id ?? '',
     brandId: item.brandId ?? undefined,
-    brandPlaceholder: item.brandPlaceholder,
+    brandPlaceholder: item.brandPlaceholder ?? '',
     brandName: item.brandName ?? undefined,
-    title: item.title,
-    opportunityThreadId: item.opportunityId ?? item.opportunityThreadId ?? undefined,
+    title: item.title ?? '',
+    opportunityThreadId: item.opportunityId ?? undefined,
     escrowPhase: asEscrowPhase(item.escrowPhase),
     paymentStatusLabel: item.paymentStatusLabel ?? undefined,
     nextMilestone: item.nextMilestone ?? undefined,

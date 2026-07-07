@@ -37,6 +37,7 @@ describe('useDecisionQueue', () => {
     expect(result.current.totalCount).toBeGreaterThan(0);
     expect(result.current.current?.id).toBeTruthy();
     expect(result.current.pending.some((c) => c.id === 'dec-payout-beta')).toBe(true);
+    expect(result.current.pendingEstimatedMinutes).toBe(17);
   });
 
   it('removes deferred cards from pending', async () => {
@@ -57,5 +58,6 @@ describe('useDecisionQueue', () => {
       expect(result.current.pending.length).toBe(before - 1);
     });
     expect(result.current.deferred.some((c) => c.id === current.id)).toBe(true);
+    expect(result.current.pendingEstimatedMinutes).toBeLessThan(17);
   });
 });

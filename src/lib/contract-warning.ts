@@ -1,6 +1,6 @@
 import {
   isStaleBudgetUnclearRisk,
-  isUnclearBudgetLabel,
+  isUnclearBudgetDisplay,
   localizedVisibleRiskLabel,
   visibleRiskFlags,
 } from '@/src/lib/inbox-detail-labels';
@@ -20,6 +20,10 @@ export const ATTENTION_RISK_CODES = new Set([
   'USAGE_SCOPE',
   'EARLY_COLLAB_REVIEW',
   'MULTIPLE_PACKAGES',
+  'TIMELINE_IMPLAUSIBLE',
+  'TIMELINE_UNCLEAR',
+  'TIMELINE_LAPSED',
+  'TIMELINE_PACKAGE_MISMATCH',
 ]);
 
 /** Clause / compliance / rate risks — belong in "合同风险提示". */
@@ -36,10 +40,10 @@ const CONTRACT_RISK_LABEL_PATTERN =
   /\b(high|medium|danger|risky|spark|claims|usage|exclusive|broad|floor)\b|高风险|条款风险|授权条款|独家/i;
 
 const ATTENTION_RISK_LABEL_PATTERN =
-  /budget unclear|usage scope unclear|early collaboration|multiple packages|预算不清楚|预算不明确|授权范围不清楚|初次合作|多个报价/i;
+  /budget unclear|usage scope unclear|early collaboration|multiple packages|schedule may|schedule needs|档期|多个报价/i;
 
 export type RiskPartitionContext = {
-  budgetLabel?: string | null;
+  budgetDisplay?: string | null;
   usageRights?: string[];
   deliverables?: string[];
   packages?: InboxDeliverablePackage[];
@@ -112,7 +116,7 @@ export function contractRiskLabelSeverity(label?: string | null): InboxRiskSever
 
 function shouldShowAttentionFlag(flag: InboxRiskFlag, context: RiskPartitionContext): boolean {
   const code = resolveRiskFlagCode(flag);
-  if (code === 'MISSING_BUDGET' && !isUnclearBudgetLabel(context.budgetLabel)) {
+  if (code === 'MISSING_BUDGET' && !isUnclearBudgetDisplay(context.budgetDisplay)) {
     return false;
   }
   if (code === 'USAGE_SCOPE' && (context.usageRights?.length ?? 0) > 0) {
@@ -133,7 +137,7 @@ function shouldShowAttentionFlag(flag: InboxRiskFlag, context: RiskPartitionCont
       return false;
     }
   }
-  if (isStaleBudgetUnclearRisk(flag.label) && !isUnclearBudgetLabel(context.budgetLabel)) {
+  if (isStaleBudgetUnclearRisk(flag.label) && !isUnclearBudgetDisplay(context.budgetDisplay)) {
     return false;
   }
   return true;
@@ -197,7 +201,7 @@ export function primaryContractWarningLabel(flags: InboxRiskFlag[]): string | nu
 export function listContractWarningFlags(
   thread: Pick<
     InboxThread,
-    'contractRiskPreview' | 'riskLabel' | 'budgetLabel' | 'riskFlags' | 'leadStage' | 'deliverables' | 'packages'
+    'contractRiskPreview' | 'riskLabel' | 'budgetDisplay' | 'riskFlags' | 'leadStage' | 'deliverables' | 'packages'
   > & {
     contractRiskFlags?: InboxRiskFlag[];
   },
@@ -211,7 +215,7 @@ export function listContractWarningFlags(
   }
   if (thread.riskFlags?.length) {
     const { contractRisks } = partitionRiskFlags(thread.riskFlags, {
-      budgetLabel: thread.budgetLabel,
+      budgetDisplay: thread.budgetDisplay,
       leadStage: thread.leadStage,
       deliverables: thread.deliverables,
       packages: thread.packages,
@@ -220,7 +224,7 @@ export function listContractWarningFlags(
       return sortContractWarningFlags(contractRisks);
     }
   }
-  const visibleRisk = localizedVisibleRiskLabel(t, thread.riskLabel, thread.budgetLabel);
+  const visibleRisk = localizedVisibleRiskLabel(t, thread.riskLabel, thread.budgetDisplay);
   if (!visibleRisk || !isContractRiskLabel(visibleRisk)) {
     return [];
   }
@@ -238,7 +242,7 @@ export type ThreadRiskSource = Pick<
   | 'riskFlags'
   | 'contractRiskFlags'
   | 'attentionFlags'
-  | 'budgetLabel'
+  | 'budgetDisplay'
   | 'usageRights'
   | 'deliverables'
   | 'packages'
@@ -257,9 +261,9 @@ export function resolveThreadRiskPartitions(source: ThreadRiskSource): {
       attentionFlags: source.attentionFlags ?? [],
     };
   }
-  const visible = visibleRiskFlags(source.riskFlags, source.budgetLabel);
+  const visible = visibleRiskFlags(source.riskFlags, source.budgetDisplay);
   const { contractRisks, attentionFlags } = partitionRiskFlags(visible, {
-    budgetLabel: source.budgetLabel,
+    budgetDisplay: source.budgetDisplay,
     usageRights: source.usageRights,
     deliverables: source.deliverables,
     packages: source.packages,

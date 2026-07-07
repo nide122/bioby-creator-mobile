@@ -65,7 +65,7 @@ export default function LoginScreen() {
       router.back();
       return;
     }
-    router.replace('/welcome' as Href);
+    router.replace('/home' as Href);
   };
 
   const emailFields = (

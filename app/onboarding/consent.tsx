@@ -1,4 +1,4 @@
-import { type Href, useRouter } from 'expo-router';
+import { type Href, Link, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -9,6 +9,8 @@ import { AgentSendModePicker } from '@/components/product/AgentSendModePicker';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing, type ThemePalette } from '@/constants/tokens';
+import { updateTenantSettings } from '@/src/api/account-api';
+import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { syncAgentSendModeToBackend } from '@/src/auth/sync-onboarding';
 import { useOnboardingRouteGuard } from '@/src/hooks/use-onboarding-route-guard';
 import { alertAction } from '@/src/lib/app-dialog';
@@ -20,6 +22,7 @@ export default function OnboardingConsentScreen() {
   const authReady = useOnboardingRouteGuard('consent');
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
   const acceptCompliance = useSessionStore((s) => s.acceptCompliance);
+  const completeInboxFilterStep = useSessionStore((s) => s.completeInboxFilterStep);
   const profileBasics = useSessionStore((s) => s.profileBasics);
   const complianceAcceptedAt = useSessionStore((s) => s.complianceAcceptedAt);
   const agentSendMode = useSessionStore((s) => s.agentSendMode);
@@ -38,7 +41,7 @@ export default function OnboardingConsentScreen() {
 
   const onContinue = () => {
     if (!isAuthenticated) {
-      router.replace('/welcome' as Href);
+      router.replace('/home' as Href);
       return;
     }
     if (!canContinue) return;
@@ -47,13 +50,17 @@ export default function OnboardingConsentScreen() {
       return;
     }
     acceptCompliance(sendMode);
+    completeInboxFilterStep('standard');
     void (async () => {
       const result = await syncAgentSendModeToBackend(sendMode);
       if (!result.ok) {
         void alertAction(t('onboardingSync.consentTitle'), result.error);
       }
     })();
-    router.push('/onboarding/inbox-filter' as Href);
+    if (shouldUseBackendApi()) {
+      void updateTenantSettings({ classificationStrictness: 'standard' }).catch(() => {});
+    }
+    router.push('/onboarding/email' as Href);
   };
 
   return (
@@ -75,6 +82,19 @@ export default function OnboardingConsentScreen() {
         title={t('onboardingConsentScreen.privacyTitle')}
         subtitle={t('onboardingConsentScreen.privacySubtitle')}
       />
+
+      <View style={styles.legalLinks}>
+        <Text style={[styles.legalLead, { color: theme.mutedForeground }]}>
+          {t('onboardingConsentScreen.legalLead')}{' '}
+          <Link href={'/privacy' as Href} style={{ color: theme.primary, fontWeight: '700' }}>
+            {t('legal.footerPrivacy')}
+          </Link>
+          {' · '}
+          <Link href={'/terms' as Href} style={{ color: theme.primary, fontWeight: '700' }}>
+            {t('legal.footerTerms')}
+          </Link>
+        </Text>
+      </View>
 
       <View style={styles.modeStack}>
         <Text style={[styles.sectionLabel, { color: theme.foregroundEyebrow }]}>
@@ -196,6 +216,8 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: radii.sm },
   rowTitle: { fontSize: fontSize.body, fontWeight: '800' },
   rowSubtitle: { fontSize: fontSize.bodySmall, lineHeight: 20 },
+  legalLinks: { marginTop: -spacing.sm },
+  legalLead: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   primary: {
     borderRadius: radii.md,
     minHeight: layout.touchMin,

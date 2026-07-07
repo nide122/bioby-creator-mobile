@@ -4,7 +4,10 @@ import { AppState } from 'react-native';
 
 import i18n from '@/src/i18n';
 import { resolveLanguagePreference, useLocaleStore } from '@/src/stores/locale-store';
-import { syncTenantPreferredLocale } from '@/src/lib/sync-tenant-locale';
+import {
+  syncTenantPreferredLocale,
+  syncTenantPreferredLocaleAfterAuth,
+} from '@/src/lib/sync-tenant-locale';
 import { useSessionStore } from '@/src/stores/session-store';
 
 /**
@@ -25,7 +28,7 @@ export function LanguagePreferenceSync() {
 
   useEffect(() => {
     if (useSessionStore.getState().isAuthenticated) {
-      void syncTenantPreferredLocale();
+      void syncTenantPreferredLocaleAfterAuth();
     }
   }, []);
 

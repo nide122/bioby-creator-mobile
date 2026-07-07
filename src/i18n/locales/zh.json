@@ -48,7 +48,24 @@
     "inboxFilter": "收件箱筛选",
     "inboxSetup": "收件箱设置",
     "pricingSetup": "报价单设置",
-    "ready": "完成"
+    "ready": "完成",
+    "home": "关于 Bioby Creator",
+    "privacy": "隐私政策",
+    "terms": "服务条款",
+    "opportunityManual": "添加合作"
+  },
+  "legal": {
+    "languageToggle": "语言",
+    "languageToggleA11y": "选择法律页面语言",
+    "language": {
+      "en": "English",
+      "zh": "中文"
+    },
+    "footerHome": "关于我们",
+    "footerPrivacy": "隐私政策",
+    "footerTerms": "服务条款",
+    "footerSupport": "支持邮箱：{{email}}",
+    "lastUpdated": "最后更新：{{date}}"
   },
   "welcome": {
     "devSkip": "跳过（研发）",
@@ -306,6 +323,8 @@
     "auditTodaySummary": "今天 {{count}} 条记录",
     "aiHandledTitle": "已自动处理",
     "apiHandledSummary": "AI 今天帮你处理了约 {{minutes}} 分钟的决策。",
+    "totalEstimatedMinutes": "今日预计处理时间：{{minutes}} 分钟",
+    "estimatedMinutesShort": "预计处理时间：{{minutes}} 分钟",
     "shortcuts": {
       "mail": "收件箱",
       "deals": "合作",
@@ -686,6 +705,12 @@
       "usageSubtitle": "自然流 / 付费投放 / 地域与时长",
       "scheduleSubtitle": "上线或交片节点"
     },
+    "briefLayout": {
+      "usagePrefix": "授权 · ",
+      "deadlinePrefix": "时间 · ",
+      "optionLabel": "方案 {{label}}",
+      "optionFallback": "方案 {{index}}"
+    },
     "contractWarning": {
       "title": "合同风险提示",
       "subtitle": "核对授权、付款与合规条款后再报价或确认 Brief。",
@@ -696,10 +721,36 @@
       "clearedCollapsed": "点击展开查看已核对项"
     },
     "attentionTitle": "回复前建议",
+    "riskNotesTitle": "条款风险",
+    "systemHintsTitle": "系统提示",
     "attentionSubtitle": "建议先核对再回复或报价。",
     "attentionFallback": "首次合作邀约——确认交付物、授权范围、排期和付款后再回复。",
     "usageRightsTitle": "授权范围",
     "postingScheduleTitle": "发布时间",
+    "deadlineCountdown": {
+      "title": "截止时间",
+      "subtitle": "系统根据邮件解析，会随时间更新",
+      "hoursRemaining": "还剩 {{hours}} 小时",
+      "daysRemaining": "还剩 {{days}} 天",
+      "daysOverdue": "已过期 {{days}} 天",
+      "lineWithCountdown": "{{kind}} · {{date}}（{{relative}}）",
+      "lineDateOnly": "{{kind}} · {{date}}",
+      "itemScheduleWithCountdown": "{{kind}} {{date}}（{{relative}}）",
+      "itemScheduleNoKindWithCountdown": "{{date}}（{{relative}}）",
+      "itemScheduleDateOnly": "{{kind}} {{date}}",
+      "kinds": {
+        "reply_by": "回复截止",
+        "deliver_by": "交稿截止",
+        "post_by": "发布截止",
+        "contract_review_by": "合同审阅截止",
+        "script_due": "脚本截止",
+        "go_live": "上线",
+        "review_by": "审阅截止",
+        "other": "时间",
+        "unknown": "截止时间",
+        "fallback": "截止时间"
+      }
+    },
     "missingFieldsHint": "仍缺失：{{fields}}",
     "signalsTitle": "分类依据",
     "signalsSubtitle": "系统据此判断为商务邮件，不是回复清单。",
@@ -868,7 +919,127 @@
       "reviewWhenFree": "有空再看"
     },
     "breakdownTitle": "优先级得分明细",
-    "breakdownHint": "点击查看得分构成",
+    "breakdownHint": "点击查看简要说明",
+    "rankingExplain": {
+      "button": "为什么？",
+      "a11y": "查看这条合作在收件箱里的排序原因"
+    },
+    "explain": {
+      "title": "为什么排在这里",
+      "subtitle": "综合报价、品牌匹配、档期与风险等因素",
+      "tier": {
+        "p0": "建议今天先处理",
+        "p1": "高价值合作",
+        "p2": "稍后查看",
+        "p3": "低优先级",
+        "unknown": "未分级"
+      },
+      "section": {
+        "urgency": "紧急程度",
+        "value": "报价",
+        "match": "匹配与风险",
+        "order": "同档排序"
+      },
+      "urgency": {
+        "generic": "有时间或回复压力，需优先处理。",
+        "deadlineWithHint": "邮件提到「{{hint}}」，需尽快跟进。",
+        "deadlineWithHintAndHours": "邮件提到「{{hint}}」，还剩 {{hours}} 小时。",
+        "deadlineWithHintOverdue": "邮件提到「{{hint}}」，已过期 {{days}} 天。",
+        "deadlineHours": "截止时间临近，还剩 {{hours}} 小时。",
+        "deadlineOverdue": "截止时间已过 {{days}} 天。",
+        "needsReply": "对方在等回复（{{hours}} 小时内有互动）。"
+      },
+      "value": {
+        "unknown": "尚未看到明确报价。",
+        "simple": "品牌报价 {{quote}}。",
+        "aboveTarget": "报价 {{quote}}，高于目标价 {{target}}（+{{delta}}）。",
+        "atTarget": "报价 {{quote}}，达到目标价 {{target}}。",
+        "inRange": "报价 {{quote}}，在底价 {{floor}} 与目标价 {{target}} 之间。",
+        "belowFloor": "报价 {{quote}}，低于底价 {{floor}}（−{{shortfall}}）。",
+        "needsWork": "报价 {{quote}}，尚不足以判为高价值。",
+        "p3": "非商业或已归档内容，不参与报价评估。"
+      },
+      "match": {
+        "unavailable": "匹配信息不足，暂按报价为主排序。",
+        "brand": {
+          "high": "品牌与内容方向：较合拍",
+          "mid": "品牌与内容方向：一般",
+          "low": "品牌与内容方向：匹配度偏低"
+        },
+        "timeline": {
+          "high": "档期：较紧",
+          "mid": "档期：正常",
+          "low": "档期：较宽松"
+        },
+        "relationship": {
+          "high": "合作历史：有过往来",
+          "mid": "合作历史：有过接触",
+          "low": "合作历史：新品牌"
+        },
+        "risk": {
+          "high": "条款风险：需留意",
+          "mid": "条款风险：一般",
+          "low": "条款风险：较低"
+        }
+      },
+      "order": {
+        "p0": "紧急事项固定排在其他合作前面。",
+        "p3": "排在商业合作之后。",
+        "byHeadroom": "同档先看整包多出（本单 {{headroom}}），再参考匹配与风险。",
+        "byShortfall": "同档先看与底价的缺口（本单 −{{shortfall}}），再参考匹配与风险。",
+        "even": "同档与底价基本持平，再参考匹配与风险决定先后。",
+        "fallback": "报价不明确时排在同档已有报价的后面；明确后按整包多出与匹配因素排序。"
+      },
+      "package": {
+        "unnamed": "未命名方案",
+        "best": "多个方案时，按整包多出最高的「{{deliverable}}」（{{quote}}）排序。",
+        "bestUnnamed": "多个方案时，按整包多出最高的「{{deliverable}}」排序。"
+      },
+      "footnoteDefaultFloor": "部分交付物未在你的报价单里，底价按系统默认估算。",
+      "footnoteNoRateCard": "你还没设置报价单，底价按系统默认估算。"
+    },
+    "plain": {
+      "title": "收件箱排序说明",
+      "subtitle": "分级依据、报价对比与同档排序规则",
+      "sectionTier": "① 为什么是这个档位",
+      "sectionQuote": "② 报价怎么算的",
+      "sectionOrder": "③ 同档里谁更靠前",
+      "sectionFactors": "④ 可核对的数据依据",
+      "tier": {
+        "p0": "P0 · 建议今天先处理",
+        "p1": "P1 · 高价值合作",
+        "p2": "P2 · 稍后查看",
+        "p3": "P3 · 低优先级",
+        "unknown": "未分级"
+      },
+      "reason": {
+        "p0": "触发 P0 规则：48 小时内截止、合同条款风险，或对方近期在等回复。与报价高低无关，会排在收件箱最前。",
+        "p1": "品牌报价达到或超过你在报价单里设的目标价，归入「高价值合作」档（P1），优先于 P2/P3。",
+        "p2": "报价落在你报价单的底价–目标价区间内，或信息尚不足以判为高价值，归入「稍后查看」档（P2）。",
+        "p2Negotiate": "报价低于底价、预算未明确，或交付物未完全匹配报价单，归入待议价档并排在已有明确高报价的后面。",
+        "p3": "非商业邮件、营销推送或与商单无关的内容，归入低优先级档（P3）。",
+        "default": "按邮件内容、你的报价单区间与紧急程度自动分级。"
+      },
+      "quoteOnly": "品牌报价约 {{quote}}。",
+      "quoteWithFloor": "品牌报价约 {{quote}}，按你的底价合计约 {{floor}}，{{marginPhrase}}",
+      "quoteNeedsWork": "报价还不够明确，或还没达到你的高价值线。",
+      "marginAbove": "大约多出 {{amount}}",
+      "marginBelow": "大约还差 {{amount}}",
+      "marginEven": "与底价基本持平",
+      "order": {
+        "p0": "P0 固定排在 P1–P3 之前；同档内仍按最近活动时间排序。",
+        "marginPositive": "同档内第一排序键：整包多出（品牌报价 − 你的底价合计），多出越多越靠前。",
+        "marginNegative": "同档内第一排序键：整包缺口（报价低于底价的部分），缺口越小越靠前。",
+        "marginUnknown": "预算未明确时，整包多出无法计算，会排在同档已有明确报价的后面。",
+        "brandStrong": "第二排序：品牌契合度较高（≥70 分），在同档里略靠前。",
+        "brandWeak": "第二排序：品牌或内容类型匹配度偏低（<50 分），在同档里略靠后。",
+        "timelineTight": "第二排序：档期紧迫（≥70 分），在同档里略靠前。",
+        "relationship": "第二排序：有过合作或互动历史的品牌，在同档里略靠前。",
+        "risk": "第二排序：合同或合作风险较高（≥50 分），在同档里略靠后。"
+      },
+      "footnoteDefaultFloor": "部分交付物未在你的报价单里，底价按系统默认估算。完善报价单后会更准。",
+      "footnoteNoRateCard": "你还没设置报价单，底价按系统默认估算。设置后会按你的真实标准排序。"
+    },
     "breakdown": {
       "brandFit": "品牌契合",
       "budgetValue": "预算价值",
@@ -876,6 +1047,114 @@
       "relationshipValue": "关系价值",
       "effort": "制作成本",
       "risk": "风险"
+    },
+    "breakdownV3": {
+      "title": "排序与得分构成",
+      "attentionScore": "注意力得分 {{score}}",
+      "legacyScore": "综合得分 {{score}}",
+      "dealValueSection": "报价价值（决定 P 档与同组排序）",
+      "dealValueHint": "v3 规则下，报价相对底价的整包多出不计入下方条形图，而是单独用于价值档与列表排序。",
+      "attentionSection": "注意力因素（决定同档内先后）",
+      "attentionHint": "品牌、时效、关系与风险；不含预算分。",
+      "legacySection": "各维度得分",
+      "quote": "报价",
+      "floor": "底价合计",
+      "margin": "整包多出",
+      "sortKey": "排序用多出",
+      "bandHighValue": "价值档：高价值合作",
+      "bandNeedsNegotiation": "价值档：待议价 / 待确认",
+      "defaultFloorHint": "部分交付物未匹配价目表，已用默认底价估算。",
+      "noRateCardHint": "尚未配置价目表，底价按系统默认阈值估算。"
+    },
+    "assessment": {
+      "title": "收件箱里的排序",
+      "valueFollowUpLabel": "关于报价",
+      "summary": {
+        "highValueAboveTarget": "品牌报价 {{quoteDisplay}}，高于你在报价单里设的目标价 {{targetDisplay}}（共 {{unitCount}} 项交付）。这单符合你的高价值标准，会排在收件箱较前位置。",
+        "highValueInRange": "品牌报价 {{quoteDisplay}}，已达到你的目标价 {{targetDisplay}}。按你的报价单，这属于值得优先了解的合作。",
+        "inRange": "品牌报价 {{quoteDisplay}}，落在你报价单区间 {{floorDisplay}}–{{targetDisplay}} 内（{{unitCount}} 项交付）。可以谈，但会排在报价更高的合作后面。",
+        "belowFloor": "品牌报价 {{quoteDisplay}}，低于你的底价 {{floorDisplay}}。建议先还价，或问清楚交付范围再决定要不要接。",
+        "budgetUnknown": "邮件里还没看到明确报价。暂时排在同组里已有报价的合作后面；建议先问预算。",
+        "noRateCard": "你还没设置报价单，我们暂时按 {{floorDisplay}} 来估算。去设置报价单后，排序会更贴近你的真实标准。",
+        "rateCardKeyMiss": "部分交付物未匹配到你的报价单，未命中项已按默认底价 {{defaultFloorDisplay}}/项估算。建议完善报价单条目后重新评估。",
+        "multiDeliverable": "品牌报价 {{quoteDisplay}}，包含 {{unitCount}} 项交付，期望底价合计 {{floorDisplay}}。",
+        "multiplePackagesLead": "品牌提供了 {{packageCount}} 个报价方案。收件箱按「整包多出」最多的那条估算（{{bestOptionQuoteDisplay}} · {{bestDeliverable}}，{{bestUnitCount}} 项交付，报价 {{bestQuoteDisplay}}，多出 {{bestMarginMagnitudeDisplay}}）。各方案：",
+        "multiplePackagesLeadBelow": "品牌提供了 {{packageCount}} 个报价方案。各方案均低于你的底价合计；收件箱按缺口最小的一条估算（{{bestOptionQuoteDisplay}} · {{bestDeliverable}}，{{bestUnitCount}} 项交付，报价 {{bestQuoteDisplay}}，仍低 {{bestMarginMagnitudeDisplay}}）。各方案：",
+        "multiplePackagesLeadEven": "品牌提供了 {{packageCount}} 个报价方案。收件箱按与底价持平或最接近的一条估算（{{bestOptionQuoteDisplay}} · {{bestDeliverable}}，{{bestUnitCount}} 项交付，报价 {{bestQuoteDisplay}}）。各方案：",
+        "packageOption": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}，整包多出 {{marginMagnitudeDisplay}}。",
+        "packageOptionDefault": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}（{{unmatchedCount}} 项未在报价单中，已按 {{defaultFloorDisplay}}/项默认估算），整包多出 {{marginMagnitudeDisplay}}。",
+        "packageOptionRanking": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}，整包多出 {{marginMagnitudeDisplay}}——用于收件箱排序。",
+        "packageOptionRankingDefault": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}（{{unmatchedCount}} 项未在报价单中，已按 {{defaultFloorDisplay}}/项默认估算），整包多出 {{marginMagnitudeDisplay}}——用于收件箱排序。",
+        "packageOptionBelow": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}，低于底价 {{marginMagnitudeDisplay}}。",
+        "packageOptionBelowDefault": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}（{{unmatchedCount}} 项未在报价单中，已按 {{defaultFloorDisplay}}/项默认估算），低于底价 {{marginMagnitudeDisplay}}。",
+        "packageOptionRankingBelow": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}，低于底价 {{marginMagnitudeDisplay}}——用于收件箱排序。",
+        "packageOptionRankingBelowDefault": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}（{{unmatchedCount}} 项未在报价单中，已按 {{defaultFloorDisplay}}/项默认估算），低于底价 {{marginMagnitudeDisplay}}——用于收件箱排序。",
+        "packageOptionEven": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}，与底价持平。",
+        "packageOptionEvenDefault": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}（{{unmatchedCount}} 项未在报价单中，已按 {{defaultFloorDisplay}}/项默认估算），与底价持平。",
+        "packageOptionRankingEven": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}，与底价持平——用于收件箱排序。",
+        "packageOptionRankingEvenDefault": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价 {{quoteDisplay}}，底价合计 {{floorDisplay}}（{{unmatchedCount}} 项未在报价单中，已按 {{defaultFloorDisplay}}/项默认估算），与底价持平——用于收件箱排序。",
+        "packageQuoteUnknown": "{{optionQuoteDisplay}} · {{deliverable}}（{{unitCount}} 项交付）：报价未明确，暂无法估算。"
+      },
+      "body": {
+        "marginAboveTarget": "报价 {{quoteDisplay}}，比目标价 {{targetDisplay}} 高出 {{targetMarginMagnitudeDisplay}}。",
+        "marginInRange": "报价 {{quoteDisplay}}，在底价 {{floorDisplay}} 与目标价 {{targetDisplay}} 之间，相对底价多出 {{marginMagnitudeDisplay}}。",
+        "marginBelowFloor": "报价 {{quoteDisplay}}，低于底价 {{floorDisplay}} {{marginMagnitudeDisplay}}。",
+        "multiDeliverable": "这条包含 {{unitCount}} 项交付；按你的报价单，合计底价约 {{floorDisplay}}（每项约 {{perUnitFloorDisplay}}）。",
+        "multiplePackages": "多个方案只能选其一；排序按整包多出最多的那条；回复前最好先确认品牌要哪条。",
+        "attentionStrong": "第二排序因素：品牌契合、档期紧迫与合作关系整体较好（关注度较高），在同档合作里会略靠前。",
+        "attentionModerate": "第二排序因素：品牌与档期匹配度一般；同档内仍优先看整包多出，再参考其他因素。",
+        "attentionWeak": "第二排序因素：品牌或档期匹配度偏低，建议优先处理更合拍的合作。",
+        "attentionP0": "因为{{urgencyReason}}，建议今天先处理这封，和报价高低无关。",
+        "queueP1ByMargin": "同档按整包多出排序（报价 − 底价 {{floorDisplay}}），本单多出 {{marginMagnitudeDisplay}}，越多越靠前。",
+        "queueP2InRange": "在「稍后查看」（P2）组内，第一排序键同样是整包多出；报价越有优势越靠前。其次看品牌契合、档期紧迫与合作关系。",
+        "queueP2HighValueLowAttention": "（旧版规则）报价不错，但其他因素分偏低。"
+      },
+      "section": {
+        "value": "报价怎么样",
+        "attention": "其他因素",
+        "queue": "在收件箱里的位置"
+      },
+      "headline": {
+        "p0": "建议今天先处理",
+        "p0Deadline": "时间较紧",
+        "p0Reply": "对方在等你回复",
+        "p0Contract": "建议今天审合同",
+        "p1": "高价值合作",
+        "p1MultiplePackages": "高价值 · 多方案",
+        "p2": "有空再看",
+        "p2Clarify": "建议先问预算",
+        "p3": "已归档"
+      },
+      "factor": {
+        "quote": "品牌报价",
+        "floor": "期望底价",
+        "target": "目标价",
+        "margin": "整包多出（相对底价）",
+        "units": "交付项数",
+        "band": "价值档",
+        "priority": "P 档",
+        "attention": "关注度",
+        "brandFit": "品牌契合"
+      },
+      "urgencyReason": {
+        "deadline": "临近截止日期",
+        "needsReply": "对方在等你的回复"
+      },
+      "urgency": {
+        "deadline": "这封邮件的时间要求较紧，需在近 48 小时内跟进，因此排在今天最前面。这与报价高低无关。",
+        "deadlineWithHint": "邮件提到「{{deadlineHint}}」，时间较紧，因此排在今天最前面。这与报价高低无关。",
+        "deadlineWithRemaining": "截止时间临近（还剩 {{hoursRemaining}} 小时），因此排在今天最前面。这与报价高低无关。",
+        "deadlineWithHintAndRemaining": "邮件提到「{{deadlineHint}}」，还剩 {{hoursRemaining}} 小时需跟进，因此排在今天最前面。这与报价高低无关。",
+        "deadlineOverdue": "截止时间已过 {{daysOverdue}} 天，仍需尽快处理，因此排在今天最前面。",
+        "deadlineWithHintOverdue": "邮件提到「{{deadlineHint}}」，已过期 {{daysOverdue}} 天，因此排在今天最前面。",
+        "contractDeadlineWithRemaining": "合同或 brief 里有时间要求（还剩 {{hoursRemaining}} 小时），也有需要你留意的条款。建议今天先看完再回复。",
+        "contractDeadlineWithHintAndRemaining": "合同或 brief 提到「{{deadlineHint}}」，还剩 {{hoursRemaining}} 小时，也有需要你留意的条款。建议今天先看完再回复。",
+        "contractDeadlineOverdue": "合同或 brief 里的截止时间已过 {{daysOverdue}} 天，也有需要你留意的条款。建议今天先看完再回复。",
+        "contractDeadlineWithHintOverdue": "合同或 brief 提到「{{deadlineHint}}」，已过期 {{daysOverdue}} 天，也有需要你留意的条款。建议今天先看完再回复。",
+        "needsReply": "对方在等你的回复，且最近 {{hoursAgo}} 小时内仍有互动，因此建议今天先处理。",
+        "contractDeadline": "合同或 brief 里既有时间要求，也有需要你留意的条款。建议今天先看完再回复。",
+        "generic": "这封邮件有时间或回复方面的紧迫要求，因此排在今天最前面。"
+      }
     }
   },
   "creatorVerification": {
@@ -917,6 +1196,9 @@
     "rateCardMissingTitle": "设置报价单以解锁高价值排序",
     "rateCardMissingBody": "未配置底价时，合作线索会停留在「待推进」档。",
     "rateCardMissingCta": "去设置报价",
+    "manualEntryBannerTitle": "从社交私信添加合作",
+    "manualEntryBannerBody": "录入 TikTok、YouTube、Instagram 等社交平台私信中的品牌合作，无需等待邮件进收件箱。",
+    "manualEntryBannerCta": "添加合作",
     "aiRulesBannerTitle": "当前使用规则匹配",
     "aiRulesBannerBody": {
       "both": "未配置或无法使用 LLM。邮件分类与简报由关键词规则生成，准确度可能低于 AI。",
@@ -960,11 +1242,13 @@
     "mailboxLastSync": "上次同步 · {{time}}",
     "mailboxNeverSynced": "尚未同步",
     "syncingInline": "同步中，AI 正在分类新邮件…",
+    "syncingInlineMailbox": "正在同步邮箱中…",
     "syncNowA11y": "立即同步邮箱",
     "syncMailboxCta": "同步邮箱",
     "syncMailboxCtaBusy": "同步中…",
     "syncLookbackLabel": "同步范围",
     "syncLookback": {
+      "INCREMENTAL": "仅新邮件",
       "ONE_WEEK": "近一周",
       "ONE_MONTH": "近一月",
       "THREE_MONTHS": "近三月",
@@ -1917,7 +2201,11 @@
     "deliverablesMore": "+{{count}} 项",
     "ctaAddPackage": "添加套餐",
     "ctaAddPackageHint": "新建一个套餐，保存后返回列表",
-    "ctaEditPackage": "编辑套餐"
+    "ctaEditPackage": "编辑套餐",
+    "dragHandleA11y": "长按拖动排序 {{name}}",
+    "reorderSavingA11y": "正在保存套餐顺序",
+    "reorderFailedTitle": "顺序保存失败",
+    "reorderFailedBody": "暂时无法保存新的套餐顺序，请稍后重试。"
   },
   "pricingEditScreen": {
     "loadingA11y": "加载报价单编辑数据中",
@@ -2054,6 +2342,10 @@
     "mediaKitCardTitle": "Media kit",
     "mediaKitCardHint": "资料、受众和过往成果。",
     "lineItemsTitle": "报价项",
+    "lineItemsSubtitle": "{{count}} 项 · 价格与交付物",
+    "skuPlatformPackage": "套餐",
+    "skuPlatformAddon": "附加项",
+    "skuQuotedSeparately": "另行报价",
     "moneyTermsTitle": "影响钱和权益的条款",
     "moneyTermsSubtitle": "核对价格、授权、交付承诺。",
     "reviewRights": "使用权",
@@ -2073,7 +2365,26 @@
     "creatorSnapshotTitle": "创作者摘要",
     "creatorSnapshotSubtitle": "与 Media Kit 同步的公开信息",
     "creatorSnapshotCta": "打开 Media Kit",
-    "creatorSnapshotCtaHint": "编辑简介、频道与案例"
+    "creatorSnapshotCtaHint": "编辑简介、频道与案例",
+    "draftTitle": "审阅提案草稿",
+    "draftEditHint": "草稿可编辑 · 保存后锁定为正式提案",
+    "moneyTermsDraftSubtitle": "核对价格、授权与交付承诺（可编辑）",
+    "badgeDraft": "草稿",
+    "badgeAiDraft": "AI 草稿",
+    "badgeRulesDraft": "模板草稿",
+    "metaBrandPrefix": "品牌：",
+    "fieldTitle": "提案标题",
+    "fieldSummary": "执行摘要",
+    "ctaSaveDraft": "保存提案",
+    "ctaSaveDraftSubtitle": "分享给品牌前先确认修改",
+    "ctaShareBlockedSubtitle": "请先保存草稿再分享",
+    "saveBeforeShareTitle": "请先保存",
+    "saveBeforeShareDesc": "请先审阅并保存提案草稿，再分享给品牌。",
+    "saveSuccessTitle": "提案已保存",
+    "saveSuccessDesc": "修改已保存，准备好后可分享。",
+    "saveFailedTitle": "保存失败",
+    "saveFailedDesc": "请稍后重试。",
+    "savingA11y": "保存中…"
   },
   "mediaKitFormats": {
     "image_post": "图文",
@@ -2690,7 +3001,8 @@
     "consentTitle": "AI 设置未同步",
     "mailboxTitle": "收件箱未同步",
     "mailboxSuccessTitle": "收件箱已连接",
-    "mailboxWorking": "正在同步邮箱...",
+    "mailboxWorking": "正在连接邮箱...",
+    "mailboxConnectEnqueued": "邮箱已连接，近一个月邮件正在后台同步。",
     "mailboxBackendBypassed": "后端 API 未启用，因此跳过了同步。",
     "mailboxUpToDate": "邮箱已是最新。",
     "mailboxSyncDoneEmpty": "已保存连接，但没有找到新邮件。",
@@ -2772,6 +3084,7 @@
     "modeReviewSubtitle": "每次发送都需你确认。",
     "boundaryTitle": "影响钱和权益的内容永远需要你确认",
     "boundaryBody": "报价、授权、款项、独家与争议保持人工。",
+    "legalLead": "请阅读",
     "continueEmail": "继续设置筛选偏好"
   },
   "onboardingInboxFilterScreen": {
@@ -2871,6 +3184,7 @@
     "pendingInviteBannerTitle": "{{count}} 个工作区邀请",
     "pendingInviteBannerLead": "点此查看并接受。",
     "prefsHeading": "偏好",
+    "legalHeading": "法律信息",
     "summaries": {
       "teamRoles": "{{count}} 个角色",
       "dataHub": "导出中心",
@@ -2906,6 +3220,25 @@
       "confirm": "开始引导",
       "errorTitle": "无法重新开始引导",
       "errorBody": "服务器状态未能重置，请稍后重试。"
+    },
+    "onboardingDashboard": {
+      "title": "入驻进度",
+      "summary": "已完成 {{completed}} / {{total}} 项",
+      "completed": "已完成",
+      "steps": {
+        "profile": {
+          "title": "资料填写",
+          "action": "完善创作者资料"
+        },
+        "email": {
+          "title": "绑定邮箱",
+          "action": "连接合作收件箱"
+        },
+        "verification": {
+          "title": "身份认证",
+          "action": "完成身份验证"
+        }
+      }
     }
   },
   "replyStyleScreen": {
@@ -2949,6 +3282,36 @@
     "saveFailedTitle": "无法保存模板",
     "saveFailedBody": "请稍后重试。"
   },
+  "opportunityManualScreen": {
+    "eyebrow": "收件箱",
+    "title": "添加合作",
+    "lead": "录入 TikTok、YouTube、Instagram 等社交平台私信中的品牌合作。",
+    "backendRequired": "手动录入需要连接后端 API。",
+    "basicSectionTitle": "基本信息",
+    "brandNameLabel": "品牌名 *",
+    "brandNamePlaceholder": "例如 Acme Beauty",
+    "platformLabel": "平台 *",
+    "platform": {
+      "tiktok": "TikTok",
+      "youtube": "YouTube",
+      "instagram": "Instagram",
+      "other": "其他"
+    },
+    "budgetSectionTitle": "预算（可选）",
+    "budgetAmountLabel": "金额",
+    "budgetAmountPlaceholder": "2500",
+    "budgetLabelFieldLabel": "或自由文本",
+    "budgetLabelPlaceholder": "例如 $2,500",
+    "deliverablesSectionTitle": "交付与备注（可选）",
+    "deliverableLabel": "交付物",
+    "deliverablePlaceholder": "例如 1 条 TikTok 短视频",
+    "notesLabel": "备注",
+    "notesPlaceholder": "合作背景、时间要求等",
+    "saveCta": "保存并查看",
+    "saveFailedTitle": "无法添加合作",
+    "saveFailedBody": "请稍后重试。",
+    "cancel": "取消"
+  },
   "replyTemplateBodyEditor": {
     "tagsLead": "合作信息",
     "helpTitle": "合作信息",
@@ -2964,7 +3327,7 @@
     "brandName": "品牌方",
     "cooperationTitle": "合作标题",
     "creatorName": "署名",
-    "budgetLabel": "预算区间",
+    "budgetDisplay": "预算区间",
     "deliverables": "交付物",
     "postingSchedule": "发布时间",
     "usageRights": "使用权",
@@ -2991,8 +3354,12 @@
   },
   "replyDraftGenerator": {
     "title": "AI 生成回复",
-    "lead": "结合当前机会、报价包和邮件目的生成草稿，发送前仍可编辑。",
-    "purposeLabel": "邮件目的",
+    "lead": "结合当前机会、报价包和邮件场景生成草稿，发送前仍可编辑。",
+    "scenarioLabel": "邮件场景",
+    "scenariosMore": "更多场景",
+    "scenariosLess": "收起",
+    "scenariosMoreA11y": "展开更多邮件场景",
+    "scenariosLessA11y": "收起更多邮件场景",
     "rateCardLabel": "报价包",
     "noRateCard": "在「报价」中添加报价包，生成内容会更准确。",
     "generateCta": "生成草稿",
@@ -3018,12 +3385,43 @@
       "highlights": "亮点"
     },
     "subjectLabel": "建议主题",
-    "purpose": {
-      "pre_outreach": "预沟通",
-      "quote_follow_up": "报价跟进",
-      "clarify_scope": "澄清范围",
+    "scenario": {
+      "pre_outreach": "首次回复",
+      "clarify_brief": "澄清合作细节",
+      "quote_follow_up": "发送/跟进报价",
       "counter_offer": "还价/调价",
-      "ack_and_schedule": "确认并排期"
+      "ack_and_schedule": "确认并排期",
+      "confirm_terms": "确认合作条款",
+      "request_extension": "申请延期",
+      "request_product": "索要样品",
+      "share_for_review": "提交审核",
+      "request_changes": "回应修改",
+      "follow_up_no_reply": "跟进无回复",
+      "polite_decline": "婉拒合作",
+      "clarify_scope": "澄清合作细节",
+      "clarify_usage_rights": "澄清合作细节",
+      "request_written_approval": "确认合作条款",
+      "confirm_payment_terms": "确认合作条款",
+      "confirm_deliverables": "确认合作条款"
+    },
+    "purpose": {
+      "pre_outreach": "首次回复",
+      "clarify_brief": "澄清合作细节",
+      "quote_follow_up": "发送/跟进报价",
+      "counter_offer": "还价/调价",
+      "ack_and_schedule": "确认并排期",
+      "confirm_terms": "确认合作条款",
+      "request_extension": "申请延期",
+      "request_product": "索要样品",
+      "share_for_review": "提交审核",
+      "request_changes": "回应修改",
+      "follow_up_no_reply": "跟进无回复",
+      "polite_decline": "婉拒合作",
+      "clarify_scope": "澄清合作细节",
+      "clarify_usage_rights": "澄清合作细节",
+      "request_written_approval": "确认合作条款",
+      "confirm_payment_terms": "确认合作条款",
+      "confirm_deliverables": "确认合作条款"
     }
   },
   "tagInput": {
@@ -3110,6 +3508,8 @@
     "recordsHeading": "财务记录",
     "footer": "付款与争议在各自页面打开。",
     "rows": {
+      "pipelineTitle": "商机管道 CSV",
+      "pipelineSubtitle": "品牌、阶段、预算等核心字段",
       "workspaceTitle": "工作区快照",
       "workspaceSubtitle": "合作、草稿、资料 (JSON)",
       "inboxTitle": "收件箱线程",
@@ -3126,6 +3526,10 @@
     "inboxAlert": {
       "title": "已加入导出队列",
       "message": "收件箱导出仅包含线程摘要，不包含完整邮箱权限。（演示）"
+    },
+    "pipelineExport": {
+      "failedTitle": "导出失败",
+      "failedMessage": "无法下载商机管道 CSV，请检查网络后重试。"
     }
   }
 }

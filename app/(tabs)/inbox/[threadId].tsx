@@ -53,21 +53,20 @@ import { hasStoredSession } from '@/src/auth/token-storage';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
 import { useRateCardPackages } from '@/src/hooks/use-growth';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-editor';
 import { pickContractPdf } from '@/src/lib/pick-contract-pdf';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
 import { getActiveTenantPublicId, invalidateTenantScopedQueries, tenantQueryKey, useTenantQueryKey } from '@/src/lib/tenant-query';
 import { useSessionStore } from '@/src/stores/session-store';
 import {
-  commercialAttentionFallback,
-  isUnclearBudgetLabel,
-  mergeDetailSignals,
-  buildAttentionList,
-  filterSignalsApartFromAttention,
+  isUnclearBudgetDisplay,
+  buildReplySuggestionList,
+  buildRiskNoteList,
+  buildSystemHintList,
   localizedVisibleRiskLabel,
-  resolveAttentionCount,
+  resolveRiskCount,
   translateActionReason,
-  translateDetailSignal,
   translateMissingField,
   translateRiskLabelText,
   visibleMissingFields,
@@ -88,11 +87,8 @@ import {
 } from '@/src/lib/brief-confirm-eligibility';
 import { resolveOpportunityPathStep } from '@/src/lib/opportunity-path-step';
 import { preferCooperationTitle, resolveOpportunityBrandLabel } from '@/src/lib/cooperation-display-name';
-import {
-  rulesProcessingScope,
-  rulesScopeI18nKey,
-} from '@/src/lib/ai-processing-labels';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
+import { PriorityBreakdownSheet } from '@/src/components/inbox/PriorityBreakdownSheet';
 import { BriefExtractionPanel } from '@/components/inbox/BriefExtractionPanel';
 import { CollapsibleThread } from '@/components/inbox/CollapsibleThread';
 import {
@@ -233,9 +229,11 @@ export default function InboxThreadDetailScreen() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [localAckedRiskIds, setLocalAckedRiskIds] = useState<string[]>([]);
   const [showAiGenerator, setShowAiGenerator] = useState(false);
+  const [showPriorityBreakdownSheet, setShowPriorityBreakdownSheet] = useState(false);
 
   const query = useInboxThreadDetail(threadId);
   const rateCardQuery = useRateCardPackages();
+  const { openProposal } = useOpenProposal();
   const briefConfirmed = query.data ? isBriefConfirmed(query.data) : false;
   const contractEditor = useContractSummaryEditor({
     opportunityId: threadId,
@@ -376,7 +374,7 @@ export default function InboxThreadDetailScreen() {
       if (!(await hasStoredSession())) {
         clearLocalSession();
         queryClient.clear();
-        router.replace('/welcome' as Href);
+        router.replace('/home' as Href);
         return;
       }
       const restored = await restoreSession();
@@ -385,7 +383,7 @@ export default function InboxThreadDetailScreen() {
       } else if (!(await hasStoredSession())) {
         clearLocalSession();
         queryClient.clear();
-        router.replace('/welcome' as Href);
+        router.replace('/home' as Href);
         return;
       }
       const draft = await createDraftForOpportunity(detail.id, 'ai_reply');
@@ -399,7 +397,7 @@ export default function InboxThreadDetailScreen() {
       if (error instanceof ApiError && error.status === 401) {
         clearLocalSession();
         queryClient.clear();
-        router.replace('/welcome' as Href);
+        router.replace('/home' as Href);
         return;
       }
       const message = error instanceof Error ? error.message : t('inboxThreadDetail.draftCreateErrorBody');
@@ -413,10 +411,12 @@ export default function InboxThreadDetailScreen() {
       inboxMessageHref(message.id, threadId ?? '', returnTo || parentReturnTo ? { returnTo, parentReturnTo } : null),
     );
   };
-  const detailSignals = mergeDetailSignals(detail.signals, detail.classificationSignals).map((signal) =>
-    translateDetailSignal(t, signal)
-  );
-  const missingFields = visibleMissingFields(detail.missingFields, detail.budgetLabel);
+  const missingFields = visibleMissingFields(detail.missingFields, detail.budgetDisplay, {
+    deliverables: detail.deliverables,
+    packages: detail.packages,
+    usageRights: detail.usageRights,
+    postingSchedule: detail.postingSchedule,
+  });
   const { contractRisks, attentionFlags } = resolveThreadRiskPartitions(detail);
   const effectiveContractRisks = contractRisks.map((flag) =>
     localAckedRiskIds.includes(flag.id) ? { ...flag, acknowledged: true } : flag
@@ -425,7 +425,7 @@ export default function InboxThreadDetailScreen() {
     localAckedRiskIds.includes(flag.id) ? { ...flag, acknowledged: true } : flag
   );
   const detailForConfirm = { ...detail, riskFlags: effectiveContractRisks };
-  const displayRiskLabel = localizedVisibleRiskLabel(t, detail.riskLabel, detail.budgetLabel);
+  const displayRiskLabel = localizedVisibleRiskLabel(t, detail.riskLabel, detail.budgetDisplay);
   const priorityUiEnabled = isInboxPriorityUiEnabled([detail]);
   const displayPriority = resolveDisplayInboxPriority(detail);
   const priorityBand = resolvePriorityLeadValueBand(detail);
@@ -433,30 +433,13 @@ export default function InboxThreadDetailScreen() {
     (priorityUiEnabled && (displayPriority === 'p0' || displayPriority === 'p1')) || priorityBand === 'high_value'
       ? inboxRiskReasons(detail.actionReasons)
       : [];
-  const showAttentionFallback = commercialAttentionFallback(
-    isCommercial,
-    detail.extractionStatus === 'COMPLETE',
-    effectiveAttentionFlags,
-    detail.recommendedActions,
-    detail.attentionCount
-  );
   const showContractWarning =
-    isCommercial &&
-    (contractWarningSeverity(effectiveContractRisks) != null || (detail.clearedRiskChecks?.length ?? 0) > 0);
-  const attentionList = buildAttentionList(
-    detail.recommendedActions,
-    effectiveAttentionFlags,
-    t,
-    showAttentionFallback ? t('inboxThreadDetail.attentionFallback') : null
-  );
-  const classificationSignals = filterSignalsApartFromAttention(detailSignals, attentionList);
-  const attentionCount = resolveAttentionCount(
-    detail.attentionCount,
-    effectiveAttentionFlags,
-    detail.recommendedActions,
-    showAttentionFallback
-  );
-  const suppressSignalRiskBadges = isCommercial && attentionCount > 0;
+    isCommercial && contractWarningSeverity(effectiveContractRisks) != null;
+  const systemHintList = buildSystemHintList(detail.systemHints ?? [], t);
+  const suggestionList = buildReplySuggestionList(detail.recommendedActions, t);
+  const riskNoteList = buildRiskNoteList(detail.riskNotes);
+  const riskCount = resolveRiskCount(detail.riskNotes);
+  const suppressSignalRiskBadges = isCommercial && riskCount > 0;
   const packages = detail.packages ?? [];
   const aiBriefText = detail.preview?.trim() || detail.classificationSummary?.trim();
   const threadAnalysisPending = detail.classificationPending === true;
@@ -464,32 +447,6 @@ export default function InboxThreadDetailScreen() {
   const briefExtracting = detail.extractionStatus === 'PENDING';
   const briefConfidencePercent =
     detail.extractionConfidence != null ? Math.round(detail.extractionConfidence * 100) : null;
-  const showBriefSource = isCommercial && detail.extractionStatus !== 'SKIPPED';
-  const showClassificationSource =
-    detail.classificationSource === 'llm' || detail.classificationSource === 'rules';
-  const showBriefSourceBadge =
-    showBriefSource &&
-    (briefExtracting ||
-      detail.briefExtractionSource === 'llm' ||
-      detail.briefExtractionSource === 'rules');
-  const showProcessingSource = showClassificationSource || showBriefSourceBadge;
-  const rulesScope = rulesProcessingScope(detail);
-
-  const sourceBadgeStyle = (source: 'llm' | 'rules' | 'snapshot') => {
-    if (source === 'llm') {
-      return { borderColor: theme.primary + '50', backgroundColor: theme.primary + '10' };
-    }
-    if (source === 'rules') {
-      return { borderColor: '#F59E0B55', backgroundColor: '#F59E0B14' };
-    }
-    return { borderColor: theme.border, backgroundColor: theme.secondary };
-  };
-
-  const sourceTextColor = (source: 'llm' | 'rules' | 'snapshot') => {
-    if (source === 'llm') return theme.primary;
-    if (source === 'rules') return '#B45309';
-    return theme.foregroundSubtitle;
-  };
 
   const confirmedDeal = isBriefConfirmed(detail);
   const readyToConfirm = apiMode && isCommercial && canProceedToConfirmBrief(detailForConfirm);
@@ -542,21 +499,9 @@ export default function InboxThreadDetailScreen() {
     }
   };
 
-  const showPriorityBreakdown = () => {
-    const breakdown = detail.priorityBreakdown;
-    if (!breakdown) return;
-    const body = [
-      `${t('inboxPriority.breakdown.brandFit')} +${breakdown.brandFit}`,
-      `${t('inboxPriority.breakdown.budgetValue')} +${breakdown.budgetValue}`,
-      `${t('inboxPriority.breakdown.timelineUrgency')} +${breakdown.timelineUrgency}`,
-      `${t('inboxPriority.breakdown.relationshipValue')} +${breakdown.relationshipValue}`,
-      `${t('inboxPriority.breakdown.effort')} −${breakdown.effort}`,
-      `${t('inboxPriority.breakdown.risk')} −${breakdown.risk}`,
-      detail.priorityScore != null ? `Score ${Math.round(detail.priorityScore)}` : null,
-    ]
-      .filter(Boolean)
-      .join('\n');
-    void alertAction(t('inboxPriority.breakdownTitle'), body);
+  const openPriorityBreakdown = () => {
+    if (!detail.priorityBreakdown && !detail.priorityAssessment) return;
+    setShowPriorityBreakdownSheet(true);
   };
 
   const localizedNextAction = detail.nextActionLabel
@@ -598,21 +543,36 @@ export default function InboxThreadDetailScreen() {
     </View>
   ) : null;
 
+  const canShowRankingExplain =
+    priorityUiEnabled &&
+    isCommercial &&
+    !!(detail.priorityAssessment || detail.priorityBreakdown);
+
   const toolbar = (
     <>
       {isCommercial && ((priorityUiEnabled && displayPriority) || localizedNextAction) ? (
         <View style={[styles.actionStrip, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-          {priorityUiEnabled && displayPriority ? (
+          <View style={styles.actionStripMain}>
+            {priorityUiEnabled && displayPriority ? (
+              <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+            ) : null}
+            {localizedNextAction ? (
+              <Text style={[styles.actionStripHint, { color: theme.foreground }]} numberOfLines={2}>
+                {localizedNextAction}
+              </Text>
+            ) : null}
+          </View>
+          {priorityUiEnabled && displayPriority && canShowRankingExplain ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityHint={t('inboxPriority.breakdownHint')}
-              onLongPress={detail.priorityBreakdown ? showPriorityBreakdown : undefined}
-              onPress={detail.priorityBreakdown ? showPriorityBreakdown : undefined}>
-              <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+              accessibilityLabel={t('inboxPriority.rankingExplain.a11y')}
+              hitSlop={6}
+              onPress={openPriorityBreakdown}
+              style={({ pressed }) => [styles.rankingWhyPressable, pressed && { opacity: 0.7 }]}>
+              <Text style={[styles.rankingWhyLink, { color: theme.primary }]}>
+                {t('inboxPriority.rankingExplain.button')}
+              </Text>
             </Pressable>
-          ) : null}
-          {localizedNextAction ? (
-            <Text style={[styles.actionStripHint, { color: theme.foreground }]}>{localizedNextAction}</Text>
           ) : null}
         </View>
       ) : null}
@@ -620,15 +580,15 @@ export default function InboxThreadDetailScreen() {
       {isCommercial ? (
         <HubMetrics>
           <HubMetric
-            value={detail.budgetLabel ?? '—'}
+            value={detail.budgetDisplay ?? '—'}
             label={t('inboxThreadDetail.metricBudget')}
-            accent={!!detail.budgetLabel}
+            accent={!!detail.budgetDisplay}
           />
           <HubMetric value={inboxLeadStageLabel[detail.leadStage]} label={t('inboxThreadDetail.metricStage')} />
           <HubMetric
-            value={String(attentionCount)}
+            value={String(riskCount)}
             label={t('inboxThreadDetail.metricRisks')}
-            accent={attentionCount > 0}
+            accent={riskCount > 0}
           />
         </HubMetrics>
       ) : null}
@@ -822,90 +782,13 @@ export default function InboxThreadDetailScreen() {
         </View>
       ) : null}
 
-      {pendingDangerFlags.length > 0 ? (
-        <RiskBanner flags={pendingDangerFlags} pinned showAckRequired={readyToConfirm} />
-      ) : null}
-
-      {rulesScope ? (
-        <View style={[styles.rulesCallout, { borderColor: '#F59E0B55', backgroundColor: '#F59E0B12' }]}>
-          <Ionicons name="information-circle-outline" size={16} color="#B45309" />
-          <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text style={[styles.rulesCalloutTitle, { color: theme.foreground }]}>
-              {t('inboxThreadDetail.aiRulesCalloutTitle')}
-            </Text>
-            <Text style={[styles.rulesCalloutBody, { color: theme.foregroundSubtitle }]}>
-              {t(rulesScopeI18nKey(rulesScope, 'inboxThreadDetail.aiRulesCalloutBody'))}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
       <View style={[styles.aiCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
           <View style={styles.aiCardHeader}>
             <View style={[styles.aiIconBox, { backgroundColor: theme.primary + '18' }]}>
               <Ionicons name="sparkles" size={14} color={theme.primary} />
             </View>
             <Text style={[styles.aiCardEyebrow, { color: theme.primary }]}>{t('inboxThreadDetail.aiBriefEyebrow')}</Text>
-            {briefConfidencePercent != null && detail.extractionStatus === 'COMPLETE' ? (
-              <View style={[styles.budgetBadge, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-                <Text style={[styles.budgetLabel, { color: theme.foregroundSubtitle }]}>
-                  {t('inboxThreadDetail.briefConfidence', { percent: briefConfidencePercent })}
-                </Text>
-              </View>
-            ) : null}
-            {detail.budgetLabel && !briefExtracting ? (
-              <View style={[styles.budgetBadge, { borderColor: theme.primary + '50', backgroundColor: theme.primary + '10' }]}>
-                <Text style={[styles.budgetLabel, { color: theme.primary }]}>{detail.budgetLabel}</Text>
-              </View>
-            ) : null}
           </View>
-
-          {showProcessingSource ? (
-            <View style={styles.sourceRow}>
-              {showClassificationSource ? (
-                <View
-                  style={[
-                    styles.budgetBadge,
-                    sourceBadgeStyle(detail.classificationSource!),
-                  ]}>
-                  <Text
-                    style={[
-                      styles.budgetLabel,
-                      { color: sourceTextColor(detail.classificationSource!) },
-                    ]}>
-                    {t(`inboxThreadDetail.aiSourceClassification.${detail.classificationSource}`)}
-                  </Text>
-                </View>
-              ) : null}
-              {showBriefSourceBadge ? (
-                briefExtracting ? (
-                  <View
-                    style={[
-                      styles.budgetBadge,
-                      { borderColor: theme.border, backgroundColor: theme.secondary },
-                    ]}>
-                    <Text style={[styles.budgetLabel, { color: theme.mutedForeground }]}>
-                      {t('inboxThreadDetail.aiSourceBriefPending')}
-                    </Text>
-                  </View>
-                ) : detail.briefExtractionSource ? (
-                  <View
-                    style={[
-                      styles.budgetBadge,
-                      sourceBadgeStyle(detail.briefExtractionSource),
-                    ]}>
-                    <Text
-                      style={[
-                        styles.budgetLabel,
-                        { color: sourceTextColor(detail.briefExtractionSource) },
-                      ]}>
-                      {t(`inboxThreadDetail.aiSourceBrief.${detail.briefExtractionSource}`)}
-                    </Text>
-                  </View>
-                ) : null
-              ) : null}
-            </View>
-          ) : null}
 
           {showContractWarning ? (
             <RiskBanner
@@ -918,14 +801,20 @@ export default function InboxThreadDetailScreen() {
           {isCommercial ? (
             <BriefExtractionPanel
               aiBriefText={aiBriefText}
+              budgetDisplay={detail.budgetDisplay}
+              briefConfidencePercent={
+                detail.extractionStatus === 'COMPLETE' ? briefConfidencePercent : null
+              }
               briefExtracting={briefExtracting}
               threadAnalysisPending={showThreadAnalysisBanner}
               packages={packages}
-              deliverables={detail.deliverables}
               usageRights={detail.usageRights}
-              postingSchedule={detail.postingSchedule}
-              attentionItems={attentionList}
-              classificationSignals={classificationSignals}
+              deadlineAtISO={detail.deadlineAtISO}
+              deadlineKind={detail.deadlineKind}
+              deadlineText={detail.deadlineText}
+              systemHintItems={systemHintList}
+              riskNoteItems={riskNoteList}
+              attentionItems={suggestionList}
               missingFields={missingFields}
               correctedByUser={correctedByUser}
             />
@@ -1004,7 +893,7 @@ export default function InboxThreadDetailScreen() {
             detail.actionReasons
               ?.filter(
                 (reason) =>
-                  reason.code !== 'MISSING_BUDGET' || isUnclearBudgetLabel(detail.budgetLabel)
+                  reason.code !== 'MISSING_BUDGET' || isUnclearBudgetDisplay(detail.budgetDisplay)
               )
               .slice(0, 2)
               .map((reason) => (
@@ -1097,13 +986,28 @@ export default function InboxThreadDetailScreen() {
               {
                 label: t('inboxThreadDetail.linkProposal'),
                 hint: t('inboxThreadDetail.linkProposalHint'),
-                href: '/proposal/sample',
                 icon: 'document-text-outline',
+                onPress: () =>
+                  void openProposal({
+                    opportunityId: threadId,
+                    brandHint: brandLabel ?? undefined,
+                  }),
               },
             ]}
           />
         ) : null}
     </HubScreen>
+    {detail.priorityBreakdown || detail.priorityAssessment ? (
+      <PriorityBreakdownSheet
+        visible={showPriorityBreakdownSheet}
+        onClose={() => setShowPriorityBreakdownSheet(false)}
+        inboxPriority={displayPriority}
+        assessment={detail.priorityAssessment}
+        breakdown={detail.priorityBreakdown}
+        dealEconomics={detail.dealEconomics}
+        leadValueBand={resolvePriorityLeadValueBand(detail)}
+      />
+    ) : null}
     {apiMode && threadId ? (
       <ReplyDraftGeneratorSheet
         visible={showAiGenerator}
@@ -1128,14 +1032,21 @@ const styles = StyleSheet.create({
   },
   actionStrip: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  actionStripMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    minWidth: 0,
   },
   brandToolbarHint: { fontSize: fontSize.eyebrow },
   originalSubject: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
@@ -1162,23 +1073,33 @@ const styles = StyleSheet.create({
   },
   actionStripHint: {
     flex: 1,
+    minWidth: 0,
     fontSize: fontSize.bodySmall,
     fontWeight: '700',
+    lineHeight: lineHeight.body,
+  },
+  rankingWhyPressable: {
+    flexShrink: 0,
+    marginLeft: spacing.xs,
+  },
+  rankingWhyLink: {
+    fontSize: fontSize.bodySmall,
+    fontWeight: '600',
     lineHeight: lineHeight.body,
   },
 
   aiCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
-  aiCardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
-  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  aiCardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
   aiIconBox: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
-  aiCardEyebrow: { fontSize: fontSize.caption, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', flex: 1 },
+  aiCardEyebrow: { fontSize: fontSize.caption, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
   budgetBadge: { borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: spacing.sm, paddingVertical: 3 },
-  budgetLabel: { fontSize: fontSize.caption, fontWeight: '800' },
+  budgetDisplayText: { fontSize: fontSize.caption, fontWeight: '800' },
   aiActionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   extractingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   aiActionDot: { width: 5, height: 5, borderRadius: 3, marginTop: 8 },
@@ -1189,16 +1110,6 @@ const styles = StyleSheet.create({
   sectionHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   briefIntro: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   classificationText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
-  rulesCallout: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  rulesCalloutTitle: { fontSize: fontSize.bodySmall, fontWeight: '800' },
-  rulesCalloutBody: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   overrideNotice: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,

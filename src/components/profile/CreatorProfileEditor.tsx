@@ -150,7 +150,10 @@ export function CreatorProfileEditor({
     [platformProfiles, summary],
   );
 
-  const canSubmitFixed = useMemo(() => isSummaryComplete(summary), [summary]);
+  const canSubmitFixed = useMemo(
+    () => isSummaryComplete(summary) || connectedPlatforms.length > 0,
+    [connectedPlatforms.length, summary],
+  );
 
   useEffect(() => {
     onStateChange({ payload, canSubmit: canSubmitFixed });

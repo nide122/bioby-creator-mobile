@@ -2,10 +2,10 @@ import { getRouteGuardRedirect, hasWebOAuthCallbackInUrl } from '@/src/lib/route
 
 describe('getRouteGuardRedirect', () => {
   describe('unauthenticated', () => {
-    it('allows auth screens', () => {
+    it('allows auth screens and public home', () => {
       expect(
         getRouteGuardRedirect({
-          pathname: '/welcome',
+          pathname: '/home',
           isAuthenticated: false,
           onboardingComplete: false,
         })
@@ -17,6 +17,16 @@ describe('getRouteGuardRedirect', () => {
           onboardingComplete: false,
         })
       ).toBeNull();
+    });
+
+    it('redirects legacy /welcome to /home', () => {
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/welcome',
+          isAuthenticated: false,
+          onboardingComplete: false,
+        })
+      ).toBe('/home');
     });
 
     it('allows oauth callback routes while unauthenticated', () => {
@@ -61,28 +71,28 @@ describe('getRouteGuardRedirect', () => {
       ).toBeNull();
     });
 
-    it('redirects protected routes to welcome', () => {
+    it('redirects protected routes to home', () => {
       expect(
         getRouteGuardRedirect({
           pathname: '/inbox',
           isAuthenticated: false,
           onboardingComplete: false,
         })
-      ).toBe('/welcome');
+      ).toBe('/home');
       expect(
         getRouteGuardRedirect({
           pathname: '/',
           isAuthenticated: false,
           onboardingComplete: false,
         })
-      ).toBe('/welcome');
+      ).toBe('/home');
       expect(
         getRouteGuardRedirect({
           pathname: '/deal/mock-deal-beta',
           isAuthenticated: false,
           onboardingComplete: false,
         })
-      ).toBe('/welcome');
+      ).toBe('/home');
     });
 
     it('allows public media kit links without auth', () => {
@@ -93,6 +103,18 @@ describe('getRouteGuardRedirect', () => {
           onboardingComplete: false,
         })
       ).toBeNull();
+    });
+
+    it('allows public legal pages without auth', () => {
+      for (const pathname of ['/home', '/privacy', '/terms']) {
+        expect(
+          getRouteGuardRedirect({
+            pathname,
+            isAuthenticated: false,
+            onboardingComplete: false,
+          })
+        ).toBeNull();
+      }
     });
   });
 
@@ -124,16 +146,34 @@ describe('getRouteGuardRedirect', () => {
       ).toBe('/onboarding');
     });
 
-    it('does not trap user on welcome when onboarding incomplete', () => {
+    it('redirects legacy welcome and public home to onboarding when setup incomplete', () => {
       expect(
         getRouteGuardRedirect({
           pathname: '/welcome',
           isAuthenticated: true,
           onboardingComplete: false,
         })
+      ).toBe('/home');
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/home',
+          isAuthenticated: true,
+          onboardingComplete: false,
+        })
       ).toBe('/onboarding');
     });
 
+    it('still allows privacy and terms during onboarding', () => {
+      for (const pathname of ['/privacy', '/terms']) {
+        expect(
+          getRouteGuardRedirect({
+            pathname,
+            isAuthenticated: true,
+            onboardingComplete: false,
+          })
+        ).toBeNull();
+      }
+    });
   });
 
   describe('authenticated, onboarding complete', () => {
@@ -161,14 +201,36 @@ describe('getRouteGuardRedirect', () => {
       ).toBeNull();
     });
 
-    it('allows welcome for signed-in users to switch account', () => {
+    it('allows home for signed-in users to switch account', () => {
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/home',
+          isAuthenticated: true,
+          onboardingComplete: true,
+        })
+      ).toBeNull();
+    });
+
+    it('redirects legacy /welcome to /home', () => {
       expect(
         getRouteGuardRedirect({
           pathname: '/welcome',
           isAuthenticated: true,
           onboardingComplete: true,
         })
-      ).toBeNull();
+      ).toBe('/home');
+    });
+
+    it('allows public legal pages when authenticated', () => {
+      for (const pathname of ['/home', '/privacy', '/terms']) {
+        expect(
+          getRouteGuardRedirect({
+            pathname,
+            isAuthenticated: true,
+            onboardingComplete: true,
+          })
+        ).toBeNull();
+      }
     });
 
     it('redirects login and register to inbox', () => {

@@ -7,6 +7,7 @@ import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import { prefetchMyTenants } from '@/src/hooks/use-tenants';
 import { restoreSession } from '@/src/api/auth-api';
 import { hasStoredSession, hydrateAuthTokensFromStorage } from '@/src/auth/token-storage';
+import { syncTenantPreferredLocaleAfterAuth } from '@/src/lib/sync-tenant-locale';
 import { useSessionStore } from '@/src/stores/session-store';
 
 /** Restore JWT session from storage before route guards run. */
@@ -46,6 +47,11 @@ export function useAuthBootstrap(): boolean {
             await prefetchMyTenants(queryClient);
           } catch {
             // Keep JWT auth; overview can retry later without logging the user out.
+          }
+          try {
+            await syncTenantPreferredLocaleAfterAuth();
+          } catch {
+            // Locale sync is best-effort on cold start.
           }
         } else if (!(await hasStoredSession())) {
           clearLocalSession();

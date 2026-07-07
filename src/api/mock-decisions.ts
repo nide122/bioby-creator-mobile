@@ -9,6 +9,7 @@ export const MOCK_DECISIONS: DecisionCard[] = [
   {
     id: 'dec-payout-beta',
     category: 'payout',
+    estimatedMinutes: 2,
     entityName: 'TrailPeak Gear',
     headline: 'Release $3,200',
     aiNote: 'Upload publish proof to release escrow.',
@@ -24,6 +25,7 @@ export const MOCK_DECISIONS: DecisionCard[] = [
   {
     id: 'dec-opportunity-skincare',
     category: 'opportunity',
+    estimatedMinutes: 5,
     entityName: 'ClearSkin Lab',
     claimedBrandName: 'ClearSkin Lab',
     headline: 'Decide on ClearSkin Lab pitch',
@@ -50,6 +52,7 @@ export const MOCK_DECISIONS: DecisionCard[] = [
   {
     id: 'dec-opportunity-hardware',
     category: 'opportunity',
+    estimatedMinutes: 5,
     entityName: 'TrailPeak Gear',
     headline: 'Decide on TrailPeak Gear pitch',
     aiNote: 'Broad usage and prepay still unclear — negotiate before committing dates.',
@@ -73,6 +76,7 @@ export const MOCK_DECISIONS: DecisionCard[] = [
   {
     id: 'dec-opportunity-glow',
     category: 'opportunity',
+    estimatedMinutes: 5,
     entityName: 'Glow Recipe',
     headline: 'Follow up on Glow Recipe delivery',
     aiNote: 'Escrow is funded — track deliverables and publish timing in the deal packet.',

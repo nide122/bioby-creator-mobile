@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Pressable,
   Share,
   StyleSheet,
   Text,
@@ -9,17 +8,52 @@ import {
 } from 'react-native';
 
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, HubLinkGroup, HubListRow, HubScreen, QueryRetryCard, SectionCard, SettingsGroup } from '@/components/product';
+import {
+  Badge,
+  getTextInputProps,
+  getTextInputStyle,
+  HubLinkGroup,
+  HubListRow,
+  HubScreen,
+  ProposalSkuLines,
+  QueryRetryCard,
+  SectionCard,
+  SettingsGroup,
+} from '@/components/product';
+import { AutoGrowTextInput } from '@/components/product/AutoGrowTextInput';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { alertAction } from '@/src/lib/app-dialog';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
-import { useProposalPreview } from '@/src/hooks/use-growth';
+import {
+  readCachedProposalPreview,
+  useProposalPreview,
+  useSaveProposal,
+} from '@/src/hooks/use-growth';
 import { useSessionStore } from '@/src/stores/session-store';
+import type { ProposalPreview } from '@/src/types/domain';
+
+function bulletsToText(items: string[]): string {
+  return items.join('\n');
+}
+
+function textToBullets(value: string): string[] {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function isProposalSeedRicher(next: ProposalPreview, current: ProposalPreview): boolean {
+  if (!current.title.trim() && next.title.trim()) return true;
+  if (!current.executiveSummary.trim() && next.executiveSummary.trim()) return true;
+  if (current.skuLines.length === 0 && next.skuLines.length > 0) return true;
+  return false;
+}
 
 export default function ProposalDetailScreen() {
   const { t } = useTranslation();
@@ -32,8 +66,32 @@ export default function ProposalDetailScreen() {
   const theme = palette[colorScheme];
 
   const query = useProposalPreview(safeId);
+  const saveProposal = useSaveProposal();
   const profile = useSessionStore((s) => s.profileBasics);
+  const cachedProposal = safeId ? readCachedProposalPreview(queryClient, safeId) : undefined;
+  const seedProposal = query.data ?? cachedProposal;
+  const [draft, setDraft] = useState<ProposalPreview | null>(() => cachedProposal ?? null);
   const [proposalSent, setProposalSent] = useState(false);
+  const seededIdRef = useRef<string | null>(cachedProposal?.id ?? null);
+
+  useEffect(() => {
+    if (!seedProposal) return;
+    if (seedProposal.id !== seededIdRef.current) {
+      seededIdRef.current = seedProposal.id;
+      setDraft(seedProposal);
+      return;
+    }
+    if (!draft || isProposalSeedRicher(seedProposal, draft)) {
+      setDraft(seedProposal);
+    }
+  }, [draft, seedProposal]);
+
+  const activeProposal = draft ?? seedProposal;
+
+  const isDraft = useMemo(() => {
+    if (!activeProposal) return false;
+    return activeProposal.preview === true || activeProposal.saved === false;
+  }, [activeProposal]);
 
   if (!safeId) {
     return (
@@ -44,7 +102,7 @@ export default function ProposalDetailScreen() {
     );
   }
 
-  if (query.isPending) {
+  if (query.isPending && !activeProposal) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <ActivityIndicator accessibilityLabel={t('proposalDetailScreen.loadingA11y')} color={theme.primary} />
@@ -52,7 +110,7 @@ export default function ProposalDetailScreen() {
     );
   }
 
-  if (query.error || !query.data) {
+  if ((query.error && !activeProposal) || (!query.isPending && !activeProposal)) {
     const msg = query.error?.message ?? t('proposalDetailScreen.emptyDataFallback');
     return (
       <PlaceholderScreen
@@ -70,14 +128,17 @@ export default function ProposalDetailScreen() {
     );
   }
 
-  const proposal = query.data;
-  const creatorName = profile?.displayName ?? proposal.creatorDisplayName;
-  const shareSummary = `${proposal.title}\nCreator: ${creatorName}\nBrand: ${proposal.brandHint}\n${proposal.executiveSummary}`;
+  const creatorName = profile?.displayName ?? activeProposal.creatorDisplayName;
+  const shareSummary = `${activeProposal.title}\nCreator: ${creatorName}\nBrand: ${activeProposal.brandHint}\n${activeProposal.executiveSummary}`;
 
   const onShareProposal = async () => {
+    if (isDraft) {
+      void alertAction(t('proposalDetailScreen.saveBeforeShareTitle'), t('proposalDetailScreen.saveBeforeShareDesc'));
+      return;
+    }
     try {
       await Share.share({
-        title: proposal.title,
+        title: activeProposal.title,
         message: shareSummary,
       });
       setProposalSent(true);
@@ -86,18 +147,50 @@ export default function ProposalDetailScreen() {
     }
   };
 
+  const onSaveDraft = async () => {
+    try {
+      await saveProposal.mutateAsync(activeProposal);
+      void alertAction(t('proposalDetailScreen.saveSuccessTitle'), t('proposalDetailScreen.saveSuccessDesc'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('proposalDetailScreen.saveFailedDesc');
+      void alertAction(t('proposalDetailScreen.saveFailedTitle'), message);
+    }
+  };
+
+  const generationLabel =
+    activeProposal.generationSource === 'llm'
+      ? t('proposalDetailScreen.badgeAiDraft')
+      : t('proposalDetailScreen.badgeRulesDraft');
+
   return (
     <HubScreen
       eyebrow={t('tabs.assets')}
-      title={proposal.title}
+      title={isDraft ? t('proposalDetailScreen.draftTitle') : activeProposal.title}
       lead={t('proposalDetailScreen.heroEvidenceLine', {
-        brand: proposal.brandHint,
-        title: proposal.title,
+        brand: activeProposal.brandHint,
+        title: activeProposal.title,
       })}>
-      <SectionCard title={t('proposalDetailScreen.brandPreviewTitle')} subtitle={t('proposalDetailScreen.brandPreviewSubtitle')}>
+      {isDraft ? (
+        <View style={styles.badgeRow}>
+          <Badge tone="warning" label={t('proposalDetailScreen.badgeDraft')} />
+          <Badge tone="mint" label={generationLabel} />
+        </View>
+      ) : null}
+
+      <SectionCard
+        title={t('proposalDetailScreen.brandPreviewTitle')}
+        subtitle={
+          isDraft
+            ? t('proposalDetailScreen.draftEditHint')
+            : t('proposalDetailScreen.brandPreviewSubtitle')
+        }>
         <Text style={[styles.meta, { color: theme.mutedForeground }]}>
           {t('proposalDetailScreen.metaCreatorPrefix')}{' '}
           <Text style={{ color: theme.foreground }}>{creatorName}</Text>
+        </Text>
+        <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+          {t('proposalDetailScreen.metaBrandPrefix')}{' '}
+          <Text style={{ color: theme.foreground }}>{activeProposal.brandHint}</Text>
         </Text>
         {profile?.platformLabel ? (
           <Text style={[styles.meta, { color: theme.mutedForeground }]}>
@@ -108,7 +201,34 @@ export default function ProposalDetailScreen() {
             </Text>
           </Text>
         ) : null}
-        <Text style={[styles.summary, { color: theme.foreground }]}>{proposal.executiveSummary}</Text>
+        {isDraft ? (
+          <>
+            <Text style={[styles.fieldLabel, { color: theme.mutedForeground }]}>
+              {t('proposalDetailScreen.fieldTitle')}
+            </Text>
+            <AutoGrowTextInput
+              {...getTextInputProps(theme)}
+              style={[getTextInputStyle(theme), styles.input]}
+              value={activeProposal.title}
+              onChangeText={(title) =>
+                setDraft((current) => ({ ...(current ?? activeProposal), title }))
+              }
+            />
+            <Text style={[styles.fieldLabel, { color: theme.mutedForeground }]}>
+              {t('proposalDetailScreen.fieldSummary')}
+            </Text>
+            <AutoGrowTextInput
+              {...getTextInputProps(theme)}
+              style={[getTextInputStyle(theme, { multiline: true }), styles.input]}
+              value={activeProposal.executiveSummary}
+              onChangeText={(executiveSummary) =>
+                setDraft((current) => ({ ...(current ?? activeProposal), executiveSummary }))
+              }
+            />
+          </>
+        ) : (
+          <Text style={[styles.summary, { color: theme.foreground }]}>{activeProposal.executiveSummary}</Text>
+        )}
       </SectionCard>
 
       <SectionCard title={t('proposalDetailScreen.whyCheckTitle')} emphasis>
@@ -134,15 +254,15 @@ export default function ProposalDetailScreen() {
         </View>
       </SectionCard>
 
-      {proposal.creatorSnapshot ? (
+      {activeProposal.creatorSnapshot ? (
         <SectionCard
           title={t('proposalDetailScreen.creatorSnapshotTitle')}
           subtitle={t('proposalDetailScreen.creatorSnapshotSubtitle')}>
-          <Text style={[styles.snapshotHeadline, { color: theme.foreground }]}>{proposal.creatorSnapshot.headline}</Text>
-          <Text style={[styles.summary, { color: theme.foreground }]}>{proposal.creatorSnapshot.bio}</Text>
-          {proposal.creatorSnapshot.heroStats?.length ? (
+          <Text style={[styles.snapshotHeadline, { color: theme.foreground }]}>{activeProposal.creatorSnapshot.headline}</Text>
+          <Text style={[styles.summary, { color: theme.foreground }]}>{activeProposal.creatorSnapshot.bio}</Text>
+          {activeProposal.creatorSnapshot.heroStats?.length ? (
             <View style={styles.snapshotStats}>
-              {proposal.creatorSnapshot.heroStats.map((stat) => (
+              {activeProposal.creatorSnapshot.heroStats.map((stat) => (
                 <View key={stat.label} style={[styles.snapshotStat, { borderColor: theme.border }]}>
                   <Text style={[styles.snapshotStatValue, { color: theme.primary }]}>{stat.value}</Text>
                   <Text style={[styles.snapshotStatLabel, { color: theme.mutedForeground }]}>{stat.label}</Text>
@@ -150,9 +270,9 @@ export default function ProposalDetailScreen() {
               ))}
             </View>
           ) : null}
-          {proposal.creatorSnapshot.platforms.length ? (
+          {activeProposal.creatorSnapshot.platforms.length ? (
             <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-              {proposal.creatorSnapshot.platforms.slice(0, 3).map((platform) => (
+              {activeProposal.creatorSnapshot.platforms.slice(0, 3).map((platform) => (
                 <View key={platform.name} style={[styles.snapshotPlatform, { borderColor: theme.border }]}>
                   <Text style={[styles.relationTitle, { color: theme.foreground }]}>{platform.name}</Text>
                   <Text style={[styles.relationHint, { color: theme.mutedForeground }]}>
@@ -163,9 +283,9 @@ export default function ProposalDetailScreen() {
               ))}
             </View>
           ) : null}
-          {proposal.creatorSnapshot.cases.length ? (
+          {activeProposal.creatorSnapshot.cases.length ? (
             <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
-              {proposal.creatorSnapshot.cases.map((item) => (
+              {activeProposal.creatorSnapshot.cases.map((item) => (
                 <View key={item.id} style={[styles.snapshotPlatform, { borderColor: theme.border }]}>
                   <Text style={[styles.relationTitle, { color: theme.foreground }]}>{item.title}</Text>
                   <Text style={[styles.relationHint, { color: theme.mutedForeground }]}>{item.outcomeNote}</Text>
@@ -200,30 +320,63 @@ export default function ProposalDetailScreen() {
         ]}
       />
 
-      <SectionCard title={t('proposalDetailScreen.lineItemsTitle')}>
-        <View style={{ gap: spacing.md }}>
-          {proposal.skuLines.map((line) => (
-            <View
-              key={line.id}
-              style={[styles.skuCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-              <View style={styles.skuTop}>
-                <Badge tone="mint" label={line.platform} />
-                <Text style={[styles.price, { color: theme.primary }]}>{line.priceLabel}</Text>
-              </View>
-              <Text style={[styles.skuTitle, { color: theme.foreground }]}>{line.deliverable}</Text>
-              <Text style={[styles.skuMeta, { color: theme.mutedForeground }]}>{line.turnaroundLabel}</Text>
-            </View>
-          ))}
-        </View>
+      <SectionCard
+        title={t('proposalDetailScreen.lineItemsTitle')}
+        subtitle={t('proposalDetailScreen.lineItemsSubtitle', { count: activeProposal.skuLines.length })}>
+        <ProposalSkuLines lines={activeProposal.skuLines} />
       </SectionCard>
 
       <SectionCard
         title={t('proposalDetailScreen.moneyTermsTitle')}
-        subtitle={t('proposalDetailScreen.moneyTermsSubtitle')}>
+        subtitle={
+          isDraft
+            ? t('proposalDetailScreen.moneyTermsDraftSubtitle')
+            : t('proposalDetailScreen.moneyTermsSubtitle')
+        }>
         <View style={{ gap: spacing.md }}>
-          <ReviewBlock title={t('proposalDetailScreen.reviewRights')} tone="warning" items={proposal.rightsBullets} />
-          <ReviewBlock title={t('proposalDetailScreen.reviewPayment')} tone="warning" items={proposal.paymentBullets} />
-          <ReviewBlock title={t('proposalDetailScreen.reviewRisk')} tone="danger" items={proposal.riskBullets} />
+          {isDraft ? (
+            <>
+              <EditableReviewBlock
+                title={t('proposalDetailScreen.reviewRights')}
+                tone="warning"
+                value={bulletsToText(activeProposal.rightsBullets)}
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...(current ?? activeProposal),
+                    rightsBullets: textToBullets(value),
+                  }))
+                }
+              />
+              <EditableReviewBlock
+                title={t('proposalDetailScreen.reviewPayment')}
+                tone="warning"
+                value={bulletsToText(activeProposal.paymentBullets)}
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...(current ?? activeProposal),
+                    paymentBullets: textToBullets(value),
+                  }))
+                }
+              />
+              <EditableReviewBlock
+                title={t('proposalDetailScreen.reviewRisk')}
+                tone="danger"
+                value={bulletsToText(activeProposal.riskBullets)}
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...(current ?? activeProposal),
+                    riskBullets: textToBullets(value),
+                  }))
+                }
+              />
+            </>
+          ) : (
+            <>
+              <ReviewBlock title={t('proposalDetailScreen.reviewRights')} tone="warning" items={activeProposal.rightsBullets} />
+              <ReviewBlock title={t('proposalDetailScreen.reviewPayment')} tone="warning" items={activeProposal.paymentBullets} />
+              <ReviewBlock title={t('proposalDetailScreen.reviewRisk')} tone="danger" items={activeProposal.riskBullets} />
+            </>
+          )}
         </View>
       </SectionCard>
 
@@ -232,13 +385,24 @@ export default function ProposalDetailScreen() {
       ) : null}
 
       <SettingsGroup title={t('hubLinks.actions')}>
+        {isDraft ? (
+          <HubListRow
+            icon="save-outline"
+            title={t('proposalDetailScreen.ctaSaveDraft')}
+            subtitle={t('proposalDetailScreen.ctaSaveDraftSubtitle')}
+            onPress={() => void onSaveDraft()}
+            detail={saveProposal.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
+          />
+        ) : null}
         <HubListRow
           icon="share-outline"
           title={t('proposalDetailScreen.ctaShare')}
           subtitle={
-            proposalSent
-              ? t('proposalDetailScreen.ctaShareSentSubtitle')
-              : t('proposalDetailScreen.ctaShareDraftSubtitle')
+            isDraft
+              ? t('proposalDetailScreen.ctaShareBlockedSubtitle')
+              : proposalSent
+                ? t('proposalDetailScreen.ctaShareSentSubtitle')
+                : t('proposalDetailScreen.ctaShareDraftSubtitle')
           }
           onPress={onShareProposal}
         />
@@ -246,6 +410,13 @@ export default function ProposalDetailScreen() {
           icon="copy-outline"
           title={t('proposalDetailScreen.ctaCopySummary')}
           onPress={() => {
+            if (isDraft) {
+              void alertAction(
+                t('proposalDetailScreen.saveBeforeShareTitle'),
+                t('proposalDetailScreen.saveBeforeShareDesc'),
+              );
+              return;
+            }
             setProposalSent(true);
             void alertAction(t('proposalDetailScreen.alertSummaryTitle'), shareSummary);
           }}
@@ -297,20 +468,41 @@ function ReviewBlock({
   );
 }
 
+function EditableReviewBlock({
+  title,
+  tone,
+  value,
+  onChange,
+}: {
+  title: string;
+  tone: 'warning' | 'danger';
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  return (
+    <View style={[styles.reviewBlock, { borderColor: theme.border, backgroundColor: theme.card }]}>
+      <Badge tone={tone} label={title} />
+      <AutoGrowTextInput
+        {...getTextInputProps(theme)}
+        style={[getTextInputStyle(theme, { multiline: true, minHeight: 88 }), styles.input]}
+        value={value}
+        onChangeText={onChange}
+        multiline
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   meta: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  fieldLabel: { fontSize: fontSize.caption, lineHeight: lineHeight.body, marginTop: spacing.md },
+  input: { marginTop: spacing.xs },
   summary: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed, marginTop: spacing.sm },
-  templateGrid: { flexDirection: 'row', gap: spacing.sm },
-  templateItem: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  templateTitle: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
-  templateHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   relationGrid: { flexDirection: 'row', gap: spacing.sm },
   relationCard: {
     flex: 1,
@@ -338,16 +530,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.xs,
   },
-  skuCard: {
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  skuTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
-  skuTitle: { fontSize: fontSize.body, fontWeight: '600', lineHeight: lineHeight.lead },
-  skuMeta: { fontSize: fontSize.bodySmall },
-  price: { fontSize: fontSize.cardTitle, fontWeight: '700', fontVariant: ['tabular-nums'] },
   reviewBlock: {
     borderWidth: 1,
     borderRadius: radii.md,
@@ -355,19 +537,4 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   reviewText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
-  primary: {
-    borderRadius: radii.md,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryLabel: { fontWeight: '700', fontSize: fontSize.body },
-  secondary: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryLabel: { fontWeight: '700', fontSize: fontSize.body },
 });

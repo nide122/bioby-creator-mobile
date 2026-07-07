@@ -1,4 +1,6 @@
-import type { AiProcessingSource } from '@/src/types/domain';
+import type { AiProcessingSource, MoneyAmount } from '@/src/types/domain';
+
+import type { PriorityAssessmentView } from '@/src/lib/priority-assessment';
 
 /** Backend opportunity DTOs (aligned with OpportunityListItemView / OpportunityDetailView). */
 export type OpportunityMessageStats = {
@@ -27,6 +29,9 @@ export type OpportunityListItem = {
   classificationSortScore?: number;
   inboxPriority?: 'p0' | 'p1' | 'p2' | 'p3';
   priorityScore?: number | null;
+  valueSortKey?: number | null;
+  dealEconomics?: PriorityAssessmentView['dealEconomics'];
+  priorityAssessment?: PriorityAssessmentView | null;
   priorityBreakdown?: {
     brandFit: number;
     budgetValue: number;
@@ -34,8 +39,10 @@ export type OpportunityListItem = {
     relationshipValue: number;
     effort: number;
     risk: number;
+    rulesVersion?: string | null;
   } | null;
-  budgetLabel?: string | null;
+  budgetDisplay?: string | null;
+  budgetAmount?: MoneyAmount | null;
   riskLabel?: string | null;
   nextActionLabel?: string | null;
   messageCount?: number | null;
@@ -71,6 +78,25 @@ export type LatestApprovedScript = {
   extractionSource?: string | null;
 };
 
+export type DeliverableItem = {
+  name: string;
+  contentFormat?: string | null;
+  platform?: string | null;
+  quantity?: number;
+  dueAtISO?: string | null;
+  dueAtKind?: string | null;
+  dueAtText?: string | null;
+  dueAtUncertainty?: string | null;
+  rateCardLineKeys?: string[];
+};
+
+export type DeliverablePackage = {
+  label?: string | null;
+  quoteDisplay?: string | null;
+  quoteAmount?: MoneyAmount | null;
+  items: DeliverableItem[];
+};
+
 export type OpportunityDetail = OpportunityListItem & {
   briefStage?: string;
   dealId?: string | null;
@@ -83,14 +109,17 @@ export type OpportunityDetail = OpportunityListItem & {
   attentionFlags?: unknown;
   clearedRiskChecks?: unknown;
   recommendedActions?: string[];
+  riskNotes?: string[];
+  systemHints?: string[];
   suggestedDraftIds?: { aiReply?: string | null; quote?: string | null } | null;
   extractionStatus?: 'PENDING' | 'COMPLETE' | 'FAILED' | 'SKIPPED';
   extractionConfidence?: number | null;
   missingFields?: string[] | unknown;
-  deliverables?: string[];
   usageRights?: string[];
-  postingSchedule?: string | null;
-  packages?: Array<{ deliverable: string; budgetLabel?: string | null; currency?: string | null }>;
+  deadlineAtISO?: string | null;
+  deadlineKind?: string | null;
+  deadlineText?: string | null;
+  packages?: DeliverablePackage[];
   attentionCount?: number | null;
   contractSummary?: ContractSummaryView | null;
   latestApprovedScript?: LatestApprovedScript | null;

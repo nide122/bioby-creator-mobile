@@ -19,6 +19,7 @@ declare global {
 
 function isAuthEntryPath(pathname: string): boolean {
   return (
+    pathname === '/home' ||
     pathname === '/welcome' ||
     pathname.startsWith('/register') ||
     pathname.startsWith('/login')

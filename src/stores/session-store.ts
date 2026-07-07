@@ -150,7 +150,7 @@ const initialSession = {
   creatorFocusMode: 'quiet' as CreatorFocusMode,
   classificationStrictness: 'standard' as ClassificationStrictness,
   inboxReclassificationActive: false,
-  inboxFilterStepFinished: false,
+  inboxFilterStepFinished: true,
   emailWizardFinished: false,
   emailSkipped: false,
   rateCardStepFinished: false,
@@ -295,7 +295,6 @@ const sessionStateCreator: (
     if (
       !s.profileBasics ||
       !s.complianceAcceptedAt ||
-      !s.inboxFilterStepFinished ||
       !s.emailWizardFinished ||
       !s.rateCardStepFinished
     ) {
@@ -322,7 +321,7 @@ const sessionStateCreator: (
       complianceAcceptedAt: null,
       agentSendMode: null,
       classificationStrictness: 'standard',
-      inboxFilterStepFinished: false,
+      inboxFilterStepFinished: true,
       emailWizardFinished: false,
       emailSkipped: false,
       rateCardStepFinished: false,

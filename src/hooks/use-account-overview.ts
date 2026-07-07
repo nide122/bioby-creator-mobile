@@ -10,7 +10,7 @@ import {
   useTenantApiQueryEnabled,
   useTenantQueryKey,
 } from '@/src/lib/tenant-query';
-import type { AgentSendMode, ClassificationStrictness, CreatorFocusMode } from '@/src/stores/session-store';
+import type { AgentSendMode, ClassificationStrictness, CreatorFocusMode, CreatorProfileBasics } from '@/src/stores/session-store';
 import { useSessionStore } from '@/src/stores/session-store';
 
 /** Infer whether a returning API user has finished onboarding (unit-tested). */
@@ -48,11 +48,11 @@ function buildOnboardingPatchFromOverview(overview: AccountOverviewResponse): {
     agentSendMode: null as AgentSendMode | null,
     creatorFocusMode: (overview.creatorFocusMode ?? 'quiet') as CreatorFocusMode,
     classificationStrictness: (overview.classificationStrictness ?? 'standard') as ClassificationStrictness,
-    inboxFilterStepFinished: Boolean(overview.inboxFilterConfigured),
+    inboxFilterStepFinished: true,
     emailWizardFinished: false,
     emailSkipped: false,
     mailboxConnection: null as ReturnType<typeof useSessionStore.getState>['mailboxConnection'],
-    creatorVerificationStatus: 'unverified' as const,
+    creatorVerificationStatus: 'unverified' as ReturnType<typeof useSessionStore.getState>['creatorVerificationStatus'],
     onboardingComplete: false,
     planAcknowledged: false,
   };

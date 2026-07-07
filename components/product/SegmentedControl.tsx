@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -23,13 +23,15 @@ export function SegmentedControl<T extends string>({ options, value, onChange, d
   const theme = palette[colorScheme];
 
   return (
-    <View style={[styles.track, { backgroundColor: theme.muted }, disabled && styles.trackDisabled]}>
+    <View
+      accessibilityRole="radiogroup"
+      style={[styles.track, { backgroundColor: theme.muted }, disabled && styles.trackDisabled]}>
       {options.map((option) => {
         const active = value === option.id;
         return (
           <Pressable
             key={option.id}
-            accessibilityRole="button"
+            accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
             accessibilityState={{ selected: active, disabled }}
             disabled={disabled}
             onPress={() => {

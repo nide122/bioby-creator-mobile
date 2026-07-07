@@ -17,12 +17,14 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { useDrafts } from '@/src/hooks/use-drafts';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { useDraftApprovalStore } from '@/src/stores/draft-approval-store';
 
 export default function DraftsIndexScreen() {
   const { t } = useTranslation();
   const { draftKindLabel } = useDomainLabels();
   const router = useRouter();
+  const { openProposal } = useOpenProposal();
   const queryClient = useQueryClient();
   const drafts = useDrafts();
   const isDraftApproved = useDraftApprovalStore((s) => s.isDraftApproved);
@@ -77,7 +79,7 @@ export default function DraftsIndexScreen() {
           }}
           secondaryAction={{
             label: t('draftsScreen.goProposal'),
-            onPress: () => router.push('/proposal/sample' as Href),
+            onPress: () => void openProposal(),
           }}
         />
       ) : (

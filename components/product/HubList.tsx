@@ -14,14 +14,13 @@ export const hubListStyles = StyleSheet.create({
   pressablePressed: { opacity: 0.72 },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.md,
     minHeight: layout.touchMin - 4,
   },
   rowTall: {
-    alignItems: 'flex-start',
     paddingVertical: spacing.md + 2,
   },
   icon: {

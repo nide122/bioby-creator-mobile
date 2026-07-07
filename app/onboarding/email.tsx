@@ -177,19 +177,6 @@ export default function EmailOnboardingScreen() {
     goNext();
   };
 
-  const mailboxSyncSummary = (result: { newCount?: number; inboxNewCount?: number; upToDate?: boolean } | null) => {
-    if (!result) return t('onboardingSync.mailboxBackendBypassed');
-    if (result.upToDate) return t('onboardingSync.mailboxUpToDate');
-    const inboxNewCount = result.inboxNewCount ?? 0;
-    const totalNew = result.newCount ?? 0;
-    if (totalNew <= 0) return t('onboardingSync.mailboxSyncDoneEmpty');
-    return t('onboardingSync.mailboxSyncDone', {
-      totalNew,
-      inboxNewCount,
-      nonInboxNewCount: Math.max(totalNew - inboxNewCount, 0),
-    });
-  };
-
   const showSyncError = async (titleKey: string, result: { error: string; code?: string; status?: number }) => {
     const details = result.code ? `${result.code}: ${result.error}` : result.error;
     setSyncState('error');
@@ -209,9 +196,6 @@ export default function EmailOnboardingScreen() {
       await showSyncError('onboardingSync.mailboxTitle', result);
       return;
     }
-    setSyncState('success');
-    setSyncMessage(mailboxSyncSummary(result.data));
-    await alertAction(t('onboardingSync.mailboxSuccessTitle'), mailboxSyncSummary(result.data));
   };
 
   const onGmailOAuthCode = async (payload: {
@@ -227,11 +211,7 @@ export default function EmailOnboardingScreen() {
       await showSyncError('onboardingSync.mailboxTitle', result);
       return;
     }
-    const summary = mailboxSyncSummary(result.data.syncResult);
-    setSyncState('success');
-    setSyncMessage(summary);
     completeEmailWizard(result.data.emailAddress ?? mailbox.trim());
-    await alertAction(t('onboardingSync.mailboxSuccessTitle'), summary);
     goNext();
   };
 
@@ -243,14 +223,11 @@ export default function EmailOnboardingScreen() {
       await showSyncError('onboardingSync.mailboxTitle', result);
       return;
     }
-    setSyncState('success');
-    setSyncMessage(mailboxSyncSummary(result.data));
-    await alertAction(t('onboardingSync.mailboxSuccessTitle'), mailboxSyncSummary(result.data));
   };
 
   const onConnected = async () => {
     if (!isAuthenticated) {
-      router.replace('/welcome' as Href);
+      router.replace('/home' as Href);
       return;
     }
     if (!profileBasics) {
@@ -278,17 +255,13 @@ export default function EmailOnboardingScreen() {
       await showSyncError('onboardingSync.mailboxTitle', result);
       return;
     }
-    const summary = mailboxSyncSummary(result.data);
-    setSyncState('success');
-    setSyncMessage(summary);
     completeEmailWizard(mailbox.trim());
-    await alertAction(t('onboardingSync.mailboxSuccessTitle'), summary);
     goNext();
   };
 
   const onSkip = () => {
     if (!isAuthenticated) {
-      router.replace('/welcome' as Href);
+      router.replace('/home' as Href);
       return;
     }
     if (!profileBasics) {
