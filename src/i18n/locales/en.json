@@ -393,6 +393,18 @@
       "later": "Snooze"
     }
   },
+  "deadlineReminder": {
+    "fallbackBrand": "Collaboration",
+    "notificationTitle": "{{kind}} — {{brand}}",
+    "notificationBody": "Due {{date}}. Open Bioby Creator to review.",
+    "exportIcsCta": "Add to calendar (.ics)",
+    "exportErrorTitle": "Could not export calendar",
+    "exportErrorBody": "This deadline could not be exported. Check the date and try again.",
+    "reminderScheduled": "Reminder set for 24 hours before the deadline.",
+    "reminderUnavailable": "Reminder unavailable — deadline is too soon or already passed.",
+    "permissionDenied": "Enable notifications in system settings to get deadline reminders.",
+    "icsSummary": "{{kind}}: {{title}}"
+  },
   "decisionCard": {
     "headline": {
       "reviewQuoteDraft": "Review quote draft",
@@ -660,6 +672,12 @@
     "confirmDangerCta": "I have read — continue",
     "confirmBriefErrorTitle": "Couldn't confirm terms",
     "confirmBriefErrorBody": "Please review the brief, quote stage, and risk acknowledgements, then try again.",
+    "confirmBriefErrors": {
+      "BRIEF_NOT_COMPLETE": "Wait until the structured brief finishes extracting, then try again.",
+      "LEAD_STAGE_TOO_EARLY": "Send or approve a quote email first so this thread reaches the quoted stage.",
+      "NOT_FOUND": "This opportunity is no longer available. Refresh the inbox and try again."
+    },
+    "ctaConfirmBriefLoading": "Confirming terms…",
     "riskAckErrorTitle": "Couldn't save acknowledgement",
     "riskAckErrorBody": "Please try again.",
     "confirmBlocker": {
@@ -3356,6 +3374,12 @@
     "title": "AI generate reply",
     "lead": "Combines this opportunity, your rate card, and email scenario into a draft you can edit before send.",
     "scenarioLabel": "Email scenario",
+    "toneLabel": "Tone",
+    "tone": {
+      "friendly": "Friendly",
+      "professional": "Professional",
+      "firm": "Firm"
+    },
     "scenariosMore": "More scenarios",
     "scenariosLess": "Show less",
     "scenariosMoreA11y": "Show more email scenarios",

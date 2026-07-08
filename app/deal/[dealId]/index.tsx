@@ -24,6 +24,7 @@ import {
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { DealStatusStrip } from '@/components/deals/DealStatusStrip';
 import { DealTermsWithContractSection } from '@/components/deals/DealTermsWithContractSection';
+import { DeadlineReminderSection } from '@/components/deadline/DeadlineReminderSection';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
@@ -352,6 +353,16 @@ export default function DealOverviewScreen() {
       </View>
 
       <DealStatusStrip dealId={deal.id} status={fulfillmentStatus} />
+
+      <DeadlineReminderSection
+        entityType="deal"
+        entityId={deal.id}
+        title={deal.title}
+        brandLabel={deal.brandPlaceholder}
+        deadlineAtISO={deal.deadlineAtISO}
+        deadlineKind={deal.deadlineKind}
+        deadlineText={deal.deadlineText}
+      />
 
       <DealTermsWithContractSection
         loading={termsContract.loading}

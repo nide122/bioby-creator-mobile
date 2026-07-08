@@ -393,6 +393,18 @@
       "later": "推迟"
     }
   },
+  "deadlineReminder": {
+    "fallbackBrand": "合作",
+    "notificationTitle": "{{kind}} — {{brand}}",
+    "notificationBody": "截止 {{date}}。打开 Bioby Creator 查看详情。",
+    "exportIcsCta": "添加到日历 (.ics)",
+    "exportErrorTitle": "无法导出日历",
+    "exportErrorBody": "无法导出此截止时间，请检查日期后重试。",
+    "reminderScheduled": "已设置截止前 24 小时提醒。",
+    "reminderUnavailable": "无法设置提醒——截止时间过近或已过期。",
+    "permissionDenied": "请在系统设置中开启通知以接收截止提醒。",
+    "icsSummary": "{{kind}}：{{title}}"
+  },
   "decisionCard": {
     "headline": {
       "reviewQuoteDraft": "审阅报价草稿",
@@ -660,6 +672,12 @@
     "confirmDangerCta": "已阅读，进入合作",
     "confirmBriefErrorTitle": "无法确认条款",
     "confirmBriefErrorBody": "请检查简报是否完整、是否已报价，以及是否已确认所有高风险项后再试。",
+    "confirmBriefErrors": {
+      "BRIEF_NOT_COMPLETE": "请等待结构化简报提取完成后再确认条款。",
+      "LEAD_STAGE_TOO_EARLY": "请先发送或批准报价邮件，使该线程进入已报价阶段。",
+      "NOT_FOUND": "该商机已不可用，请刷新收件箱后重试。"
+    },
+    "ctaConfirmBriefLoading": "正在确认条款…",
     "riskAckErrorTitle": "无法保存确认",
     "riskAckErrorBody": "请稍后重试。",
     "confirmBlocker": {
@@ -3356,6 +3374,12 @@
     "title": "AI 生成回复",
     "lead": "结合当前机会、报价包和邮件场景生成草稿，发送前仍可编辑。",
     "scenarioLabel": "邮件场景",
+    "toneLabel": "语气",
+    "tone": {
+      "friendly": "友好",
+      "professional": "专业",
+      "firm": "强硬"
+    },
     "scenariosMore": "更多场景",
     "scenariosLess": "收起",
     "scenariosMoreA11y": "展开更多邮件场景",

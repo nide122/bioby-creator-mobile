@@ -347,6 +347,10 @@ export type DealSummary = {
   recommendPayoutNote?: string;
   /** 推荐机会的风险边界说明 */
   recommendRiskNote?: string;
+  /** Thread-level publish/delivery deadline from linked opportunity extraction. */
+  deadlineAtISO?: string;
+  deadlineKind?: string;
+  deadlineText?: string;
 };
 
 export type DraftKind =

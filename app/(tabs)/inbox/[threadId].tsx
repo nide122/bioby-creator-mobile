@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -47,6 +47,7 @@ import {
 import { createDraftForOpportunity, type GeneratedReplyDraft } from '@/src/api/drafts-api';
 import { resolveOpportunityReplyDraftId, isResolvableReplyDraftId } from '@/src/lib/opportunity-reply-draft';
 import { ApiError } from '@/src/api/api-client';
+import { resolveBriefConfirmErrorMessage } from '@/src/lib/brief-confirm-error';
 import { contractSummaryErrorMessage } from '@/src/lib/contract-summary-error';
 import { restoreSession } from '@/src/api/auth-api';
 import { hasStoredSession } from '@/src/auth/token-storage';
@@ -90,6 +91,7 @@ import { preferCooperationTitle, resolveOpportunityBrandLabel } from '@/src/lib/
 import { RiskBanner } from '@/components/inbox/RiskBanner';
 import { PriorityBreakdownSheet } from '@/src/components/inbox/PriorityBreakdownSheet';
 import { BriefExtractionPanel } from '@/components/inbox/BriefExtractionPanel';
+import { DeadlineReminderSection } from '@/components/deadline/DeadlineReminderSection';
 import { CollapsibleThread } from '@/components/inbox/CollapsibleThread';
 import {
   contractWarningSeverity,
@@ -227,6 +229,7 @@ export default function InboxThreadDetailScreen() {
   );
   const [draftActionLoading, setDraftActionLoading] = useState<DraftKind | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const confirmInFlightRef = useRef(false);
   const [localAckedRiskIds, setLocalAckedRiskIds] = useState<string[]>([]);
   const [showAiGenerator, setShowAiGenerator] = useState(false);
   const [showPriorityBreakdownSheet, setShowPriorityBreakdownSheet] = useState(false);
@@ -472,8 +475,9 @@ export default function InboxThreadDetailScreen() {
   };
 
   const onConfirmBrief = async () => {
-    if (!apiMode || confirmLoading || !readyToConfirm) return;
+    if (!apiMode || confirmLoading || confirmInFlightRef.current || !readyToConfirm) return;
 
+    confirmInFlightRef.current = true;
     setConfirmLoading(true);
     try {
       if (pendingDangerFlags.length > 0) {
@@ -488,13 +492,15 @@ export default function InboxThreadDetailScreen() {
       }
       const result = await confirmOpportunityBrief(detail.id);
       await refreshThreadAndDeals();
-      if (result.dealId) {
-        onOpenDeal(result.dealId);
+      const dealId = result.dealId ?? detail.dealId;
+      if (dealId) {
+        onOpenDeal(dealId);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : t('inboxThreadDetail.confirmBriefErrorBody');
+      const message = resolveBriefConfirmErrorMessage(error, t);
       void alertAction(t('inboxThreadDetail.confirmBriefErrorTitle'), message);
     } finally {
+      confirmInFlightRef.current = false;
       setConfirmLoading(false);
     }
   };
@@ -648,6 +654,7 @@ export default function InboxThreadDetailScreen() {
           ) : readyToConfirm ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ disabled: confirmLoading, busy: confirmLoading }}
               disabled={confirmLoading}
               onPress={() => void onConfirmBrief()}
               android_ripple={{ color: `${theme.primary}33` }}
@@ -655,16 +662,23 @@ export default function InboxThreadDetailScreen() {
                 styles.btnPrimary,
                 { backgroundColor: theme.primary },
                 confirmLoading && styles.btnDisabled,
-                pressed && { opacity: 0.92 },
+                pressed && !confirmLoading && { opacity: 0.92 },
               ]}>
               {confirmLoading ? (
-                <ActivityIndicator color={theme.primaryForeground} />
+                <>
+                  <ActivityIndicator color={theme.primaryForeground} />
+                  <Text style={[styles.btnPrimaryLabel, { color: theme.primaryForeground }]}>
+                    {t('inboxThreadDetail.ctaConfirmBriefLoading')}
+                  </Text>
+                </>
               ) : (
-                <Ionicons name="shield-checkmark-outline" size={16} color={theme.primaryForeground} />
+                <>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={theme.primaryForeground} />
+                  <Text style={[styles.btnPrimaryLabel, { color: theme.primaryForeground }]}>
+                    {t('inboxThreadDetail.ctaConfirmBrief')}
+                  </Text>
+                </>
               )}
-              <Text style={[styles.btnPrimaryLabel, { color: theme.primaryForeground }]}>
-                {t('inboxThreadDetail.ctaConfirmBrief')}
-              </Text>
             </Pressable>
           ) : confirmBlocker && confirmBlocker !== 'already_confirmed' && confirmBlocker !== 'lead_stage_draft_ready' ? (
             <View style={[styles.confirmBlocker, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
@@ -799,25 +813,39 @@ export default function InboxThreadDetailScreen() {
           ) : null}
 
           {isCommercial ? (
-            <BriefExtractionPanel
-              aiBriefText={aiBriefText}
-              budgetDisplay={detail.budgetDisplay}
-              briefConfidencePercent={
-                detail.extractionStatus === 'COMPLETE' ? briefConfidencePercent : null
-              }
-              briefExtracting={briefExtracting}
-              threadAnalysisPending={showThreadAnalysisBanner}
-              packages={packages}
-              usageRights={detail.usageRights}
-              deadlineAtISO={detail.deadlineAtISO}
-              deadlineKind={detail.deadlineKind}
-              deadlineText={detail.deadlineText}
-              systemHintItems={systemHintList}
-              riskNoteItems={riskNoteList}
-              attentionItems={suggestionList}
-              missingFields={missingFields}
-              correctedByUser={correctedByUser}
-            />
+            <>
+              <BriefExtractionPanel
+                aiBriefText={aiBriefText}
+                budgetDisplay={detail.budgetDisplay}
+                briefConfidencePercent={
+                  detail.extractionStatus === 'COMPLETE' ? briefConfidencePercent : null
+                }
+                briefExtracting={briefExtracting}
+                threadAnalysisPending={showThreadAnalysisBanner}
+                packages={packages}
+                usageRights={detail.usageRights}
+                deadlineAtISO={detail.deadlineAtISO}
+                deadlineKind={detail.deadlineKind}
+                deadlineText={detail.deadlineText}
+                systemHintItems={systemHintList}
+                riskNoteItems={riskNoteList}
+                attentionItems={suggestionList}
+                missingFields={missingFields}
+                correctedByUser={correctedByUser}
+              />
+              <View style={{ marginTop: spacing.sm }}>
+                <DeadlineReminderSection
+                  entityType="opportunity"
+                  entityId={threadId}
+                  title={detail.title}
+                  brandLabel={detail.brandPlaceholder}
+                  deadlineAtISO={detail.deadlineAtISO}
+                  deadlineKind={detail.deadlineKind}
+                  deadlineText={detail.deadlineText}
+                  showSummary={false}
+                />
+              </View>
+            </>
           ) : (
             <View style={[styles.classificationBox, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
               {correctedByUser && (

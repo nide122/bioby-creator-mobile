@@ -2205,6 +2205,9 @@ export interface components {
             brandId?: string;
             brandName?: string;
             brandPlaceholder?: string;
+            deadlineAtISO?: string;
+            deadlineKind?: string;
+            deadlineText?: string;
             escrowPhase?: string;
             id?: string;
             nextMilestone?: string;
@@ -2384,6 +2387,8 @@ export interface components {
             purpose?: string;
             rateCardPackageId?: string;
             replyTemplateId?: string;
+            /** @enum {string} */
+            tone?: "friendly" | "professional" | "firm";
         };
         InboxSummaryView: {
             /** Format: int32 */

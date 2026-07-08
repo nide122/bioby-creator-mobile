@@ -5,6 +5,7 @@ import { fetchMockDraftDetail, fetchMockDrafts } from '@/src/api/mock-draft';
 import type { GeneratedReplyDraftView, SuggestedReplyPurposeView } from '@/src/types/api';
 import type { DraftDetailView, DraftListItemView } from '@/src/types/api';
 import type { ReplyDraftPurpose } from '@/src/lib/reply-draft-purpose';
+import type { ReplyDraftTone } from '@/src/lib/reply-draft-tone';
 import type { DraftDetail, DraftKind, DraftSummary } from '@/src/types/domain';
 import type { NegotiationDraftKind } from '@/src/lib/negotiation-draft-kinds';
 
@@ -24,6 +25,7 @@ export type SuggestedReplyPurposeDto = SuggestedReplyPurposeView;
 
 export type GenerateReplyDraftInput = {
   purpose?: ReplyDraftPurpose;
+  tone?: ReplyDraftTone;
   rateCardPackageId?: string;
   locale?: string;
   /** overwrite (default) or fresh */
@@ -171,6 +173,7 @@ export async function generateReplyDraft(
       method: 'POST',
       body: {
         purpose: input.purpose,
+        tone: input.tone,
         rateCardPackageId: input.rateCardPackageId,
         locale: input.locale,
         mode: input.mode,

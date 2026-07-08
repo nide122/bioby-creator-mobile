@@ -23,6 +23,11 @@ import {
   isReplyDraftCorePurpose,
   replyDraftPurposeI18nKey,
 } from '@/src/lib/reply-draft-purpose';
+import {
+  REPLY_DRAFT_TONES,
+  type ReplyDraftTone,
+  replyDraftToneI18nKey,
+} from '@/src/lib/reply-draft-tone';
 import type { RateCardPackage } from '@/src/types/domain';
 
 type ReplyDraftGeneratorSheetProps = {
@@ -52,6 +57,7 @@ export function ReplyDraftGeneratorSheet({
   const { templates } = useReplyTemplates();
 
   const [purpose, setPurpose] = useState<ReplyDraftPurpose>('pre_outreach');
+  const [tone, setTone] = useState<ReplyDraftTone>('professional');
   const [rateCardPackageId, setRateCardPackageId] = useState<string | undefined>();
   const [replyTemplateId, setReplyTemplateId] = useState<string | undefined>();
   const [loadingPurpose, setLoadingPurpose] = useState(false);
@@ -133,6 +139,7 @@ export function ReplyDraftGeneratorSheet({
       const useOverwrite = saveMode === 'overwrite' && overwriteDraftId;
       const result = await generateReplyDraft(opportunityId, {
         purpose,
+        tone,
         rateCardPackageId,
         locale,
         mode: useOverwrite ? 'overwrite' : saveMode,
@@ -230,6 +237,21 @@ export function ReplyDraftGeneratorSheet({
                   ) : null}
                 </>
               )}
+
+              <Text style={[styles.sectionLabel, { color: theme.foregroundSubtitle }]}>
+                {t('replyDraftGenerator.toneLabel')}
+              </Text>
+              <View style={styles.chipRow}>
+                {REPLY_DRAFT_TONES.map((item) => (
+                  <ScenarioChip
+                    key={item}
+                    active={tone === item}
+                    label={t(replyDraftToneI18nKey(item))}
+                    onPress={() => setTone(item)}
+                    theme={theme}
+                  />
+                ))}
+              </View>
 
               <Text style={[styles.sectionLabel, { color: theme.foregroundSubtitle }]}>
                 {t('replyDraftGenerator.rateCardLabel')}

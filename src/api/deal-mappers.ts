@@ -37,5 +37,8 @@ export function mapDealDto(item: DealListItemView): DealSummary {
     recommendReasons: item.recommendReasons ?? undefined,
     recommendPayoutNote: item.recommendPayoutNote ?? undefined,
     recommendRiskNote: item.recommendRiskNote ?? undefined,
+    deadlineAtISO: item.deadlineAtISO ?? undefined,
+    deadlineKind: item.deadlineKind ?? undefined,
+    deadlineText: item.deadlineText ?? undefined,
   };
 }
