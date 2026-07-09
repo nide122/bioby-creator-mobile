@@ -63,6 +63,6 @@ test.describe('Onboarded user routing', () => {
       sessionStorage.setItem('bioby-session-dev-v1', JSON.stringify(parsed));
     });
     await page.goto('/login');
-    await expect(page).toHaveURL(/\/inbox/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/($|\?)/, { timeout: 30_000 });
   });
 });

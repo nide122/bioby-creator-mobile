@@ -37,7 +37,7 @@ async function devNavigate(page: Page, path: string) {
 /** Seed demo workspace via DevTestSeed (?testWorkspace=1). */
 export async function enterDemoWorkspace(page: Page) {
   await page.goto(withTestWorkspace('/home'));
-  await expect(page.getByTestId('tab-inbox')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('screen-today')).toBeVisible({ timeout: 90_000 });
   await waitForDemoSession(page);
 }
 
@@ -68,7 +68,7 @@ export async function gotoProtected(page: Page, path: string) {
   };
   const tabRoute = tabByPath[pathOnly];
   if (tabRoute) {
-    if (pathOnly !== '/inbox') {
+    if (pathOnly !== '/') {
       await page.getByTestId(tabRoute.tab).click();
     }
     await expect(page.getByTestId(tabRoute.screen)).toBeVisible({ timeout: 30_000 });
@@ -77,8 +77,16 @@ export async function gotoProtected(page: Page, path: string) {
 
   if (pathOnly.startsWith('/inbox/') && pathOnly !== '/inbox') {
     const threadId = pathOnly.slice('/inbox/'.length);
+    const priorityChipByThread: Record<string, string> = {
+      'thread-skincare': 'inbox-priority-chip-p1',
+      'thread-hardware': 'inbox-priority-chip-p0',
+    };
     await page.getByTestId('tab-inbox').click();
     await expect(page.getByTestId('screen-inbox')).toBeVisible({ timeout: 30_000 });
+    const priorityChip = priorityChipByThread[threadId];
+    if (priorityChip) {
+      await page.getByTestId(priorityChip).click();
+    }
     await page.getByTestId(`inbox-thread-${threadId}`).click({ force: true });
     await expect(page.getByTestId('screen-inbox-thread-detail')).toBeVisible({ timeout: 30_000 });
     return;

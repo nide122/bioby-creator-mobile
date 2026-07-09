@@ -73,7 +73,7 @@ describe('getPostAuthRoute', () => {
   it('returns inbox for onboarded API users', () => {
     mockedIsApiConfigured.mockReturnValue(true);
     useSessionStore.setState({ onboardingComplete: true, isAuthenticated: true });
-    expect(getPostAuthRoute()).toBe('/inbox');
+    expect(getPostAuthRoute()).toBe('/');
   });
 
   it('returns the pending onboarding step for new API users', () => {

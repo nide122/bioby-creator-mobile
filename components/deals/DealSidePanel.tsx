@@ -164,7 +164,7 @@ export function DealSidePanel({ deal, onClose }: Props) {
     dealCopy?.outcomeSummary ??
     packet?.summary ??
     dealCopy?.nextMilestone ??
-    t('dealsScreen.description');
+    t('dealsScreen.panelProgressFallback');
   const contractRisk =
     thread?.riskLabel ??
     deal?.recommendRiskNote ??

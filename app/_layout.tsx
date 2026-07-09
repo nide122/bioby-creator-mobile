@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler';
 import '@/src/auth/complete-oauth-session';
 import '@/src/i18n';
+import '../styles/corporate-clean.css';
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

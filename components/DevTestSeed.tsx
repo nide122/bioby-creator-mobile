@@ -2,6 +2,7 @@ import { type Href, useGlobalSearchParams, usePathname, useRouter } from 'expo-r
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
+import { DEFAULT_APP_HOME_ROUTE } from '@/src/auth/post-auth-navigation';
 import { enterDemoWorkspace } from '@/src/auth/enter-demo-workspace';
 import { setMockRateCardPackagesForTest } from '@/src/api/mock-growth';
 import { queryClient } from '@/src/lib/query-client';
@@ -73,7 +74,7 @@ export function DevTestSeed() {
     void enterDemoWorkspace().then(() => {
       if (!isAuthEntryPath(pathname ?? '')) return;
       requestAnimationFrame(() => {
-        router.replace('/inbox' as Href);
+        router.replace(DEFAULT_APP_HOME_ROUTE as Href);
       });
     });
   }, [params.testWorkspace, pathname, router]);

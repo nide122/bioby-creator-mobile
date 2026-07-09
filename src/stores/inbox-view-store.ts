@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import type { InboxPriorityChip } from '@/src/lib/inbox-priority-filter';
 import type { InboxEmailCategory } from '@/src/types/domain';
 
 export type InboxViewMode = 'priority' | 'all';
@@ -10,6 +11,7 @@ export type InboxSortOrder = 'DESC' | 'ASC';
 
 type InboxViewState = {
   viewMode: InboxViewMode;
+  priorityFilter: InboxPriorityChip;
   categoryFilter: InboxCategoryFilter;
   timeRangeFilter: InboxTimeRangeFilter;
   sortBy: InboxSortBy;
@@ -17,6 +19,7 @@ type InboxViewState = {
   searchQuery: string;
   scrollY: number;
   setViewMode: (mode: InboxViewMode) => void;
+  setPriorityFilter: (filter: InboxPriorityChip) => void;
   setCategoryFilter: (filter: InboxCategoryFilter) => void;
   setTimeRangeFilter: (filter: InboxTimeRangeFilter) => void;
   setSortBy: (sortBy: InboxSortBy) => void;
@@ -27,6 +30,7 @@ type InboxViewState = {
 
 export const useInboxViewStore = create<InboxViewState>((set) => ({
   viewMode: 'priority',
+  priorityFilter: 'p0',
   categoryFilter: 'all',
   timeRangeFilter: 'ALL',
   sortBy: 'TIME',
@@ -34,6 +38,11 @@ export const useInboxViewStore = create<InboxViewState>((set) => ({
   searchQuery: '',
   scrollY: 0,
   setViewMode: (mode) => set({ viewMode: mode }),
+  setPriorityFilter: (filter) =>
+    set((state) => ({
+      priorityFilter: filter,
+      scrollY: filter === state.priorityFilter ? state.scrollY : 0,
+    })),
   setCategoryFilter: (filter) =>
     set({ categoryFilter: filter }),
   setTimeRangeFilter: (filter) =>

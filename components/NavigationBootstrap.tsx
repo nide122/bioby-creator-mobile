@@ -10,7 +10,7 @@ import { useSessionStore } from '@/src/stores/session-store';
  * 全局路由守卫（无 API 版本）：
  * - 未登录 → 公开首页 /home 与认证路由 /register /login
  * - 已登录未完成入驻 → 强制回到 `/onboarding` 分发器
- * - 已登录已完成入驻 → 误入认证页时送回 AI Inbox；允许自愿回访 onboarding 子页完善邮箱
+ * - 已登录已完成入驻 → 误入认证页时送回 Today；允许自愿回访 onboarding 子页完善邮箱
  */
 export function NavigationBootstrap() {
   const router = useRouter();

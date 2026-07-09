@@ -1,0 +1,260 @@
+import { type Href, useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
+
+import { Badge, FilterChipRow, SegmentedControl } from '@/components/product';
+import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
+import { useColorScheme } from '@/components/useColorScheme';
+import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import { useDomainLabels } from '@/src/hooks/use-domain-labels';
+import {
+  formatInboxRelativeTime,
+  resolveInboxCollaborationPresentation,
+} from '@/src/lib/inbox-collaboration-presentation';
+import type { InboxPriorityChip } from '@/src/lib/inbox-priority-filter';
+import { inboxPriorityBadgeTone } from '@/src/lib/inbox-priority-visuals';
+import { resolveDisplayInboxPriority, type InboxPriorityInput } from '@/src/lib/resolve-inbox-priority';
+import type { CreatorVerificationStatus } from '@/src/lib/creator-verification';
+import type { InboxThread } from '@/src/types/domain';
+import type { InboxViewMode } from '@/src/stores/inbox-view-store';
+
+export function InboxEmailStatusCard({
+  email,
+  verificationStatus,
+  onPress,
+}: {
+  email?: string | null;
+  verificationStatus?: CreatorVerificationStatus;
+  onPress: () => void;
+}) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  if (!email) return null;
+
+  return (
+    <Pressable
+      testID="inbox-email-status-card"
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        { borderColor: theme.border, backgroundColor: theme.card },
+        pressed && styles.cardPressed,
+      ]}>
+      <View style={[styles.emailIconBadge, { backgroundColor: theme.accentMintSoft }]}>
+        <Ionicons name="mail-outline" size={18} color={theme.primary} />
+      </View>
+      <View style={styles.emailCopy}>
+        {verificationStatus ? <CreatorVerificationBadge status={verificationStatus} compact /> : null}
+        <Text style={[styles.emailAddress, { color: theme.foreground }]} numberOfLines={1}>
+          {email}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={theme.foregroundEyebrow} />
+    </Pressable>
+  );
+}
+
+export function InboxAddDealCard() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  return (
+    <View style={[styles.addDealCard, { borderColor: '#F59E0B55', backgroundColor: theme.card }]}>
+      <View style={styles.addDealCopy}>
+        <Text style={[styles.addDealTitle, { color: theme.foreground }]}>{t('inboxScreen.addDealTitle')}</Text>
+        <Text style={[styles.addDealBody, { color: theme.mutedForeground }]}>{t('inboxScreen.addDealBody')}</Text>
+      </View>
+      <Pressable
+        testID="inbox-manual-entry-cta"
+        accessibilityRole="button"
+        onPress={() => router.push('/inbox/manual' as Href)}
+        style={({ pressed }) => [
+          styles.addDealButton,
+          { backgroundColor: theme.primary },
+          pressed && styles.cardPressed,
+        ]}>
+        <Ionicons name="add" size={16} color={theme.primaryForeground} />
+        <Text style={[styles.addDealButtonLabel, { color: theme.primaryForeground }]}>
+          {t('inboxScreen.addDealCta')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+export function InboxPriorityFilterRow({
+  value,
+  counts,
+  onChange,
+}: {
+  value: InboxPriorityChip;
+  counts: Record<InboxPriorityChip, number>;
+  onChange: (value: InboxPriorityChip) => void;
+}) {
+  const { t } = useTranslation();
+  const { inboxPriorityLabel } = useDomainLabels();
+
+  const items = [
+    { id: 'p0' as const, label: inboxPriorityLabel.p0, count: counts.p0 },
+    { id: 'p1' as const, label: inboxPriorityLabel.p1, count: counts.p1 },
+    { id: 'p2' as const, label: inboxPriorityLabel.p2, count: counts.p2 },
+    { id: 'archived' as const, label: t('inboxScreen.priorityArchived'), count: counts.archived },
+  ];
+
+  return <FilterChipRow items={items} value={value} onChange={onChange} testIdForItem={(id) => `inbox-priority-chip-${id}`} />;
+}
+
+export function InboxNeedsActionToggle({
+  value,
+  onChange,
+}: {
+  value: InboxViewMode;
+  onChange: (value: InboxViewMode) => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <SegmentedControl
+      options={[
+        { id: 'priority' as const, label: t('inboxScreen.viewNeedsAction') },
+        { id: 'all' as const, label: t('inboxScreen.viewSorted') },
+      ]}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+export function InboxCollaborationCard({
+  thread,
+  onPress,
+}: {
+  thread: InboxThread;
+  onPress: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const { inboxCategoryLabel, inboxPriorityLabel } = useDomainLabels();
+  const displayPriority = resolveDisplayInboxPriority(thread as unknown as InboxPriorityInput);
+  const presentation = resolveInboxCollaborationPresentation(thread, t, inboxCategoryLabel);
+  const relativeTime = formatInboxRelativeTime(
+    thread.updatedAtISO,
+    i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US',
+  );
+
+  return (
+    <Pressable
+      testID={`inbox-thread-${thread.id}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.collabCard,
+        { borderColor: theme.border, backgroundColor: theme.card },
+        pressed && styles.cardPressed,
+      ]}>
+      <View style={[styles.collabAvatar, { backgroundColor: theme.secondary }]}>
+        <Text style={[styles.collabAvatarLabel, { color: theme.foreground }]}>{presentation.initials}</Text>
+      </View>
+      <View style={styles.collabCopy}>
+        <Text style={[styles.collabName, { color: theme.foreground }]} numberOfLines={1}>
+          {presentation.name}
+        </Text>
+        <Text style={[styles.collabInfo, { color: theme.mutedForeground }]} numberOfLines={1}>
+          {presentation.infoLine}
+        </Text>
+        {presentation.brandLine ? (
+          <Text style={[styles.collabBrand, { color: theme.mutedForeground }]} numberOfLines={1}>
+            {presentation.brandLine}
+          </Text>
+        ) : null}
+        <Text style={[styles.collabTime, { color: theme.foregroundEyebrow }]}>{relativeTime}</Text>
+      </View>
+      <View style={styles.collabTrailing}>
+        {displayPriority ? (
+          <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+        ) : null}
+        <Ionicons name="chevron-forward" size={16} color={theme.foregroundEyebrow} />
+      </View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: layout.touchMin,
+  },
+  cardPressed: { opacity: 0.88 },
+  emailIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emailCopy: { flex: 1, gap: spacing.xs, minWidth: 0 },
+  emailAddress: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
+  addDealCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  addDealCopy: { flex: 1, gap: spacing.xs, minWidth: 0 },
+  addDealTitle: { fontSize: fontSize.body, fontWeight: '800', lineHeight: lineHeight.body },
+  addDealBody: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  addDealButton: {
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  addDealButtonLabel: { fontSize: fontSize.caption, fontWeight: '800' },
+  collabCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  collabAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collabAvatarLabel: { fontSize: fontSize.bodySmall, fontWeight: '800' },
+  collabCopy: { flex: 1, gap: 2, minWidth: 0 },
+  collabName: { fontSize: fontSize.body, fontWeight: '800', lineHeight: lineHeight.body },
+  collabInfo: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  collabBrand: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  collabTime: { fontSize: fontSize.caption, marginTop: spacing.xs },
+  collabTrailing: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    minHeight: 56,
+    paddingTop: 2,
+  },
+});

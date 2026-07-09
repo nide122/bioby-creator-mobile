@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { palette } from '@/constants/tokens';
+import { DEFAULT_APP_HOME_ROUTE } from '@/src/auth/post-auth-navigation';
 import { useAuthSessionReady } from '@/src/hooks/use-auth-session-ready';
 import { useSessionStore } from '@/src/stores/session-store';
 
@@ -29,7 +30,7 @@ export default function OnboardingIndexScreen() {
       return;
     }
     if (onboardingComplete) {
-      router.replace('/inbox' as Href);
+      router.replace(DEFAULT_APP_HOME_ROUTE as Href);
       return;
     }
     if (!profileBasics) {

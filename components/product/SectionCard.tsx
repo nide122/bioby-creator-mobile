@@ -3,20 +3,24 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
 
 type Props = PropsWithChildren<{
   title?: string;
   subtitle?: string;
   /** 薄荷强调条（合规提示、下一步摘要） */
   emphasis?: boolean;
+  /** 顶部强调色条；默认随 emphasis 显示，可单独关闭 */
+  accentBar?: boolean;
 }>;
 
-export function SectionCard({ title, subtitle, emphasis, children }: Props) {
+export function SectionCard({ title, subtitle, emphasis, accentBar, children }: Props) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
   return (
     <View
+      className={webClassName(corporateCleanClass.card)}
       style={[
         styles.card,
         {
@@ -24,7 +28,7 @@ export function SectionCard({ title, subtitle, emphasis, children }: Props) {
           borderColor: theme.border,
         },
       ]}>
-      {emphasis ? <View style={[styles.accent, { backgroundColor: theme.primary }]} /> : null}
+      {emphasis && accentBar !== false ? <View style={[styles.accent, { backgroundColor: theme.primary }]} /> : null}
       {title ? (
         <Text style={[styles.title, { color: theme.foreground }]}>{title}</Text>
       ) : null}

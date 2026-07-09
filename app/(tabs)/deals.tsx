@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { type Href, useRouter } from 'expo-router';
@@ -8,22 +8,19 @@ import { type Href, useRouter } from 'expo-router';
 import {
   EmptyStateCard,
   FilterChipRow,
-  HubMetric,
-  HubMetrics,
   HubScreen,
   QueryRetryCard,
-  SettingsGroup,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
-import { palette } from '@/constants/tokens';
+import { palette, fontSize, spacing } from '@/constants/tokens';
 import { useDeals } from '@/src/hooks/use-deals';
 import { useDealListFocusRefresh, useDealListRefresh } from '@/src/hooks/use-deal-refresh';
 import { invalidateDealListQueries } from '@/src/lib/invalidate-deal-queries';
 import {
   activeDeals,
   countDealsByOverviewFilter,
-  DEAL_OVERVIEW_FILTER_ORDER,
+  DEAL_OVERVIEW_CHIP_ORDER,
   filterDealsForOverview,
   type DealOverviewFilter,
 } from '@/src/lib/deal-overview-filter';
@@ -41,7 +38,7 @@ export default function DealsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const [previewDealId, setPreviewDealId] = useState<string | null>(null);
-  const [overviewFilter, setOverviewFilter] = useState<DealOverviewFilter>('all_active');
+  const [overviewFilter, setOverviewFilter] = useState<DealOverviewFilter>('needs_action');
 
   const activeRows = useMemo(() => activeDeals(deals.data ?? []), [deals.data]);
   const filterCounts = useMemo(() => countDealsByOverviewFilter(deals.data ?? []), [deals.data]);
@@ -53,7 +50,7 @@ export default function DealsScreen() {
 
   const filterChips = useMemo(
     () =>
-      DEAL_OVERVIEW_FILTER_ORDER.map((id) => ({
+      DEAL_OVERVIEW_CHIP_ORDER.map((id) => ({
         id,
         label: t(`dealsScreen.filters.${id}`),
         count: filterCounts[id],
@@ -91,24 +88,7 @@ export default function DealsScreen() {
     );
   }
 
-  const toolbar = (
-    <>
-      <HubMetrics>
-        <HubMetric value={String(filterCounts.all_active)} label={t('dealsScreen.metrics.active')} accent />
-        <HubMetric
-          value={String(filterCounts.awaiting_payment)}
-          label={t('dealsScreen.metrics.awaitingPayment')}
-          accent={filterCounts.awaiting_payment > 0}
-        />
-        <HubMetric
-          value={String(filterCounts.pending_review)}
-          label={t('dealsScreen.metrics.pendingReview')}
-          accent={filterCounts.pending_review > 0}
-        />
-      </HubMetrics>
-      <FilterChipRow items={filterChips} value={overviewFilter} onChange={setOverviewFilter} />
-    </>
-  );
+  const toolbar = <FilterChipRow items={filterChips} value={overviewFilter} onChange={setOverviewFilter} />;
 
   return (
     <HubScreen
@@ -117,7 +97,10 @@ export default function DealsScreen() {
       onRefresh={onRefresh}
       eyebrow={t('tabs.deals')}
       title={t('dealsScreen.title')}
-      lead={t('dealsScreen.description', { total: activeRows.length })}
+      lead={t('dealsScreen.description', {
+        active: activeRows.length,
+        needAction: filterCounts.needs_action,
+      })}
       toolbar={toolbar}>
       {activeRows.length === 0 && overviewFilter !== 'settled' ? (
         <EmptyStateCard
@@ -134,13 +117,16 @@ export default function DealsScreen() {
           description={t('dealsScreen.filterEmptyDesc')}
           primaryAction={{
             label: t('dealsScreen.filterReset'),
-            onPress: () => setOverviewFilter('all_active'),
+            onPress: () => setOverviewFilter('needs_action'),
           }}
         />
       ) : null}
 
       {visibleDeals.length > 0 ? (
-        <SettingsGroup title={t('dealsScreen.sectionActive')}>
+        <View style={styles.activeSection}>
+          <Text style={[styles.sectionTitle, { color: theme.foregroundEyebrow }]}>
+            {t('dealsScreen.sectionActive')}
+          </Text>
           <View style={styles.cardList}>
             {visibleDeals.map((item) => (
               <DealCard
@@ -153,7 +139,7 @@ export default function DealsScreen() {
               />
             ))}
           </View>
-        </SettingsGroup>
+        </View>
       ) : null}
 
       <DealSidePanel deal={previewDeal} onClose={() => setPreviewDealId(null)} />
@@ -163,5 +149,13 @@ export default function DealsScreen() {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 120 },
-  cardList: { gap: 12 },
+  activeSection: { gap: spacing.sm },
+  sectionTitle: {
+    fontSize: fontSize.eyebrow,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginLeft: spacing.xs,
+  },
+  cardList: { gap: spacing.md },
 });

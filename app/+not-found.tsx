@@ -2,6 +2,7 @@ import { type Href, Stack, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SectionCard } from '@/components/product';
+import { DEFAULT_APP_HOME_ROUTE } from '@/src/auth/post-auth-navigation';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 
@@ -23,9 +24,9 @@ export default function NotFoundScreen() {
         <SectionCard title="Next">
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.replace('/inbox' as Href)}
+            onPress={() => router.replace(DEFAULT_APP_HOME_ROUTE as Href)}
             style={[styles.primary, { backgroundColor: theme.primary }]}>
-            <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>Back to inbox</Text>
+            <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>Back to Today</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"

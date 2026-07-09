@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { HUB_LIST_ICON_SIZE } from '@/components/product/HubList';
-import { fontSize, palette, radii, spacing } from '@/constants/tokens';
+import { fontSize, layout, lineHeight, palette, radii, spacing, elevation } from '@/constants/tokens';
+import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
 
 type Props = PropsWithChildren<{
   title?: string;
@@ -22,8 +23,10 @@ export function SettingsGroup({ title, children, insetDividers = true }: Props) 
         <Text style={[styles.title, { color: theme.foregroundEyebrow }]}>{title}</Text>
       ) : null}
       <View
+        className={webClassName(corporateCleanClass.card)}
         style={[
           styles.card,
+          elevation.surface,
           { borderColor: theme.border, backgroundColor: theme.card },
         ]}>
         {items.map((child, index) => (

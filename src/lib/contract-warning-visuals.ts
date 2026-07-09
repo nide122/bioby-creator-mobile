@@ -20,11 +20,11 @@ export function contractWarningVisuals(
   switch (severity) {
     case 'danger':
       return {
-        rail: '#FDA4AF',
-        border: 'rgba(253, 164, 175, 0.28)',
-        background: '#120D0F',
-        iconBg: 'rgba(253, 164, 175, 0.12)',
-        icon: '#F0B4BE',
+        rail: '#F87171',
+        border: 'rgba(248, 113, 113, 0.35)',
+        background: theme.secondary,
+        iconBg: 'rgba(248, 113, 113, 0.12)',
+        icon: '#DC2626',
         title: theme.foreground,
         body: theme.foregroundSubtitle,
         muted: theme.mutedForeground,
@@ -32,11 +32,11 @@ export function contractWarningVisuals(
       };
     case 'warning':
       return {
-        rail: '#E8C468',
-        border: 'rgba(232, 196, 104, 0.24)',
-        background: '#100F0A',
-        iconBg: 'rgba(232, 196, 104, 0.10)',
-        icon: '#E8C468',
+        rail: '#FBBF24',
+        border: 'rgba(251, 191, 36, 0.35)',
+        background: theme.secondary,
+        iconBg: 'rgba(251, 191, 36, 0.12)',
+        icon: '#D97706',
         title: theme.foreground,
         body: theme.foregroundSubtitle,
         muted: theme.mutedForeground,

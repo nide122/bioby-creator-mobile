@@ -1,62 +1,56 @@
 /**
  * Bioby Creator design tokens.
- * The app shell follows the welcome campaign language: graphite surfaces,
- * creator-economy signal colors, and quiet premium contrast.
+ * Corporate-clean palette: professional blue / gray / white surfaces.
  */
 
 import { Platform, type ViewStyle } from 'react-native';
 
-/** Creator app default: graphite UI, even when the OS is in light mode. */
+/** Corporate-clean light palette (web-first professional blue / gray / white). */
 export const paletteLight = {
-  background: '#050706',
-  foreground: '#FFFFFF',
-  card: '#0A100D',
-  secondary: '#101713',
-  muted: '#111816',
-  mutedForeground: '#A3AAB5',
-  foregroundSubtitle: '#D7DCE2',
-  foregroundEyebrow: '#737A84',
-  /** 通用框线：低亮度屏幕下仍需能看清卡片边界。 */
-  border: 'rgba(255,255,255,0.24)',
-  /** 重点卡片外框：用于首页等需要明确分区的容器。 */
-  outline: 'rgba(255,255,255,0.34)',
-  /** 输入框描边：需明显高于卡片与 `inputBackground`，避免「糊成一片」。 */
-  input: 'rgba(255,255,255,0.42)',
-  /** 输入区内底：介于 `card` 与正文之间，和卡片背景拉开层次。 */
-  inputBackground: '#17231E',
-  /** 占位符：比 `foregroundEyebrow` 略亮，深色底上更易扫读。 */
-  inputPlaceholder: 'rgba(215,220,226,0.55)',
-  primary: '#5FD9FF',
-  primaryHover: '#89E4FF',
-  primaryForeground: '#050706',
-  surfaceFooter: '#080C0A',
-  accentMintSoft: '#10251D',
-  accentMintStrong: '#A7F3D0',
-  brandGlow: '#F086FF',
+  background: '#f8fafc',
+  foreground: '#111827',
+  card: '#ffffff',
+  secondary: '#f1f5f9',
+  muted: '#e2e8f0',
+  mutedForeground: '#64748b',
+  foregroundSubtitle: '#475569',
+  foregroundEyebrow: '#64748b',
+  border: '#e2e8f0',
+  outline: '#cbd5e1',
+  input: '#94a3b8',
+  inputBackground: '#ffffff',
+  inputPlaceholder: 'rgba(100, 116, 139, 0.55)',
+  primary: '#2563eb',
+  primaryHover: '#3b82f6',
+  primaryForeground: '#ffffff',
+  surfaceFooter: '#f8fafc',
+  accentMintSoft: '#dbeafe',
+  accentMintStrong: '#1d4ed8',
+  brandGlow: '#3b82f6',
 } as const;
 
-/** Dark mode keeps the same premium shell with slightly stronger contrast. */
+/** Corporate-clean dark palette — same family, higher contrast for dark mode. */
 export const paletteDark = {
-  background: '#050706',
-  foreground: '#FAFAF9',
-  card: '#0A100D',
-  secondary: '#111816',
-  muted: '#121A17',
-  mutedForeground: '#A3AAB5',
-  foregroundSubtitle: '#D7DCE2',
-  foregroundEyebrow: '#737A84',
-  border: 'rgba(255,255,255,0.28)',
-  outline: 'rgba(255,255,255,0.38)',
-  input: 'rgba(255,255,255,0.48)',
-  inputBackground: '#1A2822',
-  inputPlaceholder: 'rgba(215,220,226,0.58)',
-  primary: '#5FD9FF',
-  primaryHover: '#89E4FF',
-  primaryForeground: '#050706',
-  surfaceFooter: '#080C0A',
-  accentMintSoft: '#10251D',
-  accentMintStrong: '#A7F3D0',
-  brandGlow: '#F086FF',
+  background: '#0f172a',
+  foreground: '#f8fafc',
+  card: '#1e293b',
+  secondary: '#334155',
+  muted: '#1e293b',
+  mutedForeground: '#94a3b8',
+  foregroundSubtitle: '#cbd5e1',
+  foregroundEyebrow: '#94a3b8',
+  border: 'rgba(148, 163, 184, 0.28)',
+  outline: 'rgba(148, 163, 184, 0.38)',
+  input: 'rgba(148, 163, 184, 0.48)',
+  inputBackground: '#1e293b',
+  inputPlaceholder: 'rgba(148, 163, 184, 0.58)',
+  primary: '#3b82f6',
+  primaryHover: '#60a5fa',
+  primaryForeground: '#ffffff',
+  surfaceFooter: '#0f172a',
+  accentMintSoft: '#1e3a5f',
+  accentMintStrong: '#93c5fd',
+  brandGlow: '#60a5fa',
 } as const;
 
 export const palette = {
@@ -70,13 +64,13 @@ export type ThemePalette = typeof paletteLight | typeof paletteDark;
 export const elevation: { surface: ViewStyle } = {
   surface: {
     ...Platform.select<ViewStyle>({
-      web: { boxShadow: '0px 18px 42px rgba(95, 217, 255, 0.07)' },
+      web: { boxShadow: '0px 4px 24px rgba(30, 64, 175, 0.08)' },
       default: {
-        shadowColor: '#5FD9FF',
-        shadowOffset: { width: 0, height: 18 },
-        shadowOpacity: 0.06,
-        shadowRadius: 34,
-        elevation: 4,
+        shadowColor: '#1e40af',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+        elevation: 3,
       },
     }),
   },

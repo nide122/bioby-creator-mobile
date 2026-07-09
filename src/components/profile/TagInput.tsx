@@ -21,7 +21,6 @@ type Props = {
   maxTags?: number;
   placeholder?: string;
   placeholderMore?: string;
-  hint?: string;
   removeA11yLabel?: string;
   addLabel?: string;
 };
@@ -48,7 +47,6 @@ export function TagInput({
   maxTags,
   placeholder,
   placeholderMore,
-  hint,
   removeA11yLabel,
   addLabel,
 }: Props) {
@@ -146,10 +144,6 @@ export function TagInput({
           </Pressable>
         </View>
       ) : null}
-
-      <Text style={[styles.hint, { color: theme.mutedForeground }]}>
-        {hint ?? t('tagInput.hint')}
-      </Text>
     </View>
   );
 }
@@ -213,9 +207,5 @@ const styles = StyleSheet.create({
   addButtonLabel: {
     fontSize: fontSize.bodySmall,
     fontWeight: '700',
-  },
-  hint: {
-    fontSize: fontSize.caption,
-    lineHeight: 18,
   },
 });

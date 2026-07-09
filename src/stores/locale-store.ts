@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import i18n, { type AppLocale, readDeviceLocale } from '@/src/i18n';
-import { syncTenantPreferredLocale } from '@/src/lib/sync-tenant-locale';
 
 /** `system` follows the device / OS language. */
 export type LanguagePreference = 'system' | AppLocale;
@@ -48,6 +47,7 @@ export const useLocaleStore = create<LocaleState>()(
             localeDefaultsMigrated: true,
             hasManualLanguagePreference: true,
           });
+          const { syncTenantPreferredLocale } = await import('@/src/lib/sync-tenant-locale');
           await syncTenantPreferredLocale();
         })();
       },

@@ -33,7 +33,7 @@ describe('deal-phase-filter', () => {
       deal('3', 'in_execution'),
       deal('4', 'settled'),
     ];
-    expect(sortDealsForDisplay(rows).map((row) => row.id)).toEqual(['3', '2', '1', '4']);
+    expect(sortDealsForDisplay(rows).map((row) => row.id)).toEqual(['2', '3', '1', '4']);
     expect(filterDeals(rows, 'all').map((row) => row.escrowPhase).at(-1)).toBe('settled');
   });
 });

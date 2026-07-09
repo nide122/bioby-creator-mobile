@@ -3,19 +3,23 @@ import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
 
 /** KOL-facing buckets for the deals tab overview. */
 export type DealOverviewFilter =
+  | 'needs_action'
   | 'all_active'
   | 'in_progress'
   | 'awaiting_payment'
   | 'pending_review'
   | 'settled';
 
-export const DEAL_OVERVIEW_FILTER_ORDER: DealOverviewFilter[] = [
+/** Primary chip row on the deals tab (excludes settled). */
+export const DEAL_OVERVIEW_CHIP_ORDER: DealOverviewFilter[] = [
+  'needs_action',
   'all_active',
   'in_progress',
   'awaiting_payment',
   'pending_review',
-  'settled',
 ];
+
+const ALL_OVERVIEW_FILTERS: DealOverviewFilter[] = [...DEAL_OVERVIEW_CHIP_ORDER, 'settled'];
 
 const IN_PROGRESS_PHASES: EscrowLifecyclePhase[] = [
   'escrowed',
@@ -55,6 +59,7 @@ export function countDealsByOverviewFilter(
   deals: DealSummary[]
 ): Record<DealOverviewFilter, number> {
   const counts: Record<DealOverviewFilter, number> = {
+    needs_action: 0,
     all_active: 0,
     in_progress: 0,
     awaiting_payment: 0,
@@ -62,7 +67,7 @@ export function countDealsByOverviewFilter(
     settled: 0,
   };
   for (const deal of deals) {
-    for (const filter of DEAL_OVERVIEW_FILTER_ORDER) {
+    for (const filter of ALL_OVERVIEW_FILTERS) {
       if (matchesDealOverviewFilter(deal, filter)) {
         counts[filter] += 1;
       }

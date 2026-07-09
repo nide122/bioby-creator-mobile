@@ -7,8 +7,7 @@ const homeZh: MarketingHomeContent = {
   metaDescription:
     '连接 Gmail，自动同步商务邮件，AI 辅助分类、Brief 提取与回复草稿。面向欧美市场的创作者与 KOL 商务协作工具。',
   heroTitle: '为创作者打造的 Gmail 商务收件箱',
-  heroSubtitle:
-    'Bioby Creator 帮助您连接 Gmail，同步品牌合作邮件，识别高价值商机，并安全地起草与发送回复——让您把精力放在创作与谈判上，而不是淹没在收件箱里。',
+  heroSubtitle: 'Bioby AI 帮助创作者更快审阅合作商机。',
   heroNote:
     '使用 Gmail 连接功能前，您需在 Google 授权页面明确同意我们访问您的 Gmail 数据。我们仅将邮件用于您账户内的商务管理，详见',
   aboutTitle: '产品定位',
@@ -50,7 +49,7 @@ const homeZh: MarketingHomeContent = {
     '遵循 Google API Services User Data Policy（Limited Use）',
     '面向欧美用户：按 GDPR 等适用法规处理个人数据',
   ],
-  ctaPrimary: '开始使用',
+  ctaPrimary: '连接 Gmail',
   ctaSecondary: '登录',
 };
 
@@ -59,8 +58,7 @@ const homeEn: MarketingHomeContent = {
   metaDescription:
     'Connect Gmail, sync brand deals, classify opportunities, extract briefs, and send approved replies. Built for creators working with US & EU brands.',
   heroTitle: 'A Gmail business inbox built for creators',
-  heroSubtitle:
-    'Bioby Creator connects Gmail, surfaces brand deals, extracts briefs, and helps you draft and send replies you approve—so you spend time creating and negotiating, not drowning in email.',
+  heroSubtitle: 'Bioby AI helps creators review deals faster.',
   heroNote:
     'Before connecting Gmail, you must explicitly consent on Google’s authorization screen. We use mail only for in-app business workflow. See our ',
   heroNoteAfterLink: '.',
@@ -103,7 +101,7 @@ const homeEn: MarketingHomeContent = {
     'Google API Services User Data Policy (Limited Use)',
     'GDPR-aligned practices for US & EU users',
   ],
-  ctaPrimary: 'Get started',
+  ctaPrimary: 'Connect Gmail',
   ctaSecondary: 'Sign in',
 };
 

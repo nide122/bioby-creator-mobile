@@ -19,6 +19,7 @@ import { TextField } from '@/components/product/TextField';
 import { InlineCountBadge } from './InlineCountBadge';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -91,11 +92,17 @@ export function HubScreen({
         ) : undefined
       }>
       {header ?? (
-        <View style={hubStyles.header}>
+        <View style={hubStyles.header} className={webClassName(corporateCleanClass.animateIn)}>
           {eyebrow ? (
             <Text style={[hubStyles.eyebrow, { color: theme.foregroundEyebrow }]}>{eyebrow}</Text>
           ) : null}
-          {title ? <Text style={[hubStyles.title, { color: theme.foreground }]}>{title}</Text> : null}
+          {title ? (
+            <Text
+              className={webClassName(corporateCleanClass.gradientText)}
+              style={[hubStyles.title, { color: theme.foreground }]}>
+              {title}
+            </Text>
+          ) : null}
           {lead ? <Text style={[hubStyles.lead, { color: theme.mutedForeground }]}>{lead}</Text> : null}
         </View>
       )}
@@ -107,7 +114,10 @@ export function HubScreen({
 
   if (fixedFooter) {
     return (
-      <View testID={testID} style={{ flex: 1, backgroundColor: theme.background }}>
+      <View
+        testID={testID}
+        className={webClassName(corporateCleanClass.screen)}
+        style={{ flex: 1, backgroundColor: theme.background }}>
         {scroll}
         {fixedFooter}
       </View>
@@ -371,21 +381,28 @@ export function FilterChipRow<T extends string>({
   items,
   value,
   onChange,
+  testIdForItem,
 }: {
   items: readonly { id: T; label: string; count?: number }[];
   value: T;
   onChange: (id: T) => void;
+  testIdForItem?: (id: T) => string;
 }) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
   return (
-    <View style={hubStyles.filterRow}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={hubStyles.filterRowScroll}
+      contentContainerStyle={hubStyles.filterRow}>
       {items.map((item) => {
         const active = value === item.id;
         return (
           <Pressable
             key={item.id}
+            testID={testIdForItem?.(item.id)}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(item.id)}
@@ -409,7 +426,7 @@ export function FilterChipRow<T extends string>({
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -534,7 +551,8 @@ export const hubStyles = StyleSheet.create({
   promoText: { flex: 1, gap: 2 },
   promoTitle: { fontSize: fontSize.bodySmall, fontWeight: '700' },
   promoSubtitle: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  filterRowScroll: { flexGrow: 0 },
+  filterRow: { flexDirection: 'row', gap: spacing.sm, paddingRight: spacing.xs },
   filterChip: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
@@ -543,6 +561,7 @@ export const hubStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    flexShrink: 0,
   },
   filterLabel: { fontSize: fontSize.caption, fontWeight: '700' },
 });

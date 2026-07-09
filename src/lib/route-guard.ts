@@ -1,5 +1,5 @@
 /** Where NavigationBootstrap should redirect, or null to stay on current route. */
-export type RouteGuardRedirect = '/home' | '/onboarding' | '/inbox' | null;
+export type RouteGuardRedirect = '/home' | '/onboarding' | '/' | null;
 
 export type RouteGuardInput = {
   pathname: string;
@@ -106,7 +106,7 @@ export function getRouteGuardRedirect({
   }
 
   if (isAuthFormPath(pathname) && !isPasswordResetPath(pathname) && !isEmailVerificationPendingPath(pathname)) {
-    return '/inbox';
+    return '/';
   }
 
   return null;

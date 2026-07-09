@@ -1,22 +1,13 @@
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AuthPrimaryButton } from '@/components/auth/AuthPrimaryButton';
+import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { Badge, type BadgeTone, getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fontSize, layout, palette, radii, spacing } from '@/constants/tokens';
+import { fontSize, palette, spacing } from '@/constants/tokens';
 import { isApiConfigured } from '@/src/api/api-config';
 import { type ForgotPasswordOutcome, requestPasswordReset } from '@/src/api/auth-api';
 import { resolveAuthApiErrorMessage } from '@/src/auth/auth-api-errors';
@@ -83,101 +74,69 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-        style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.title, { color: theme.foreground }]}>{t('auth.forgotPassword.title')}</Text>
-          <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('auth.forgotPassword.lead')}</Text>
+    <AuthScreenShell
+      testID="screen-auth-forgot-password"
+      title={t('auth.forgotPassword.title')}
+      lead={t('auth.forgotPassword.lead')}
+      footer={
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/login' as Href)}
+          style={styles.link}>
+          <Text style={{ color: theme.mutedForeground }}>{t('auth.forgotPassword.backToSignIn')}</Text>
+        </Pressable>
+      }>
+      <SectionCard title={t('auth.forgotPassword.cardTitle')} subtitle={t('auth.forgotPassword.cardSubtitle')}>
+        {!isApiConfigured() ? (
+          <Text style={[styles.apiHint, { color: theme.mutedForeground }]}>{t('auth.demoModeHint')}</Text>
+        ) : null}
 
-          <SectionCard title={t('auth.forgotPassword.cardTitle')} subtitle={t('auth.forgotPassword.cardSubtitle')}>
-            {!isApiConfigured() ? (
-              <Text style={[styles.apiHint, { color: theme.mutedForeground }]}>{t('auth.demoModeHint')}</Text>
+        <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>{t('auth.login.emailLabel')}</Text>
+        <TextInput
+          testID="auth-forgot-email"
+          value={email}
+          onChangeText={onEmailChange}
+          placeholder={t('auth.login.emailPlaceholder')}
+          {...getTextInputProps(theme)}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          textContentType="emailAddress"
+          style={getTextInputStyle(theme)}
+        />
+
+        <AuthPrimaryButton
+          testID="auth-forgot-submit"
+          disabled={!canSubmit}
+          loading={loading}
+          onPress={() => void onSubmit()}
+          label={t('auth.forgotPassword.submit')}
+        />
+
+        {outcome ? (
+          <View style={styles.resultBlock}>
+            <Badge tone={resultTone(outcome)} label={t(resultBadgeKey(outcome))} />
+            <Text style={[styles.resultText, { color: theme.foreground }]}>{t(resultBodyKey(outcome))}</Text>
+            {outcome === 'EMAIL_NOT_FOUND' ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/register' as Href)}
+                style={styles.inlineLink}>
+                <Text style={{ color: theme.primary }}>{t('auth.forgotPassword.createAccountInstead')}</Text>
+              </Pressable>
             ) : null}
-
-            <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>{t('auth.login.emailLabel')}</Text>
-            <TextInput
-              testID="auth-forgot-email"
-              value={email}
-              onChangeText={onEmailChange}
-              placeholder={t('auth.login.emailPlaceholder')}
-              {...getTextInputProps(theme)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType="emailAddress"
-              style={getTextInputStyle(theme)}
-            />
-
-            <Pressable
-              testID="auth-forgot-submit"
-              accessibilityRole="button"
-              disabled={!canSubmit}
-              onPress={() => void onSubmit()}
-              style={[
-                styles.primary,
-                { backgroundColor: canSubmit ? theme.primary : theme.border },
-              ]}
-              android_ripple={{ color: `${theme.primaryForeground}33` }}>
-              {loading ? (
-                <ActivityIndicator color={theme.primaryForeground} />
-              ) : (
-                <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
-                  {t('auth.forgotPassword.submit')}
-                </Text>
-              )}
-            </Pressable>
-
-            {outcome ? (
-              <View style={styles.resultBlock}>
-                <Badge tone={resultTone(outcome)} label={t(resultBadgeKey(outcome))} />
-                <Text style={[styles.resultText, { color: theme.foreground }]}>{t(resultBodyKey(outcome))}</Text>
-                {outcome === 'EMAIL_NOT_FOUND' ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => router.push('/register' as Href)}
-                    style={styles.inlineLink}>
-                    <Text style={{ color: theme.primary }}>{t('auth.forgotPassword.createAccountInstead')}</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
-          </SectionCard>
-
-          <View style={styles.footer}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/login' as Href)}
-              style={styles.link}>
-              <Text style={{ color: theme.mutedForeground }}>{t('auth.forgotPassword.backToSignIn')}</Text>
-            </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        ) : null}
+      </SectionCard>
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingHorizontal: spacing.xxl },
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, gap: spacing.lg, paddingTop: spacing.sectionY },
-  title: { fontSize: 24, fontWeight: '600' },
-  lead: { fontSize: fontSize.body, lineHeight: 22 },
   label: { fontSize: fontSize.caption, fontWeight: '600', marginTop: spacing.sm },
   apiHint: { fontSize: fontSize.caption, marginBottom: spacing.sm },
   resultBlock: { gap: spacing.md, marginTop: spacing.md },
   resultText: { fontSize: fontSize.body, lineHeight: 22 },
   inlineLink: { alignSelf: 'flex-start' },
-  footer: { marginTop: 'auto', gap: spacing.sm, paddingBottom: spacing.xxl },
-  primary: {
-    borderRadius: radii.md,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  primaryLabel: { fontWeight: '600', fontSize: fontSize.body },
   link: { alignItems: 'center', paddingVertical: spacing.sm },
 });

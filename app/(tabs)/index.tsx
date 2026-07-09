@@ -26,12 +26,10 @@ import {
   Badge,
   hubListStyles,
 } from '@/components/product';
-import { LeadValueBandIconShell } from '@/components/inbox/LeadValueBandChrome';
 import { InboxPriorityIconShell } from '@/components/inbox/InboxPriorityChrome';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
-import { BrandChip } from '@/components/brands/BrandChip';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import { fontSize, layout, lineHeight, palette, radii, spacing, elevation } from '@/constants/tokens';
 import { calendarLocaleTagForLanguage } from '@/src/i18n';
 import { useDecisionQueue } from '@/src/hooks/use-decisions';
 import { useAiActionLog } from '@/src/hooks/use-ai-action-log';
@@ -39,23 +37,19 @@ import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { useSessionStore } from '@/src/stores/session-store';
 import type { AiActionLogEntry, DecisionAction, DecisionCard, DecisionCategory } from '@/src/types/domain';
-import {
-  resolveDecisionCardBandAccent,
-  resolveDecisionCardBorderAccent,
-  resolveDecisionCardPriority,
-} from '@/src/lib/decision-card-visuals';
-import { contractWarningSeverity } from '@/src/lib/contract-warning';
-import { parseDecisionSourceHint } from '@/src/lib/decision-card-content';
+import { resolveDecisionCardBorderAccent, resolveDecisionCardPriority } from '@/src/lib/decision-card-visuals';
 import {
   decisionCardBrandLabel,
-  decisionCardSubject,
+  decisionCardNextStepHint,
+  formatDecisionCardTitle,
+  shouldShowDecisionNextStep,
 } from '@/src/lib/decision-card-content';
 import {
   formatLocalizedDecisionQueuePreviewLines,
   getLocalizedDecisionPresentation,
+  localizeDecisionActionReasonMessage,
   localizeDecisionHeadline,
 } from '@/src/lib/decision-card-i18n';
-import { leadValueBandBadgeTone } from '@/src/lib/lead-value-band-visuals';
 import { inboxPriorityBadgeTone } from '@/src/lib/inbox-priority-visuals';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────
@@ -69,6 +63,7 @@ import {
   invalidateDealWorkspaceQueries,
 } from '@/src/lib/invalidate-deal-queries';
 import { getActiveTenantPublicId, tenantQueryKey } from '@/src/lib/tenant-query';
+import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
 
 type CategoryVisual = {
   icon: ComponentProps<typeof Ionicons>['name'];
@@ -91,20 +86,6 @@ function useDecisionCategoryLabels(): Record<DecisionCategory, CategoryVisual> {
       },
     }),
     [t]
-  );
-}
-
-function DecisionEstimatedMinutesLabel({ minutes }: { minutes?: number }) {
-  const { t } = useTranslation();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = palette[colorScheme];
-
-  if (!minutes || minutes <= 0) return null;
-
-  return (
-    <Text style={[styles.estimatedMinutesLabel, { color: theme.mutedForeground }]}>
-      {t('today.estimatedMinutesShort', { minutes })}
-    </Text>
   );
 }
 
@@ -199,128 +180,49 @@ function UndoDecisionBanner({
 }
 
 function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const categoryLabels = useDecisionCategoryLabels();
-  const { leadValueBandLabel, inboxPriorityLabel } = useDomainLabels();
+  const { inboxPriorityLabel } = useDomainLabels();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const cfg = categoryLabels[card.category];
-  const bandAccent = resolveDecisionCardBandAccent(card, theme);
   const displayPriority = resolveDecisionCardPriority(card);
-  const { display } = getLocalizedDecisionPresentation(card, t);
-  const brandLabel = decisionCardBrandLabel(card);
-  const canNavigate = !!card.sourceHref;
+
+  if (!displayPriority && !card.amountLabel) return null;
 
   return (
-    <Pressable
-      accessibilityRole={canNavigate ? 'link' : undefined}
-      disabled={!canNavigate}
-      onPress={() => openDecisionCard(router, card)}
-      style={({ pressed }) => [styles.categoryRow, pressed && canNavigate ? { opacity: 0.88 } : null]}>
-      {bandAccent && displayPriority ? (
-        <InboxPriorityIconShell priority={displayPriority} icon={cfg.icon} />
-      ) : bandAccent && card.leadValueBand ? (
-        <LeadValueBandIconShell band={card.leadValueBand} icon={cfg.icon} />
-      ) : (
-        <View style={[styles.categoryIcon, { backgroundColor: cfg.color + '18' }]}>
-          <Ionicons name={cfg.icon} size={15} color={cfg.color} />
-        </View>
-      )}
-      <Badge tone="neutral" label={cfg.label} />
+    <View style={styles.categoryRow}>
       {displayPriority ? (
-        <View style={styles.brandBelowStatusColumn}>
-          <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
-          {brandLabel ? <BrandChip label={brandLabel} compact /> : null}
-        </View>
-      ) : !displayPriority && card.leadValueBand && card.leadValueBand !== 'archived' ? (
-        <View style={styles.brandBelowStatusColumn}>
-          <Badge tone={leadValueBandBadgeTone(card.leadValueBand)} label={leadValueBandLabel[card.leadValueBand]} />
-          {brandLabel ? <BrandChip label={brandLabel} compact /> : null}
-        </View>
-      ) : brandLabel ? (
-        <BrandChip label={brandLabel} compact />
+        <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
       ) : null}
-      {display.urgencyLabel ? <Badge tone="warning" label={display.urgencyLabel} /> : null}
       {card.amountLabel ? (
-        <Text style={[styles.amountLabel, { color: bandAccent?.iconColor ?? cfg.color }]}>{card.amountLabel}</Text>
+        <Text style={[styles.amountLabel, { color: theme.primary }]}>{card.amountLabel}</Text>
       ) : null}
-      <DecisionEstimatedMinutesLabel minutes={card.estimatedMinutes} />
-      {canNavigate ? <Ionicons name="chevron-forward" size={14} color={theme.mutedForeground} /> : null}
-    </Pressable>
+    </View>
   );
 }
 
 function DecisionCardIdentityBlock({ card }: { card: DecisionCard }) {
   const { t } = useTranslation();
-  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const { display } = getLocalizedDecisionPresentation(card, t);
-  const brandLabel = decisionCardBrandLabel(card);
-  const initial = display.brand.trim().charAt(0).toUpperCase() || '?';
-  const canNavigate = !!card.sourceHref;
-
-  if (brandLabel && !display.subject && !display.actionSummary) {
-    return null;
-  }
+  const brandLabel = decisionCardBrandLabel(card) ?? display.brand;
+  const title = formatDecisionCardTitle(brandLabel, display.subject);
+  const statusSubtitle = display.urgencyLabel || display.actionSummary;
 
   return (
-    <Pressable
-      accessibilityRole={canNavigate ? 'link' : undefined}
-      disabled={!canNavigate}
-      onPress={() => openDecisionCard(router, card)}
-      style={({ pressed }) => [styles.identityBlock, pressed && canNavigate ? { opacity: 0.88 } : null]}>
-      {!brandLabel ? (
-        <View style={styles.identityHeaderRow}>
-          <View style={[styles.brandAvatar, { backgroundColor: theme.primary + '20' }]}>
-            <Text style={[styles.brandAvatarText, { color: theme.primary }]}>{initial}</Text>
-          </View>
-          <View style={styles.identityCopy}>
-            <Text style={[styles.brandEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.brandLabel')}</Text>
-            <Text style={[styles.brandName, { color: theme.foreground }]} numberOfLines={1}>
-              {display.brand}
-            </Text>
-          </View>
-          {canNavigate ? <Ionicons name="chevron-forward" size={16} color={theme.mutedForeground} /> : null}
-        </View>
-      ) : null}
-      {display.subject ? (
-        <Text style={[styles.subjectLine, { color: theme.foreground }]} numberOfLines={2}>
-          {display.subject}
+    <View style={styles.identityBlock}>
+      <Text style={[styles.cardTitle, { color: theme.foreground }]} numberOfLines={2}>
+        {title}
+      </Text>
+      {statusSubtitle ? (
+        <Text style={[styles.cardStatusSubtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
+          {statusSubtitle}
         </Text>
       ) : null}
-      {display.actionSummary ? (
-        <Text style={[styles.actionSummary, { color: theme.mutedForeground }]} numberOfLines={1}>
-          {display.actionSummary}
-        </Text>
-      ) : null}
-    </Pressable>
-  );
-}
-
-function DecisionCardNextStepRow({ card }: { card: DecisionCard }) {
-  const { t } = useTranslation();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = palette[colorScheme];
-  const primaryAction = getLocalizedDecisionPresentation(card, t).display.primaryAction;
-
-  if (!primaryAction) return null;
-
-  return (
-    <View style={[styles.nextStepRow, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-      <Ionicons name="arrow-forward-circle-outline" size={15} color={theme.primary} />
-      <View style={styles.nextStepCopy}>
-        <Text style={[styles.nextStepEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.nextStep')}</Text>
-        <Text style={[styles.nextStepLabel, { color: theme.foreground }]} numberOfLines={2}>
-          {primaryAction.label}
-        </Text>
-      </View>
     </View>
   );
 }
 
-function DecisionCardWhyNowBlock({ card }: { card: DecisionCard }) {
+function DecisionCardNoteBlock({ card }: { card: DecisionCard }) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -329,41 +231,38 @@ function DecisionCardWhyNowBlock({ card }: { card: DecisionCard }) {
   if (!aiNote?.trim()) return null;
 
   return (
-    <View style={styles.whyBlock}>
-      <Text style={[styles.whyEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.whyNow')}</Text>
-      <Text style={[styles.whyText, { color: theme.mutedForeground }]} numberOfLines={3}>
+    <View style={[styles.noteBox, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+      <Text style={[styles.noteEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.note')}</Text>
+      <Text style={[styles.noteText, { color: theme.foregroundSubtitle }]} numberOfLines={4}>
         {aiNote}
       </Text>
     </View>
   );
 }
 
-function DecisionCardSourceRow({ card }: { card: DecisionCard }) {
+function DecisionCardNextStepBlock({ card }: { card: DecisionCard }) {
   const { t } = useTranslation();
-  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const { display, sourceHint } = getLocalizedDecisionPresentation(card, t);
-  const { prefix, detail } = parseDecisionSourceHint(sourceHint);
-  const sourceLabel = [prefix, detail].filter(Boolean).join(' · ');
+  const hint = localizeDecisionActionReasonMessage(decisionCardNextStepHint(card), t);
+  const note = getLocalizedDecisionPresentation(card, t).aiNote?.trim();
 
-  if (!sourceLabel) return null;
-  if (detail && display.subject && detail.trim() === display.subject.trim()) return null;
+  if (!shouldShowDecisionNextStep(card, hint) || hint === note) return null;
 
   return (
-    <Pressable
-      accessibilityRole={card.sourceHref ? 'link' : undefined}
-      disabled={!card.sourceHref}
-      onPress={() => openDecisionCard(router, card)}
-      style={styles.sourceRow}>
-      <Text style={[styles.sourceEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.source')}</Text>
-      <View style={styles.sourceLinkRow}>
-        <Text style={[styles.sourceText, { color: theme.mutedForeground }]} numberOfLines={1}>
-          {sourceLabel}
-        </Text>
-        {card.sourceHref ? <Ionicons name="chevron-forward" size={12} color={theme.foregroundEyebrow} /> : null}
-      </View>
-    </Pressable>
+    <View
+      style={[
+        styles.nextStepBox,
+        {
+          borderColor: theme.primary + '55',
+          backgroundColor: theme.primary + '10',
+        },
+      ]}>
+      <Text style={[styles.nextStepEyebrow, { color: theme.foregroundEyebrow }]}>{t('today.card.nextStep')}</Text>
+      <Text style={[styles.nextStepLabel, { color: theme.foreground }]} numberOfLines={3}>
+        {hint}
+      </Text>
+    </View>
   );
 }
 
@@ -520,6 +419,7 @@ function SwipeableDecisionCard({
       {/* 卡片本体 */}
       <Animated.View
         {...panResponder.panHandlers}
+        className={webClassName(corporateCleanClass.card, corporateCleanClass.animateIn)}
         style={[
           styles.card,
           {
@@ -533,12 +433,8 @@ function SwipeableDecisionCard({
         {/* 品牌 / 商机身份 */}
         <DecisionCardMetaRow card={card} />
         <DecisionCardIdentityBlock card={card} />
-        {card.contractRiskFlags && contractWarningSeverity(card.contractRiskFlags) ? (
-          <RiskBanner flags={card.contractRiskFlags} compact />
-        ) : null}
-        <DecisionCardNextStepRow card={card} />
-        <DecisionCardWhyNowBlock card={card} />
-        <DecisionCardSourceRow card={card} />
+        <DecisionCardNoteBlock card={card} />
+        <DecisionCardNextStepBlock card={card} />
 
         {/* 操作按钮 */}
         <View style={styles.actionsCol}>
@@ -579,6 +475,7 @@ function ActionButton({
         testID={testID}
         accessibilityRole="button"
         onPress={onPress}
+        className={webClassName(corporateCleanClass.btnPrimary, corporateCleanClass.gradient)}
         style={[styles.btnPrimary, { backgroundColor: theme.primary }]}>
         <Text style={[styles.btnPrimaryLabel, { color: theme.primaryForeground }]}>{label}</Text>
       </Pressable>
@@ -590,7 +487,8 @@ function ActionButton({
         testID={testID}
         accessibilityRole="button"
         onPress={onPress}
-        style={[styles.btnSecondary, { borderColor: theme.border }]}>
+        className={webClassName(corporateCleanClass.btnSecondary)}
+        style={[styles.btnSecondary, { borderColor: theme.border, backgroundColor: theme.card }]}>
         <Text style={[styles.btnSecondaryLabel, { color: theme.foreground }]}>{label}</Text>
       </Pressable>
     );
@@ -602,61 +500,11 @@ function ActionButton({
   );
 }
 
-function DecisionRowStatusDetail({
-  brandLabel,
-  statusLabel,
-  detailAccent,
-  estimatedMinutes,
-}: {
-  brandLabel: string | null;
-  statusLabel: string;
-  detailAccent?: boolean;
-  estimatedMinutes?: number;
-}) {
-  const { t } = useTranslation();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = palette[colorScheme];
-  const minutesLabel =
-    estimatedMinutes && estimatedMinutes > 0
-      ? t('today.estimatedMinutesShort', { minutes: estimatedMinutes })
-      : null;
-
-  if (brandLabel) {
-    return (
-      <View style={styles.brandBelowStatusColumn}>
-        <Text
-          style={[hubListStyles.detail, { color: detailAccent ? theme.primary : theme.mutedForeground, textAlign: 'right' }]}>
-          {statusLabel}
-        </Text>
-        {minutesLabel ? (
-          <Text style={[styles.queueMinutesLabel, { color: theme.mutedForeground }]}>{minutesLabel}</Text>
-        ) : null}
-        <BrandChip label={brandLabel} compact />
-      </View>
-    );
-  }
-
-  if (minutesLabel) {
-    return (
-      <View style={styles.brandBelowStatusColumn}>
-        <Text
-          style={[hubListStyles.detail, { color: detailAccent ? theme.primary : theme.mutedForeground, textAlign: 'right' }]}>
-          {statusLabel}
-        </Text>
-        <Text style={[styles.queueMinutesLabel, { color: theme.mutedForeground }]}>{minutesLabel}</Text>
-      </View>
-    );
-  }
-
-  return statusLabel;
-}
-
 function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const categoryLabels = useDecisionCategoryLabels();
-  const { leadValueBandLabel } = useDomainLabels();
+  const { inboxPriorityLabel } = useDomainLabels();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
@@ -669,55 +517,48 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
   return (
     <View style={styles.queuePreviewWrap}>
       {visibleItems.length > 0 ? (
-        <SettingsGroup title={t('today.queueNextTitle')}>
-          {visibleItems.map((item) => {
-            const cfg = categoryLabels[item.category];
-            const bandAccent = resolveDecisionCardBandAccent(item, theme);
-            const previewLines = formatLocalizedDecisionQueuePreviewLines(item, t);
-            const brandLabel = decisionCardBrandLabel(item);
-            const subject = decisionCardSubject(item);
-            const rowTitle = brandLabel && subject ? subject : previewLines.title;
-            const detail =
-              item.leadValueBand && item.leadValueBand !== 'archived'
-                ? leadValueBandLabel[item.leadValueBand]
-                : cfg.label;
-            const queueRiskFlags = item.contractRiskFlags ?? [];
-            const subtitleContent =
-              queueRiskFlags.length > 0 ? (
-                <View style={{ gap: spacing.xs }}>
-                  <Text style={[hubListStyles.subtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
-                    {previewLines.subtitle}
-                  </Text>
-                  <RiskBanner flags={queueRiskFlags} compact />
-                </View>
-              ) : (
-                previewLines.subtitle
+        <View style={styles.queuePreviewSection}>
+          <Text style={[styles.queuePreviewTitle, { color: theme.foregroundEyebrow }]}>
+            {t('today.queueNextTitle')}
+          </Text>
+          <View style={styles.queuePreviewList}>
+            {visibleItems.map((item) => {
+              const previewLines = formatLocalizedDecisionQueuePreviewLines(item, t);
+              const displayPriority = resolveDecisionCardPriority(item);
+              const priorityBadge =
+                displayPriority ? (
+                  <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+                ) : null;
+
+              return (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  onPress={() => openDecisionCard(router, item)}
+                  className={webClassName(corporateCleanClass.card, corporateCleanClass.row)}
+                  style={({ pressed }) => [
+                    styles.queueRow,
+                    elevation.surface,
+                    { borderColor: theme.border, backgroundColor: theme.card },
+                    pressed && { opacity: 0.88 },
+                  ]}>
+                  <View style={styles.queueRowCopy}>
+                    {priorityBadge}
+                    <Text style={[styles.queueRowTitle, { color: theme.foreground }]} numberOfLines={2}>
+                      {previewLines.title}
+                    </Text>
+                    {previewLines.subtitle ? (
+                      <Text style={[styles.queueRowSubtitle, { color: theme.mutedForeground }]} numberOfLines={2}>
+                        {previewLines.subtitle}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={theme.mutedForeground} />
+                </Pressable>
               );
-            return (
-              <HubListRow
-                key={item.id}
-                iconElement={
-                  bandAccent ? (
-                    <LeadValueBandIconShell band={item.leadValueBand} icon={cfg.icon} />
-                  ) : undefined
-                }
-                icon={bandAccent ? undefined : cfg.icon}
-                title={rowTitle}
-                subtitle={subtitleContent}
-                detail={
-                  <DecisionRowStatusDetail
-                    brandLabel={brandLabel}
-                    statusLabel={detail}
-                    detailAccent={bandAccent?.detailAccent}
-                    estimatedMinutes={item.estimatedMinutes}
-                  />
-                }
-                detailAccent={bandAccent?.detailAccent}
-                onPress={() => openDecisionCard(router, item)}
-              />
-            );
-          })}
-        </SettingsGroup>
+            })}
+          </View>
+        </View>
       ) : null}
       {remaining.length > 0 ? (
         <Pressable
@@ -751,8 +592,6 @@ function DoneState({
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const categoryLabels = useDecisionCategoryLabels();
-  const { leadValueBandLabel } = useDomainLabels();
 
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -778,35 +617,17 @@ function DoneState({
       {deferred.length > 0 ? (
         <SettingsGroup title={t('today.deferredCardTitle', { count: deferred.length })}>
           {deferred.map((c) => {
-            const cfg = categoryLabels[c.category];
-            const bandAccent = resolveDecisionCardBandAccent(c, theme);
             const previewLines = formatLocalizedDecisionQueuePreviewLines(c, t);
-            const { display } = getLocalizedDecisionPresentation(c, t);
-            const brandLabel = decisionCardBrandLabel(c);
-            const subject = decisionCardSubject(c);
-            const rowTitle = brandLabel && subject ? subject : previewLines.title;
-            const detail =
-              c.leadValueBand && c.leadValueBand !== 'archived'
-                ? leadValueBandLabel[c.leadValueBand]
-                : display.urgencyLabel ?? cfg.label;
+            const displayPriority = resolveDecisionCardPriority(c);
             return (
               <HubListRow
                 key={c.id}
                 iconElement={
-                  bandAccent ? <LeadValueBandIconShell band={c.leadValueBand} icon={cfg.icon} /> : undefined
+                  displayPriority ? <InboxPriorityIconShell priority={displayPriority} icon="time-outline" /> : undefined
                 }
-                icon={bandAccent ? undefined : 'time-outline'}
-                title={rowTitle}
+                icon={displayPriority ? undefined : 'time-outline'}
+                title={previewLines.title}
                 subtitle={previewLines.subtitle}
-                detail={
-                  <DecisionRowStatusDetail
-                    brandLabel={brandLabel}
-                    statusLabel={detail}
-                    detailAccent={bandAccent?.detailAccent}
-                    estimatedMinutes={c.estimatedMinutes}
-                  />
-                }
-                detailAccent={bandAccent?.detailAccent}
                 onPress={() => openDecisionCard(router, c)}
               />
             );
@@ -1020,6 +841,15 @@ const styles = StyleSheet.create({
   // 决策卡
   cardSection: { gap: spacing.md },
   queuePreviewWrap: { gap: spacing.sm },
+  queuePreviewSection: { gap: spacing.sm },
+  queuePreviewTitle: {
+    fontSize: fontSize.eyebrow,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginLeft: spacing.xs,
+  },
+  queuePreviewList: { gap: spacing.sm },
   queueExpandButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1036,6 +866,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.lg,
     gap: spacing.md,
+    ...elevation.surface,
   },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   brandBelowStatusColumn: {
@@ -1046,44 +877,39 @@ const styles = StyleSheet.create({
   },
   categoryIcon: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 'auto' },
-  estimatedMinutesLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'] },
   totalMinutesSummary: { fontSize: fontSize.bodySmall, fontWeight: '600' },
-  queueMinutesLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'right' },
-  identityBlock: { gap: spacing.sm },
-  identityHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  brandAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  brandAvatarText: { fontSize: fontSize.sectionTitle, fontWeight: '800' },
-  identityCopy: { flex: 1, gap: 2 },
-  brandEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
-  brandName: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.35, lineHeight: lineHeight.lead },
-  subjectLine: { fontSize: fontSize.body, fontWeight: '600', lineHeight: lineHeight.body },
-  actionSummary: { fontSize: fontSize.bodySmall, fontWeight: '600' },
-  nextStepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    borderWidth: StyleSheet.hairlineWidth,
+  identityBlock: { gap: spacing.xs },
+  cardTitle: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.35, lineHeight: lineHeight.lead },
+  cardStatusSubtitle: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  noteBox: {
+    borderWidth: 1,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    gap: spacing.xs,
   },
-  nextStepCopy: { flex: 1, gap: 2 },
-  nextStepEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  noteEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  noteText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
+  nextStepBox: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  nextStepEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
   nextStepLabel: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
-  whyBlock: { gap: spacing.xs },
-  whyEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
-  whyText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
-  sourceRow: { gap: spacing.xs },
-  sourceEyebrow: { fontSize: fontSize.caption, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
-  sourceLinkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  sourceText: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  queueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+  },
+  queueRowCopy: { flex: 1, gap: spacing.xs },
+  queueRowTitle: { fontSize: fontSize.body, fontWeight: '700', lineHeight: lineHeight.body },
+  queueRowSubtitle: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   actionsCol: { gap: spacing.sm, marginTop: spacing.sm },
   btnPrimary: { borderRadius: radii.md, minHeight: layout.touchMin, alignItems: 'center', justifyContent: 'center' },
   btnPrimaryLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },

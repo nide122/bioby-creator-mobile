@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -40,6 +40,8 @@ type CollapsibleThreadProps = {
   messages: InboxMessage[];
   messageStats?: InboxMessageStats;
   initiallyOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   dateLocale: string;
   counterpartyLabel?: string;
   onOpenMessage: (message: InboxMessage) => void;
@@ -49,6 +51,8 @@ export function CollapsibleThread({
   messages,
   messageStats,
   initiallyOpen = false,
+  open: controlledOpen,
+  onOpenChange,
   dateLocale,
   counterpartyLabel,
   onOpenMessage,
@@ -56,16 +60,32 @@ export function CollapsibleThread({
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
-  const [open, setOpen] = useState(initiallyOpen);
-  const heightAnim = useRef(new Animated.Value(0)).current;
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(initiallyOpen);
+  const open = isControlled ? controlledOpen : internalOpen;
+  const heightAnim = useRef(new Animated.Value(initiallyOpen ? 1 : 0)).current;
 
-  function toggle() {
+  useEffect(() => {
+    if (!isControlled) return;
     Animated.timing(heightAnim, {
-      toValue: open ? 0 : 1,
+      toValue: controlledOpen ? 1 : 0,
       duration: 220,
       useNativeDriver: false,
     }).start();
-    setOpen((v) => !v);
+  }, [controlledOpen, heightAnim, isControlled]);
+
+  function toggle() {
+    const next = !open;
+    if (isControlled) {
+      onOpenChange?.(next);
+      return;
+    }
+    Animated.timing(heightAnim, {
+      toValue: next ? 1 : 0,
+      duration: 220,
+      useNativeDriver: false,
+    }).start();
+    setInternalOpen(next);
   }
 
   return (

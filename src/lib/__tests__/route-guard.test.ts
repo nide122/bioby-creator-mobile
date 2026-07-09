@@ -233,21 +233,21 @@ describe('getRouteGuardRedirect', () => {
       }
     });
 
-    it('redirects login and register to inbox', () => {
+    it('redirects login and register to Today', () => {
       expect(
         getRouteGuardRedirect({
           pathname: '/login',
           isAuthenticated: true,
           onboardingComplete: true,
         })
-      ).toBe('/inbox');
+      ).toBe('/');
       expect(
         getRouteGuardRedirect({
           pathname: '/register',
           isAuthenticated: true,
           onboardingComplete: true,
         })
-      ).toBe('/inbox');
+      ).toBe('/');
     });
   });
 });

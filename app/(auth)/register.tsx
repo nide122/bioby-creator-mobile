@@ -1,25 +1,23 @@
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { alertAction } from '@/src/lib/app-dialog';
 
 import { AuthEmailExpandSection } from '@/components/auth/AuthEmailExpandSection';
+import { AuthPrimaryButton } from '@/components/auth/AuthPrimaryButton';
+import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { GoogleOAuthButton } from '@/components/oauth/GoogleOAuthButton';
 import { MicrosoftOAuthButton } from '@/components/oauth/MicrosoftOAuthButton';
-import { Badge, getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
+import { getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fontSize, layout, palette, radii, spacing } from '@/constants/tokens';
+import { fontSize, palette, radii, spacing, type ThemePalette } from '@/constants/tokens';
+import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
 import { isApiConfigured } from '@/src/api/api-config';
 import { resolvePostAuthRoute } from '@/src/auth/post-auth-navigation';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
@@ -43,7 +41,7 @@ function EmailRegisterFields({
   onContinue,
   t,
 }: {
-  theme: (typeof palette)['light'];
+  theme: ThemePalette;
   email: string;
   displayName: string;
   password: string;
@@ -57,9 +55,6 @@ function EmailRegisterFields({
 }) {
   return (
     <>
-      {!isApiConfigured() ? (
-        <Text style={[styles.apiHint, { color: theme.mutedForeground }]}>{t('auth.demoModeHint')}</Text>
-      ) : null}
       <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>{t('auth.register.emailLabel')}</Text>
       <TextInput
         testID="auth-register-email"
@@ -100,28 +95,13 @@ function EmailRegisterFields({
       />
       <Text style={[styles.hint, { color: theme.mutedForeground }]}>{t('auth.passwordMinHint')}</Text>
 
-      <Pressable
+      <AuthPrimaryButton
         testID="auth-register-submit"
-        accessibilityRole="button"
-        disabled={!canSubmit || loading}
+        disabled={!canSubmit}
+        loading={loading}
         onPress={onContinue}
-        style={[
-          styles.primary,
-          { backgroundColor: canSubmit && !loading ? theme.primary : theme.secondary },
-        ]}
-        android_ripple={{ color: `${theme.primaryForeground}33` }}>
-        {loading ? (
-          <ActivityIndicator color={theme.primaryForeground} />
-        ) : (
-          <Text
-            style={[
-              styles.primaryLabel,
-              { color: canSubmit ? theme.primaryForeground : theme.foregroundEyebrow },
-            ]}>
-            {t(isApiConfigured() ? 'auth.register.sendCode' : 'auth.register.createAccount')}
-          </Text>
-        )}
-      </Pressable>
+        label={t(isApiConfigured() ? 'auth.register.sendCode' : 'auth.register.createAccount')}
+      />
 
       <Text style={[styles.promise, { color: theme.foregroundEyebrow }]}>{t('auth.register.noCard')}</Text>
     </>
@@ -203,42 +183,50 @@ export default function RegisterScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-        style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.hero}>
-          <Text style={[styles.eyebrow, { color: theme.foregroundEyebrow }]}>{t('auth.register.eyebrow')}</Text>
-          <Text style={[styles.title, { color: theme.foreground }]}>{t('auth.register.title')}</Text>
-          <View style={styles.signalRow}>
-            <Text style={[styles.signal, { color: '#5FD9FF' }]}>quote</Text>
-            <Text style={[styles.signalDivider, { color: theme.foregroundEyebrow }]}>/</Text>
-            <Text style={[styles.signal, { color: '#F086FF' }]}>rights</Text>
-            <Text style={[styles.signalDivider, { color: theme.foregroundEyebrow }]}>/</Text>
-            <Text style={[styles.signal, { color: '#A7F3D0' }]}>payout</Text>
-          </View>
+    <AuthScreenShell
+      testID="screen-auth-register"
+      header={
+        <View style={styles.hero} className={webClassName(corporateCleanClass.animateIn)}>
+          <Text
+            className={webClassName(corporateCleanClass.gradientText)}
+            style={[styles.title, { color: theme.foreground }]}>
+            {t('auth.register.title')}
+          </Text>
         </View>
-
-        <SectionCard title={t('auth.register.freeWorkspaceTitle')} subtitle={t('auth.register.freeWorkspaceSubtitle')} emphasis>
+      }
+      footer={
+        <>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/login' as Href)}
+            style={styles.link}>
+            <Text style={{ color: theme.mutedForeground }}>{t('auth.register.signInInstead')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={backToWelcome} style={styles.linkCompact}>
+            <Text style={{ color: theme.foregroundEyebrow }}>{t('auth.register.back')}</Text>
+          </Pressable>
+        </>
+      }>
+        <SectionCard
+          title={t('auth.register.freeWorkspaceTitle')}
+          subtitle={t('auth.register.freeWorkspaceSubtitle')}
+          emphasis
+          accentBar={false}>
           <View style={styles.promiseGrid}>
             <View style={[styles.promiseCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-              <Badge tone="mint" label={t('auth.register.promiseQueueBadge')} />
+              <Text style={[styles.promiseTitle, { color: theme.primary }]}>{t('auth.register.promiseQueueBadge')}</Text>
               <Text style={[styles.promiseText, { color: theme.foreground }]}>{t('auth.register.promiseQueueText')}</Text>
             </View>
             <View style={[styles.promiseCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-              <Badge tone="warning" label={t('auth.register.promiseControlBadge')} />
+              <Text style={[styles.promiseTitle, { color: theme.foregroundEyebrow }]}>
+                {t('auth.register.promiseControlBadge')}
+              </Text>
               <Text style={[styles.promiseText, { color: theme.foreground }]}>{t('auth.register.promiseControlText')}</Text>
             </View>
           </View>
         </SectionCard>
 
         <SectionCard title={t('auth.register.socialTitle')}>
-          {!oauthConfigured ? (
-            <Text style={[styles.oauthHint, { color: theme.mutedForeground }]}>
-              {t('auth.register.oauthSetupHint')}
-            </Text>
-          ) : null}
           <View style={{ gap: spacing.sm }}>
             <GoogleOAuthButton
               label={t('auth.register.googleOAuth')}
@@ -301,60 +289,29 @@ export default function RegisterScreen() {
             {emailFields}
           </AuthEmailExpandSection>
         </SectionCard>
-
-        <View style={styles.footer}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/login' as Href)}
-            style={styles.link}>
-            <Text style={{ color: theme.mutedForeground }}>{t('auth.register.signInInstead')}</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={backToWelcome} style={styles.linkCompact}>
-            <Text style={{ color: theme.foregroundEyebrow }}>{t('auth.register.back')}</Text>
-          </Pressable>
-        </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingHorizontal: spacing.xxl },
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, gap: spacing.lg, paddingTop: spacing.sectionY },
-  hero: { gap: spacing.sm, paddingTop: spacing.md },
-  eyebrow: {
-    fontSize: fontSize.eyebrow,
-    fontWeight: '800',
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
-  },
-  title: { fontSize: 40, fontWeight: '900', letterSpacing: -1.35, lineHeight: 44 },
-  signalRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  signal: { fontSize: fontSize.lead, fontWeight: '900', letterSpacing: 0.2 },
-  signalDivider: { fontSize: fontSize.bodySmall, fontWeight: '800' },
-  promiseGrid: { flexDirection: 'row', gap: spacing.sm },
+  hero: { gap: spacing.sm, marginBottom: spacing.lg },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.4 },
+  promiseGrid: { gap: spacing.sm },
   promiseCard: {
-    flex: 1,
     borderWidth: 1,
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.xs,
   },
-  promiseText: { fontSize: fontSize.caption, lineHeight: 18, fontWeight: '700' },
+  promiseTitle: {
+    fontSize: fontSize.caption,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  promiseText: { fontSize: fontSize.caption, lineHeight: 18, fontWeight: '600' },
   label: { fontSize: fontSize.caption, fontWeight: '600', marginTop: spacing.sm },
   hint: { fontSize: fontSize.caption, marginTop: spacing.xs },
-  apiHint: { fontSize: fontSize.caption, marginBottom: spacing.sm },
-  oauthHint: { fontSize: fontSize.caption, lineHeight: 18, marginBottom: spacing.sm },
-  footer: { marginTop: 'auto', gap: spacing.sm, paddingBottom: spacing.xxl },
-  primary: {
-    borderRadius: radii.md,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryLabel: { fontWeight: '800', fontSize: fontSize.body },
   promise: { textAlign: 'center', fontSize: fontSize.caption, fontWeight: '700' },
   link: { alignItems: 'center', paddingVertical: spacing.sm },
   linkCompact: { alignItems: 'center', paddingVertical: spacing.xs },

@@ -4,6 +4,7 @@ import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
 
 const PAYMENT_STATUS: Record<string, string> = {
   'Prepay pending': 'prepayPending',
+  'Awaiting prepay': 'prepayPending',
   'Funds in escrow': 'fundsInEscrow',
   'In production': 'inProduction',
   'Awaiting release': 'awaitingRelease',

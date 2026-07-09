@@ -15,7 +15,7 @@ export default function InboxStackLayout() {
       screenOptions={stackHeaderOptions(theme, t)}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="manual" options={{ title: t('stacks.opportunityManual') }} />
-      <Stack.Screen name="[threadId]" options={{ title: t('stacks.inboxThread') }} />
+      <Stack.Screen name="[threadId]" options={{ headerShown: false }} />
       <Stack.Screen name="message/[messageId]" options={{ title: t('stacks.inboxMessage') }} />
     </Stack>
   );

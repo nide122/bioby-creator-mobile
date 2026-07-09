@@ -1,6 +1,8 @@
 import type { TFunction } from 'i18next';
 
 import {
+  decisionCardBrandLabel,
+  formatDecisionCardTitle,
   parseDecisionSourceHint,
   resolveDecisionCardDisplay,
   type DecisionCardDisplay,
@@ -148,7 +150,14 @@ export function localizeDecisionSourceHint(sourceHint: string | undefined, t: TF
   return detail ? `${localizedPrefix} · ${detail}` : localizedPrefix;
 }
 
-export function localizeDecisionActionLabel(action: DecisionAction, t: TFunction): string {
+export function localizeDecisionActionLabel(
+  action: DecisionAction,
+  t: TFunction,
+  card?: DecisionCard,
+): string {
+  if (card?.category === 'opportunity' && action.id === 'open') {
+    return t('inboxThreadDetail.ctaReplyDraft');
+  }
   const mapped = mapCopy(action.label, ACTION_LABEL_EXACT, 'decisionCard.actions', t);
   return mapped ?? action.label;
 }
@@ -163,7 +172,7 @@ export function localizeDecisionCard(card: DecisionCard, t: TFunction): Decision
     sourceHint: localizeDecisionSourceHint(card.sourceHint, t),
     actions: card.actions.map((action) => ({
       ...action,
-      label: localizeDecisionActionLabel(action, t),
+      label: localizeDecisionActionLabel(action, t, card),
     })),
   };
 }
@@ -179,12 +188,12 @@ export function getLocalizedDecisionPresentation(card: DecisionCard, t: TFunctio
   const display = resolveDecisionCardDisplay(card);
   const actions = card.actions.map((action) => ({
     ...action,
-    label: localizeDecisionActionLabel(action, t),
+    label: localizeDecisionActionLabel(action, t, card),
   }));
   const primaryAction = display.primaryAction
     ? (actions.find((action) => action.id === display.primaryAction!.id) ?? {
         ...display.primaryAction,
-        label: localizeDecisionActionLabel(display.primaryAction, t),
+        label: localizeDecisionActionLabel(display.primaryAction, t, card),
       })
     : undefined;
 
@@ -205,14 +214,16 @@ export function formatLocalizedDecisionQueuePreviewLines(
   card: DecisionCard,
   t: TFunction
 ): { title: string; subtitle: string } {
-  const { display } = getLocalizedDecisionPresentation(card, t);
-  const title = display.subject ?? display.actionSummary ?? display.brand;
-  const subtitleParts: string[] = [];
-  if (title !== display.brand) subtitleParts.push(display.brand);
-  if (display.primaryAction?.label) subtitleParts.push(display.primaryAction.label);
-  if (display.urgencyLabel) subtitleParts.push(display.urgencyLabel);
+  const presentation = getLocalizedDecisionPresentation(card, t);
+  const brand = decisionCardBrandLabel(card) ?? presentation.display.brand;
+  const title = formatDecisionCardTitle(brand, presentation.display.subject);
+  const subtitle =
+    presentation.aiNote?.trim() ||
+    presentation.display.urgencyLabel ||
+    localizeDecisionActionReasonMessage(card.interruptReason, t) ||
+    '';
   return {
     title,
-    subtitle: subtitleParts.join(' · ') || display.brand,
+    subtitle,
   };
 }

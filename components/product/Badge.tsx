@@ -21,12 +21,12 @@ export function Badge({ label, tone = 'neutral' }: Props) {
         ? theme.accentMintSoft
         : tone === 'warning'
           ? colorScheme === 'dark'
-            ? '#2A1A09'
-            : '#2A1A09'
+            ? '#422006'
+            : '#fef3c7'
           : tone === 'danger'
             ? colorScheme === 'dark'
-              ? '#2A1012'
-              : '#2A1012'
+              ? '#450a0a'
+              : '#fee2e2'
             : theme.secondary;
 
   const fg =
@@ -36,12 +36,12 @@ export function Badge({ label, tone = 'neutral' }: Props) {
         ? theme.accentMintStrong
         : tone === 'warning'
           ? colorScheme === 'dark'
-            ? '#FACC15'
-            : '#FACC15'
+            ? '#fbbf24'
+            : '#b45309'
           : tone === 'danger'
             ? colorScheme === 'dark'
-              ? '#FDA4AF'
-              : '#FDA4AF'
+              ? '#fca5a5'
+              : '#b91c1c'
             : theme.foregroundSubtitle;
 
   return (

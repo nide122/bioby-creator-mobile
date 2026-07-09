@@ -1,26 +1,23 @@
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { alertAction } from '@/src/lib/app-dialog';
 
 import { AuthEmailExpandSection } from '@/components/auth/AuthEmailExpandSection';
+import { AuthPrimaryButton } from '@/components/auth/AuthPrimaryButton';
+import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
+import { AuthUtilityFooter } from '@/components/auth/AuthUtilityFooter';
 import { GoogleOAuthButton } from '@/components/oauth/GoogleOAuthButton';
 import { MicrosoftOAuthButton } from '@/components/oauth/MicrosoftOAuthButton';
-import { Badge, getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
+import { getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fontSize, layout, palette, radii, spacing } from '@/constants/tokens';
-import { isApiConfigured } from '@/src/api/api-config';
+import { fontSize, palette, spacing } from '@/constants/tokens';
 import { resolvePostAuthRoute } from '@/src/auth/post-auth-navigation';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
 import { isGoogleOAuthConfigured, isMicrosoftOAuthConfigured } from '@/src/auth/oauth-env';
@@ -70,9 +67,6 @@ export default function LoginScreen() {
 
   const emailFields = (
     <>
-      {!isApiConfigured() ? (
-        <Text style={[styles.apiHint, { color: theme.mutedForeground }]}>{t('auth.demoModeHint')}</Text>
-      ) : null}
       <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>{t('auth.login.emailLabel')}</Text>
       <TextInput
         testID="auth-login-email"
@@ -103,155 +97,109 @@ export default function LoginScreen() {
         </>
       ) : null}
 
-      <Pressable
+      <AuthPrimaryButton
         testID="auth-login-submit"
-        accessibilityRole="button"
-        disabled={!canSubmit || loading}
+        disabled={!canSubmit}
+        loading={loading}
         onPress={onContinue}
-        style={[
-          styles.primary,
-          { backgroundColor: canSubmit && !loading ? theme.primary : theme.border },
-        ]}
-        android_ripple={{ color: `${theme.primaryForeground}33` }}>
-        {loading ? (
-          <ActivityIndicator color={theme.primaryForeground} />
-        ) : (
-          <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>{t('auth.login.continue')}</Text>
-        )}
-      </Pressable>
+        label={t('auth.login.continue')}
+      />
     </>
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-        style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.title, { color: theme.foreground }]}>{t('auth.login.title')}</Text>
-          <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('auth.login.lead')}</Text>
+    <AuthScreenShell
+      testID="screen-auth-login"
+      title={t('auth.login.title')}
+      lead={t('auth.login.lead')}
+      footer={
+        <>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/forgot-password' as Href)}
+            style={styles.link}>
+            <Text style={{ color: theme.mutedForeground }}>{t('auth.login.forgotPassword')}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/register' as Href)}
+            style={styles.link}>
+            <Text style={{ color: theme.mutedForeground }}>{t('auth.login.createAccount')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={backToWelcome} style={styles.link}>
+            <Text style={{ color: theme.mutedForeground }}>{t('auth.login.back')}</Text>
+          </Pressable>
+          <AuthUtilityFooter />
+        </>
+      }>
+      <SectionCard title={t('auth.login.socialTitle')}>
+        <View style={{ gap: spacing.sm }}>
+          <GoogleOAuthButton
+            label={t('auth.login.googleOAuth')}
+            variant="login"
+            onGoogleIdToken={
+              apiMode
+                ? async (idToken) => {
+                    const result = await loginGoogle(idToken);
+                    if (!result.ok) {
+                      throw new Error(result.message);
+                    }
+                    router.replace(resolvePostAuthRoute(redirect) as Href);
+                  }
+                : undefined
+            }
+            onGoogleAuthCode={
+              apiMode
+                ? async (payload) => {
+                    const result = await loginGoogleWithAuthCode(payload);
+                    if (!result.ok) {
+                      throw new Error(result.message);
+                    }
+                    router.replace(resolvePostAuthRoute(redirect) as Href);
+                  }
+                : undefined
+            }
+            onSuccess={(account) => {
+              if (!apiMode) finishOAuthLogin(account);
+            }}
+            onError={(msg) => void alertAction(t('auth.login.errors.google'), msg)}
+          />
+          <MicrosoftOAuthButton
+            label={t('auth.login.microsoftOAuth')}
+            variant="login"
+            onMicrosoftAccessToken={
+              apiMode
+                ? async (accessToken) => {
+                    const result = await loginMicrosoft(accessToken);
+                    if (!result.ok) {
+                      throw new Error(result.message);
+                    }
+                    router.replace(resolvePostAuthRoute(redirect) as Href);
+                  }
+                : undefined
+            }
+            onSuccess={(account) => {
+              if (!apiMode) finishOAuthLogin(account);
+            }}
+            onError={(msg) => void alertAction(t('auth.login.errors.microsoft'), msg)}
+          />
+        </View>
 
-          <SectionCard
-            title={t('auth.login.readyCardTitle')}
-            subtitle={t('auth.login.readyCardSubtitle')}
-            emphasis>
-            <View style={styles.returnRow}>
-              <Badge tone="warning" label={t('auth.login.reviewQueueBadge')} />
-              <Text style={[styles.returnText, { color: theme.foreground }]}>{t('auth.login.reviewQueueHint')}</Text>
-            </View>
-          </SectionCard>
-
-          <SectionCard title={t('auth.login.socialTitle')}>
-            {!oauthConfigured ? (
-              <Text style={[styles.oauthHint, { color: theme.mutedForeground }]}>
-                {t('auth.login.oauthSetupHint')}
-              </Text>
-            ) : null}
-            <View style={{ gap: spacing.sm }}>
-              <GoogleOAuthButton
-                label={t('auth.login.googleOAuth')}
-                variant="login"
-                onGoogleIdToken={
-                  apiMode
-                    ? async (idToken) => {
-                        const result = await loginGoogle(idToken);
-                        if (!result.ok) {
-                          throw new Error(result.message);
-                        }
-                        router.replace(resolvePostAuthRoute(redirect) as Href);
-                      }
-                    : undefined
-                }
-                onGoogleAuthCode={
-                  apiMode
-                    ? async (payload) => {
-                        const result = await loginGoogleWithAuthCode(payload);
-                        if (!result.ok) {
-                          throw new Error(result.message);
-                        }
-                        router.replace(resolvePostAuthRoute(redirect) as Href);
-                      }
-                    : undefined
-                }
-                onSuccess={(account) => {
-                  if (!apiMode) finishOAuthLogin(account);
-                }}
-                onError={(msg) => void alertAction(t('auth.login.errors.google'), msg)}
-              />
-              <MicrosoftOAuthButton
-                label={t('auth.login.microsoftOAuth')}
-                variant="login"
-                onMicrosoftAccessToken={
-                  apiMode
-                    ? async (accessToken) => {
-                        const result = await loginMicrosoft(accessToken);
-                        if (!result.ok) {
-                          throw new Error(result.message);
-                        }
-                        router.replace(resolvePostAuthRoute(redirect) as Href);
-                      }
-                    : undefined
-                }
-                onSuccess={(account) => {
-                  if (!apiMode) finishOAuthLogin(account);
-                }}
-                onError={(msg) => void alertAction(t('auth.login.errors.microsoft'), msg)}
-              />
-            </View>
-
-            <AuthEmailExpandSection
-              expanded={emailFormExpanded}
-              onExpand={() => setEmailFormExpanded(true)}
-              expandLabel={t('auth.login.useEmailLogin')}
-              dividerLabel={t('auth.login.orUseEmail')}
-              expandTestID="auth-login-expand-email"
-              theme={theme}>
-              {emailFields}
-            </AuthEmailExpandSection>
-          </SectionCard>
-
-          <View style={styles.footer}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/forgot-password' as Href)}
-              style={styles.link}>
-              <Text style={{ color: theme.mutedForeground }}>{t('auth.login.forgotPassword')}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/register' as Href)}
-              style={styles.link}>
-              <Text style={{ color: theme.mutedForeground }}>{t('auth.login.createAccount')}</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={backToWelcome} style={styles.link}>
-              <Text style={{ color: theme.mutedForeground }}>{t('auth.login.back')}</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <AuthEmailExpandSection
+          expanded={emailFormExpanded}
+          onExpand={() => setEmailFormExpanded(true)}
+          expandLabel={t('auth.login.useEmailLogin')}
+          dividerLabel={t('auth.login.orUseEmail')}
+          expandTestID="auth-login-expand-email"
+          theme={theme}>
+          {emailFields}
+        </AuthEmailExpandSection>
+      </SectionCard>
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingHorizontal: spacing.xxl },
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, gap: spacing.lg, paddingTop: spacing.sectionY },
-  title: { fontSize: 24, fontWeight: '600' },
-  lead: { fontSize: fontSize.body, lineHeight: 22 },
   label: { fontSize: fontSize.caption, fontWeight: '600', marginTop: spacing.sm },
-  apiHint: { fontSize: fontSize.caption, marginBottom: spacing.sm },
-  oauthHint: { fontSize: fontSize.caption, lineHeight: 18, marginBottom: spacing.sm },
-  returnRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  returnText: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: 20, fontWeight: '700' },
-  footer: { marginTop: 'auto', gap: spacing.sm, paddingBottom: spacing.xxl },
-  primary: {
-    borderRadius: radii.md,
-    minHeight: layout.touchMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  primaryLabel: { fontWeight: '600', fontSize: fontSize.body },
   link: { alignItems: 'center', paddingVertical: spacing.sm },
 });

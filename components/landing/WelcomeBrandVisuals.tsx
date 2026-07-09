@@ -13,10 +13,10 @@ import { fontSize, spacing } from '@/constants/tokens';
 
 const brandLogo = require('../../assets/images/brand-logo.png');
 
-export const LANDING_BG = '#050706';
-export const LANDING_CARD = '#0A100D';
-export const LANDING_BORDER = 'rgba(255,255,255,0.16)';
-export const LANDING_MUTED = '#737A84';
+export const LANDING_BG = '#f8fafc';
+export const LANDING_CARD = '#ffffff';
+export const LANDING_BORDER = '#e2e8f0';
+export const LANDING_MUTED = '#64748b';
 
 export function LandingBackgroundAura() {
   return (
@@ -38,8 +38,8 @@ export function LandingBackgroundAura() {
           r="1"
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(352 128) rotate(90) scale(220)">
-          <Stop stopColor="#5FD9FF" stopOpacity="0.18" />
-          <Stop offset="1" stopColor="#5FD9FF" stopOpacity="0" />
+          <Stop stopColor="#3b82f6" stopOpacity="0.14" />
+          <Stop offset="1" stopColor="#3b82f6" stopOpacity="0" />
         </RadialGradient>
         <RadialGradient
           id="bottomAura"
@@ -48,13 +48,13 @@ export function LandingBackgroundAura() {
           r="1"
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(34 598) rotate(90) scale(250)">
-          <Stop stopColor="#F086FF" stopOpacity="0.16" />
-          <Stop offset="1" stopColor="#F086FF" stopOpacity="0" />
+          <Stop stopColor="#1e40af" stopOpacity="0.1" />
+          <Stop offset="1" stopColor="#1e40af" stopOpacity="0" />
         </RadialGradient>
         <LinearGradient id="auraVein" x1="-26" y1="328" x2="416" y2="258" gradientUnits="userSpaceOnUse">
-          <Stop stopColor="#5FD9FF" />
-          <Stop offset="0.56" stopColor="#F086FF" />
-          <Stop offset="1" stopColor="#A7F3D0" />
+          <Stop stopColor="#3b82f6" />
+          <Stop offset="0.56" stopColor="#2563eb" />
+          <Stop offset="1" stopColor="#60a5fa" />
         </LinearGradient>
       </Defs>
     </Svg>
@@ -125,28 +125,28 @@ export function LandingMineMap({
         />
         <Path
           d="M20 30C60 48 102 47 140 32C188 14 228 30 306 74"
-          stroke="rgba(255,255,255,0.14)"
+          stroke="rgba(37, 99, 235, 0.12)"
           strokeWidth="1"
           strokeLinecap="round"
         />
-        <Circle cx="76" cy="86" r="14" fill="#5FD9FF" fillOpacity="0.12" />
-        <Circle cx="76" cy="86" r="6" fill="#5FD9FF" />
-        <Circle cx="186" cy="74" r="14" fill="#F086FF" fillOpacity="0.12" />
-        <Circle cx="186" cy="74" r="6" fill="#F086FF" />
-        <Circle cx="272" cy="42" r="14" fill="#A7F3D0" fillOpacity="0.12" />
-        <Circle cx="272" cy="42" r="6" fill="#A7F3D0" />
+        <Circle cx="76" cy="86" r="14" fill="#3b82f6" fillOpacity="0.12" />
+        <Circle cx="76" cy="86" r="6" fill="#3b82f6" />
+        <Circle cx="186" cy="74" r="14" fill="#2563eb" fillOpacity="0.12" />
+        <Circle cx="186" cy="74" r="6" fill="#2563eb" />
+        <Circle cx="272" cy="42" r="14" fill="#60a5fa" fillOpacity="0.12" />
+        <Circle cx="272" cy="42" r="6" fill="#60a5fa" />
         <Defs>
           <LinearGradient id="vein" x1="18" y1="108" x2="306" y2="26" gradientUnits="userSpaceOnUse">
-            <Stop stopColor="#5FD9FF" />
-            <Stop offset="0.52" stopColor="#F086FF" />
-            <Stop offset="1" stopColor="#A7F3D0" />
+            <Stop stopColor="#3b82f6" />
+            <Stop offset="0.52" stopColor="#2563eb" />
+            <Stop offset="1" stopColor="#60a5fa" />
           </LinearGradient>
         </Defs>
       </Svg>
       <View style={mineStyles.chipRow}>
-        <SignalChip label={rateLabel} value={rateValue} accent="#5FD9FF" />
-        <SignalChip label={rightsLabel} value={rightsValue} accent="#F086FF" />
-        <SignalChip label={payoutLabel} value={payoutValue} accent="#A7F3D0" />
+        <SignalChip label={rateLabel} value={rateValue} accent="#2563eb" />
+        <SignalChip label={rightsLabel} value={rightsValue} accent="#1d4ed8" />
+        <SignalChip label={payoutLabel} value={payoutValue} accent="#3b82f6" />
       </View>
     </View>
   );
@@ -168,7 +168,7 @@ const mineStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: LANDING_BORDER,
     overflow: 'hidden',
-    shadowColor: '#5FD9FF',
+    shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.08,
     shadowRadius: 36,
@@ -189,5 +189,5 @@ const mineStyles = StyleSheet.create({
     borderRightColor: LANDING_BORDER,
   },
   chipLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  chipValue: { color: '#FFFFFF', fontSize: fontSize.bodySmall, fontWeight: '800' },
+  chipValue: { color: '#111827', fontSize: fontSize.bodySmall, fontWeight: '800' },
 });

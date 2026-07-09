@@ -61,6 +61,57 @@ function headlineIsGenericDraftReview(headline: string): boolean {
   return GENERIC_DRAFT_HEADLINES.has(headline.trim().toLowerCase());
 }
 
+const GENERIC_NEXT_STEP_LABELS = new Set([
+  'open thread',
+  'review draft',
+  'review',
+  'review quote draft',
+  'review follow-up draft',
+  'review reply draft',
+  'later',
+  'snooze',
+  'upload proof',
+  'submit proof',
+  'approve & release',
+]);
+
+export function isGenericDecisionActionLabel(label?: string | null): boolean {
+  if (!label?.trim()) return true;
+  return GENERIC_NEXT_STEP_LABELS.has(label.trim().toLowerCase());
+}
+
+/** Merge brand + project/subject on one line; dedupe when they overlap. */
+export function formatDecisionCardTitle(brand?: string | null, subject?: string | null): string {
+  const resolvedBrand = brand?.trim() ?? '';
+  const resolvedSubject = subject?.trim() ?? '';
+  if (!resolvedSubject) return resolvedBrand;
+  if (!resolvedBrand || resolvedBrand === resolvedSubject) return resolvedSubject;
+  if (resolvedSubject.startsWith(resolvedBrand)) return resolvedSubject;
+  return `${resolvedBrand} · ${resolvedSubject}`;
+}
+
+export function decisionCardStatusSubtitle(card: DecisionCard): string | undefined {
+  const display = resolveDecisionCardDisplay(card);
+  return card.interruptReason?.trim() || display.urgencyLabel || display.actionSummary;
+}
+
+export function decisionCardNextStepHint(card: DecisionCard): string | undefined {
+  const interrupt = card.interruptReason?.trim();
+  if (interrupt) return interrupt;
+  const risk = card.contractRiskFlags?.[0];
+  return risk?.hint?.trim() || risk?.label?.trim() || undefined;
+}
+
+export function shouldShowDecisionNextStep(card: DecisionCard, localizedHint?: string | null): boolean {
+  const hint = localizedHint?.trim();
+  if (!hint) return false;
+  const note = card.aiNote?.trim();
+  if (note && hint.toLowerCase() === note.toLowerCase()) return false;
+  const primary = resolveDecisionPrimaryAction(card);
+  if (primary && hint.toLowerCase() === primary.label.trim().toLowerCase()) return false;
+  return !isGenericDecisionActionLabel(hint);
+}
+
 export function resolveDecisionCardDisplay(card: DecisionCard): DecisionCardDisplay {
   const { detail: subjectFromSource } = parseDecisionSourceHint(card.sourceHint);
   const rawBrand = card.entityName.trim();
@@ -100,22 +151,21 @@ export function decisionCardSubject(card: Pick<DecisionCard, 'sourceHint'>): str
 
 export function formatDecisionQueuePreviewLines(card: DecisionCard): { title: string; subtitle: string } {
   const display = resolveDecisionCardDisplay(card);
-  const title = display.brand;
-  const subtitleParts: string[] = [];
-  if (display.subject) subtitleParts.push(display.subject);
-  else if (display.actionSummary) subtitleParts.push(display.actionSummary);
-  if (display.primaryAction?.label) subtitleParts.push(display.primaryAction.label);
-  if (display.urgencyLabel) subtitleParts.push(display.urgencyLabel);
+  const brand = decisionCardBrandLabel(card) ?? display.brand;
+  const title = formatDecisionCardTitle(brand, display.subject);
+  const subtitle = display.urgencyLabel || card.aiNote?.trim() || '';
   return {
     title,
-    subtitle: subtitleParts.join(' · ') || display.brand,
+    subtitle,
   };
 }
 
 export function formatDecisionQueuePreviewSubtitle(card: DecisionCard, nextStepLabel: string): string {
   const display = resolveDecisionCardDisplay(card);
-  const parts = [display.brand];
-  if (display.subject) parts.push(display.subject);
-  parts.push(nextStepLabel);
-  return parts.join(' · ');
+  const brand = decisionCardBrandLabel(card) ?? display.brand;
+  const title = formatDecisionCardTitle(brand, display.subject);
+  if (isGenericDecisionActionLabel(nextStepLabel)) {
+    return title;
+  }
+  return `${title} · ${nextStepLabel}`;
 }

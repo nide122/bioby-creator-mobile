@@ -75,7 +75,7 @@ describe('NavigationBootstrap', () => {
     });
   });
 
-  it('redirects completed users off auth screens to inbox', async () => {
+  it('redirects completed users off auth screens to Today', async () => {
     useSessionStore.getState().jumpToWorkspaceDemo();
     mockPathname = '/login';
     mockReplace.mockClear();
@@ -83,7 +83,7 @@ describe('NavigationBootstrap', () => {
     renderBootstrap();
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/inbox');
+      expect(mockReplace).toHaveBeenCalledWith('/');
     });
   });
 

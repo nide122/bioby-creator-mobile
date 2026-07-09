@@ -1,5 +1,6 @@
 import {
   decisionCardBrandLabel,
+  formatDecisionCardTitle,
   formatDecisionQueuePreviewLines,
   formatDecisionQueuePreviewSubtitle,
   parseDecisionSourceHint,
@@ -81,14 +82,20 @@ describe('decision-card-content', () => {
     ).toBe('Confirm budget before quoting.');
   });
 
-  it('builds queue preview subtitles with brand, subject, and next step', () => {
+  it('builds queue preview subtitles with merged title and ai note', () => {
     expect(formatDecisionQueuePreviewSubtitle(opportunityCard, 'Open thread')).toBe(
-      'ClearSkin Lab · 2 short videos | Claims need pre-review · Open thread'
+      'ClearSkin Lab · 2 short videos | Claims need pre-review'
     );
     expect(formatDecisionQueuePreviewLines(opportunityCard)).toEqual({
-      title: 'ClearSkin Lab',
-      subtitle: '2 short videos | Claims need pre-review · Open thread · Needs attention today',
+      title: 'ClearSkin Lab · 2 short videos | Claims need pre-review',
+      subtitle: 'Needs attention today',
     });
+  });
+
+  it('merges overlapping brand and subject into one title line', () => {
+    expect(formatDecisionCardTitle('西瓜霜', '西瓜霜 TikTok 商务合作')).toBe('西瓜霜 TikTok 商务合作');
+    expect(formatDecisionCardTitle('ClearSkin Lab', 'ClearSkin Lab')).toBe('ClearSkin Lab');
+    expect(formatDecisionCardTitle('Brand A', 'TikTok campaign')).toBe('Brand A · TikTok campaign');
   });
 
   it('suppresses generic draft review headlines from action summary', () => {

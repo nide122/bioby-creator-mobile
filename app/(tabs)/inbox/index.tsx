@@ -40,6 +40,13 @@ import { LeadValueBandIconShell, LeadValueBandSectionHeader } from '@/components
 import { InboxPriorityIconShell, InboxPrioritySectionHeader } from '@/components/inbox/InboxPriorityChrome';
 import { RiskBanner } from '@/components/inbox/RiskBanner';
 import { BasicMailboxInbox } from '@/components/inbox/BasicMailboxInbox';
+import {
+  InboxAddDealCard,
+  InboxCollaborationCard,
+  InboxEmailStatusCard,
+  InboxNeedsActionToggle,
+  InboxPriorityFilterRow,
+} from '@/components/inbox/InboxHubCards';
 import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
 import { CreatorVerificationBanner } from '@/components/inbox/CreatorVerificationBanner';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -78,13 +85,13 @@ import { localizedVisibleRiskLabel } from '@/src/lib/inbox-detail-labels';
 import { contractWarningSeverity, listContractWarningFlags, isContractRiskLabel } from '@/src/lib/contract-warning';
 import { formatExceptionalBudgetLabel } from '@/src/lib/exceptional-budget-label';
 import { countPriorityLeadValueBands, resolvePriorityLeadValueBand } from '@/src/lib/priority-lead-value-band';
+import { filterThreadsByPriorityChip } from '@/src/lib/inbox-priority-filter';
 import { isInboxPriorityUiEnabled } from '@/src/lib/inbox-priority-feature';
 import { translateInboxNextAction } from '@/src/lib/inbox-next-action-labels';
 import { inboxPriorityAccent, inboxPriorityBadgeTone } from '@/src/lib/inbox-priority-visuals';
 import {
   countArchivedInboxPriority,
   countInboxPriorities,
-  groupThreadsByInboxPriority,
   resolveDisplayInboxPriority,
 } from '@/src/lib/resolve-inbox-priority';
 import { leadValueBandAccent } from '@/src/lib/lead-value-band-visuals';
@@ -939,7 +946,7 @@ function ClassifiedMailControls({
       return;
     }
     onSortByChange(nextSortBy);
-    onSortOrderChange('ASC');
+    onSortOrderChange('DESC');
   };
 
   return (
@@ -993,13 +1000,13 @@ function ClassifiedMailControls({
               <SortToggleButton
                 active={sortBy === 'TIME'}
                 label={t('inboxScreen.sortByTime')}
-                order={sortBy === 'TIME' ? sortOrder : 'ASC'}
+                order={sortBy === 'TIME' ? sortOrder : 'DESC'}
                 onPress={() => handleSortPress('TIME')}
               />
               <SortToggleButton
                 active={sortBy === 'MESSAGE_COUNT'}
                 label={t('inboxScreen.sortByMessageCount')}
-                order={sortBy === 'MESSAGE_COUNT' ? sortOrder : 'ASC'}
+                order={sortBy === 'MESSAGE_COUNT' ? sortOrder : 'DESC'}
                 onPress={() => handleSortPress('MESSAGE_COUNT')}
               />
               <SortToggleButton
@@ -1380,14 +1387,18 @@ export default function InboxScreen() {
   const authReady = useAuthSessionReady();
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
   const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
+  const accountEmail = useSessionStore((s) => s.accountEmail);
+  const sessionMailboxEmail = useSessionStore((s) => s.mailboxConnection?.email);
   const aiInboxEnabled = isCreatorAiInboxEnabled(creatorVerificationStatus);
   const viewMode = useInboxViewStore((s) => s.viewMode);
+  const priorityFilter = useInboxViewStore((s) => s.priorityFilter);
   const categoryFilter = useInboxViewStore((s) => s.categoryFilter);
   const timeRangeFilter = useInboxViewStore((s) => s.timeRangeFilter);
   const sortBy = useInboxViewStore((s) => s.sortBy);
   const sortOrder = useInboxViewStore((s) => s.sortOrder);
   const searchQuery = useInboxViewStore((s) => s.searchQuery);
   const setViewMode = useInboxViewStore((s) => s.setViewMode);
+  const setPriorityFilter = useInboxViewStore((s) => s.setPriorityFilter);
   const setCategoryFilter = useInboxViewStore((s) => s.setCategoryFilter);
   const setTimeRangeFilter = useInboxViewStore((s) => s.setTimeRangeFilter);
   const setSortBy = useInboxViewStore((s) => s.setSortBy);
@@ -1442,6 +1453,24 @@ export default function InboxScreen() {
       }
     },
     [viewMode, setCategoryFilter, setSearchQuery, setScrollY, setViewMode],
+  );
+
+  const handleSortByChange = useCallback(
+    (next: InboxSortBy) => {
+      setSortBy(next);
+      setScrollY(0);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    },
+    [setScrollY, setSortBy],
+  );
+
+  const handleSortOrderChange = useCallback(
+    (next: InboxSortOrder) => {
+      setSortOrder(next);
+      setScrollY(0);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    },
+    [setSortOrder, setScrollY],
   );
 
   const handleCategoryChange = useCallback(
@@ -1735,102 +1764,73 @@ export default function InboxScreen() {
       )
     : allThreads;
 
-  const grouped = searchableThreads.reduce<Record<InboxEmailCategory, InboxThread[]>>(
-    (acc, thread) => {
-      if (!acc[thread.category]) acc[thread.category] = [];
-      acc[thread.category].push(thread);
-      return acc;
-    },
-    {} as Record<InboxEmailCategory, InboxThread[]>
-  );
   const categoryCounts = inbox.categoryCounts;
   const valueBandCounts = inbox.valueBandCounts;
-  const highValueThreads = allThreads.filter((thread) => resolvePriorityLeadValueBand(thread) === 'high_value');
-  const followUpThreads = allThreads.filter((thread) => resolvePriorityLeadValueBand(thread) === 'needs_negotiation');
-  const priorityBandCounts = countPriorityLeadValueBands(allThreads);
+  const priorityBandCounts = countPriorityLeadValueBands(allThreads as Parameters<typeof countPriorityLeadValueBands>[0]);
   const priorityUiEnabled = isInboxPriorityUiEnabled(allThreads);
-  const inboxPriorityGroups = useMemo(
-    () => (priorityUiEnabled ? groupThreadsByInboxPriority(allThreads) : null),
-    [allThreads, priorityUiEnabled]
-  );
   const inboxPriorityCounts = useMemo(
-    () => (priorityUiEnabled ? countInboxPriorities(allThreads) : null),
+    () =>
+      priorityUiEnabled
+        ? countInboxPriorities(allThreads as Parameters<typeof countInboxPriorities>[0])
+        : null,
     [allThreads, priorityUiEnabled]
   );
   const archivedBandCount = priorityUiEnabled
-    ? countArchivedInboxPriority(allThreads)
+    ? countArchivedInboxPriority(allThreads as Parameters<typeof countArchivedInboxPriority>[0])
     : (valueBandCounts.archived ?? 0);
-  const hasPriorityThreads = priorityUiEnabled
-    ? (inboxPriorityCounts?.p0 ?? 0) + (inboxPriorityCounts?.p1 ?? 0) + (inboxPriorityCounts?.p2 ?? 0) > 0
-    : highValueThreads.length + followUpThreads.length > 0;
+  const priorityChipCounts = {
+    p0: inboxPriorityCounts?.p0 ?? priorityBandCounts.high_value ?? 0,
+    p1: inboxPriorityCounts?.p1 ?? 0,
+    p2: inboxPriorityCounts?.p2 ?? priorityBandCounts.needs_negotiation ?? 0,
+    archived: archivedBandCount,
+  };
+  const mailboxEmail =
+    syncStatus.data?.connection?.emailAddress ??
+    mailbox.data?.emailAddress ??
+    sessionMailboxEmail ??
+    accountEmail;
+  const priorityThreads = filterThreadsByPriorityChip(searchableThreads, priorityFilter);
 
   const openThread = (item: InboxThread) => router.push(`/inbox/${item.id}` as Href);
-  const allModeCategories: InboxEmailCategory[] =
-    categoryFilter === 'all'
-      ? ['commercial', 'pr_sample', 'media', 'personal', 'spam', 'other']
-      : [categoryFilter];
-  const visibleAllModeCount = allModeCategories.reduce((sum, category) => sum + (grouped[category]?.length ?? 0), 0);
-  const lastSyncCounts = lastSync ? syncResultCounts(lastSync) : null;
 
   const toolbar = (
     <>
       <InboxConnectionBanner />
-      <CreatorVerificationBanner status={creatorVerificationStatus} />
-      {aiInboxEnabled ? <InboxManualEntryBanner /> : null}
-      {aiInboxEnabled ? <InboxRateCardBanner /> : null}
       {aiInboxEnabled ? <InboxReclassificationBanner /> : null}
-      <InboxMailboxStatusCard
-        onSync={onRefresh}
-        syncing={refreshing || inbox.isRefetching}
-        processingActive={aiInboxEnabled && processingActive}
-        syncLookback={syncLookback}
-        onSyncLookbackChange={setSyncLookback}
-        syncStatus={syncStatus.data}
-        onReconnect={handleReconnectMailbox}
-        onRegisterWatch={handleRegisterWatch}
-        onRenewWatch={handleRenewWatch}
-        onRetryWriteback={handleRetryWriteback}
-        repairAction={repairAction}
-        repairError={repairError}
-        verificationStatus={creatorVerificationStatus}
-      />
-      {aiInboxEnabled ? (
-        <InboxSyncProgressCard
-          expanded={syncProgressExpanded}
-          onToggle={() => setSyncProgressExpanded((value) => !value)}
-          showComplete={showSyncCompleteCard}
-          status={syncStatus.data}
-        />
-      ) : null}
-      {aiInboxEnabled && lastSync && (lastSync.processed > 0 || lastSync.upToDate) && lastSyncCounts ? (
+      {aiInboxEnabled && processingActive ? (
         <HubCallout
-          title={
-            processingActive
-              ? t('inboxScreen.syncResultTitleProcessing')
-              : lastSyncCounts.newCount > 0
-                ? t('inboxScreen.syncResultTitle', { count: lastSyncCounts.newCount })
-                : t('inboxScreen.syncResultTitleUpToDate')
-          }
-          body={
-            processingActive
-              ? t('inboxScreen.syncResultBodyProcessing')
-              : syncResultBody(lastSync, lastSyncCounts, t)
-          }
+          title={t('inboxScreen.syncResultTitleProcessing')}
+          body={t('inboxScreen.syncResultBodyProcessing')}
         />
       ) : null}
-      {aiInboxEnabled ? (
-        <AiSummaryCard onPress={handleAiSummaryPress} mailboxProcessingActive={processingActive} />
-      ) : null}
-      {aiInboxEnabled ? <InboxViewToggle value={viewMode} onChange={handleViewModeChange} /> : null}
     </>
   );
+
+  const inboxHubStack = aiInboxEnabled ? (
+    <>
+      <InboxEmailStatusCard
+        email={mailboxEmail}
+        verificationStatus={creatorVerificationStatus}
+        onPress={() => router.push('/onboarding/email?source=account' as Href)}
+      />
+      <InboxAddDealCard />
+      <InboxNeedsActionToggle value={viewMode} onChange={handleViewModeChange} />
+      {viewMode === 'priority' ? (
+        <InboxPriorityFilterRow
+          value={priorityFilter}
+          counts={priorityChipCounts}
+          onChange={setPriorityFilter}
+        />
+      ) : null}
+    </>
+  ) : null;
 
   return (
     <View style={[styles.screenFrame, { backgroundColor: theme.background }]}>
       <HubScreen
         testID="screen-inbox"
         eyebrow={t('tabs.inbox')}
-        title={aiInboxEnabled ? (viewMode === 'priority' ? t('inboxScreen.titlePriority') : t('inboxScreen.titleAll')) : t('basicMailbox.screenTitle')}
+        title={aiInboxEnabled ? t('inboxScreen.titlePriority') : t('basicMailbox.screenTitle')}
         toolbar={toolbar}
         refreshing={refreshing || inbox.isRefetching}
         onRefresh={onRefresh}
@@ -1842,124 +1842,87 @@ export default function InboxScreen() {
           <BasicMailboxInbox refreshing={refreshing} />
         ) : initialLoading ? (
           <InboxInlineLoading />
-        ) : viewMode === 'priority' ? (
-          <>
-            {priorityUiEnabled ? (
-              <>
-                <InboxPrioritySection
-                  priority="p0"
-                  items={inboxPriorityGroups?.p0 ?? []}
-                  count={inboxPriorityCounts?.p0}
-                  onOpen={openThread}
-                />
-                <InboxPrioritySection
-                  priority="p1"
-                  items={inboxPriorityGroups?.p1 ?? []}
-                  count={inboxPriorityCounts?.p1}
-                  onOpen={openThread}
-                />
-                <InboxPrioritySection
-                  priority="p2"
-                  items={inboxPriorityGroups?.p2 ?? []}
-                  count={inboxPriorityCounts?.p2}
-                  onOpen={openThread}
-                />
-              </>
-            ) : (
-              <>
-                <LeadValueBandSection
-                  band="high_value"
-                  items={highValueThreads}
-                  count={priorityBandCounts.high_value}
-                  onOpen={openThread}
-                />
-                <LeadValueBandSection
-                  band="needs_negotiation"
-                  items={followUpThreads}
-                  count={priorityBandCounts.needs_negotiation}
-                  onOpen={openThread}
-                />
-              </>
-            )}
-            {!hasPriorityThreads ? (
-              <EmptyStateCard
-                title={
-                  processingActive
-                    ? t('inboxScreen.emptyProcessingTitle')
-                    : priorityUiEnabled
-                      ? t('inboxScreen.emptyPriorityTitle')
-                      : t('inboxScreen.emptyCommercialTitle')
-                }
-                description={
-                  processingActive
-                    ? t('inboxScreen.emptyProcessingDesc')
-                    : priorityUiEnabled
-                      ? t('inboxScreen.emptyPriorityDesc')
-                      : t('inboxScreen.emptyCommercialDesc')
-                }
-                primaryAction={{
-                  label: t('inboxScreen.viewAllMail'),
-                  onPress: () => handleViewModeChange('all'),
-                }}
-                secondaryAction={{
-                  label: t('inboxScreen.emptyConnectMailbox'),
-                  onPress: () => router.push('/onboarding/email' as Href),
-                }}
-              />
-            ) : null}
-            {archivedBandCount > 0 ? (
-              <ArchiveSummaryCard
-                count={archivedBandCount}
-                titleKey="inboxScreen.archivedBandRemaining"
-                onPress={() => handleViewModeChange('all')}
-              />
-            ) : null}
-            {inbox.isFetchingNextPage ? <InboxInlineLoading /> : null}
-          </>
         ) : (
           <>
-            <HubSearchField
-              value={searchQuery}
-              resultCount={searchableThreads.length}
-              onChangeText={setSearchQuery}
-              onClear={() => setSearchQuery('')}
-              accessibilityLabel={t('inboxScreen.searchA11y')}
-              placeholder={t('inboxScreen.searchPlaceholder')}
-            />
-            <ClassifiedMailControls
-              categoryFilter={categoryFilter}
-              categoryCounts={categoryCounts}
-              expanded={classifiedControlsExpanded}
-              timeRange={timeRangeFilter}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
-              onCategoryChange={handleCategoryChange}
-              onToggleExpanded={() => setClassifiedControlsExpanded((value) => !value)}
-              onTimeRangeChange={setTimeRangeFilter}
-              onSortByChange={setSortBy}
-              onSortOrderChange={setSortOrder}
-            />
-            {visibleAllModeCount > 0 ? (
-              allModeCategories.map((category) => (
-                <MailCategorySection
-                  key={category}
-                  category={category}
-                  items={grouped[category] ?? []}
-                  count={categoryCounts[category]}
-                  onOpen={openThread}
-                />
-              ))
+            {inboxHubStack}
+            {viewMode === 'priority' ? (
+              <>
+                {priorityThreads.length > 0 ? (
+                  <View style={styles.collabList}>
+                    {priorityThreads.map((item: InboxThread) => (
+                      <InboxCollaborationCard key={item.id} thread={item} onPress={() => openThread(item)} />
+                    ))}
+                  </View>
+                ) : (
+                  <EmptyStateCard
+                    title={
+                      processingActive
+                        ? t('inboxScreen.emptyProcessingTitle')
+                        : priorityFilter === 'archived'
+                          ? t('inboxScreen.emptyArchivedTitle')
+                          : t('inboxScreen.emptyPriorityTitle')
+                    }
+                    description={
+                      processingActive
+                        ? t('inboxScreen.emptyProcessingDesc')
+                        : priorityFilter === 'archived'
+                          ? t('inboxScreen.emptyArchivedDesc')
+                          : t('inboxScreen.emptyPriorityDesc')
+                    }
+                    primaryAction={{
+                      label: t('inboxScreen.viewSorted'),
+                      onPress: () => handleViewModeChange('all'),
+                    }}
+                    secondaryAction={{
+                      label: t('inboxScreen.emptyConnectMailbox'),
+                      onPress: () => router.push('/onboarding/email' as Href),
+                    }}
+                  />
+                )}
+                {inbox.isFetchingNextPage ? <InboxInlineLoading /> : null}
+              </>
             ) : (
-              <EmptyStateCard
-                title={t('inboxScreen.emptySearchTitle')}
-                description={t('inboxScreen.emptySearchDesc')}
-                primaryAction={{
-                  label: t('inboxScreen.emptyClearSearch'),
-                  onPress: () => setSearchQuery(''),
-                }}
-              />
+              <>
+                <HubSearchField
+                  value={searchQuery}
+                  resultCount={searchableThreads.length}
+                  onChangeText={setSearchQuery}
+                  onClear={() => setSearchQuery('')}
+                  accessibilityLabel={t('inboxScreen.searchA11y')}
+                  placeholder={t('inboxScreen.searchPlaceholder')}
+                />
+                <ClassifiedMailControls
+                  categoryFilter={categoryFilter}
+                  categoryCounts={categoryCounts}
+                  expanded={classifiedControlsExpanded}
+                  timeRange={timeRangeFilter}
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onCategoryChange={handleCategoryChange}
+                  onToggleExpanded={() => setClassifiedControlsExpanded((value) => !value)}
+                  onTimeRangeChange={setTimeRangeFilter}
+                  onSortByChange={handleSortByChange}
+                  onSortOrderChange={handleSortOrderChange}
+                />
+                {searchableThreads.length > 0 ? (
+                  <View style={styles.collabList}>
+                    {searchableThreads.map((item: InboxThread) => (
+                      <InboxCollaborationCard key={item.id} thread={item} onPress={() => openThread(item)} />
+                    ))}
+                  </View>
+                ) : (
+                  <EmptyStateCard
+                    title={t('inboxScreen.emptySearchTitle')}
+                    description={t('inboxScreen.emptySearchDesc')}
+                    primaryAction={{
+                      label: t('inboxScreen.emptyClearSearch'),
+                      onPress: () => setSearchQuery(''),
+                    }}
+                  />
+                )}
+                {inbox.isFetchingNextPage ? <InboxInlineLoading /> : null}
+              </>
             )}
-            {inbox.isFetchingNextPage ? <InboxInlineLoading /> : null}
           </>
         )}
       </HubScreen>
@@ -1992,6 +1955,7 @@ export default function InboxScreen() {
 }
 const styles = StyleSheet.create({
   screenFrame: { flex: 1 },
+  collabList: { gap: spacing.sm },
   bandSection: { gap: spacing.sm },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   aiCardSub: { fontSize: fontSize.caption, lineHeight: lineHeight.body },

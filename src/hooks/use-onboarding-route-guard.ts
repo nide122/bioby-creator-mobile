@@ -1,6 +1,7 @@
 import { type Href, useRootNavigationState, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 
+import { DEFAULT_APP_HOME_ROUTE } from '@/src/auth/post-auth-navigation';
 import { useAuthSessionReady } from '@/src/hooks/use-auth-session-ready';
 import { useSessionStore } from '@/src/stores/session-store';
 
@@ -33,7 +34,7 @@ export function useOnboardingRouteGuard(
     }
 
     if (onboardingComplete && !options?.skipPrerequisites) {
-      router.replace('/inbox' as Href);
+      router.replace(DEFAULT_APP_HOME_ROUTE as Href);
       return;
     }
 

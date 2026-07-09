@@ -5,9 +5,9 @@ export type DealPhaseFilter = 'all' | EscrowLifecyclePhase;
 /** Display order for deal list phase filters. */
 export const DEAL_PHASE_FILTER_ORDER: EscrowLifecyclePhase[] = [
   'awaiting_prepay',
+  'pending_verification',
   'escrowed',
   'in_execution',
-  'pending_verification',
   'remediation',
   'disputed',
   'settled',

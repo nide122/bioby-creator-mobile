@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
+import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -190,6 +191,7 @@ function HubRowBase({
       testID={testID}
       accessibilityRole="button"
       onPress={onPress}
+      className={webClassName(corporateCleanClass.row)}
       android_ripple={{ color: `${theme.primary}18`, borderless: false }}
       style={({ pressed }) => [pressed && hubListStyles.pressablePressed]}>
       {content}

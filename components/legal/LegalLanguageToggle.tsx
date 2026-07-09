@@ -45,8 +45,8 @@ export function LegalLanguageToggle({ compact = false, tone = 'app' }: Props) {
               styles.chip,
               landing
                 ? {
-                    borderColor: selected ? '#5FD9FF' : LANDING_BORDER,
-                    backgroundColor: selected ? 'rgba(95,217,255,0.12)' : LANDING_CARD,
+                    borderColor: selected ? theme.primary : LANDING_BORDER,
+                    backgroundColor: selected ? theme.accentMintSoft : LANDING_CARD,
                   }
                 : {
                     borderColor: selected ? theme.primary : theme.border,
@@ -56,7 +56,7 @@ export function LegalLanguageToggle({ compact = false, tone = 'app' }: Props) {
             <Text
               style={[
                 styles.chipLabel,
-                { color: selected ? (landing ? '#5FD9FF' : theme.primary) : landing ? '#D7DCE2' : theme.foreground },
+                { color: selected ? theme.primary : landing ? theme.mutedForeground : theme.foreground },
               ]}>
               {t(`legal.language.${code}`)}
             </Text>

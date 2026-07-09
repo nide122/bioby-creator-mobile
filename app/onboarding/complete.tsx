@@ -7,6 +7,7 @@ import { Badge, SectionCard } from '@/components/product';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, palette, radii, spacing } from '@/constants/tokens';
+import { DEFAULT_APP_HOME_ROUTE } from '@/src/auth/post-auth-navigation';
 import { markOnboardingCompleted } from '@/src/api/account-api';
 import { ApiError } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
@@ -64,7 +65,7 @@ export default function OnboardingCompleteScreen() {
         void alertAction(t('onboardingSync.completeTitle'), message);
       });
     }
-    router.replace('/inbox' as Href);
+    router.replace(DEFAULT_APP_HOME_ROUTE as Href);
   };
 
   return (

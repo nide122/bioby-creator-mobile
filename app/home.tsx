@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { MarketingHomeView } from '@/components/legal/MarketingHomeView';
+import { DEFAULT_APP_HOME_ROUTE } from '@/src/auth/post-auth-navigation';
 import { enterDemoWorkspace } from '@/src/auth/enter-demo-workspace';
 import { getHomeContent } from '@/src/legal';
 import { runAfterLocaleHydration, useLocaleStore } from '@/src/stores/locale-store';
@@ -25,7 +26,7 @@ export default function HomeScreen() {
     if (flag !== '1' && flag !== 'true') return;
     void enterDemoWorkspace().then(() => {
       requestAnimationFrame(() => {
-        router.replace('/inbox' as Href);
+        router.replace(DEFAULT_APP_HOME_ROUTE as Href);
       });
     });
   }, [router]);

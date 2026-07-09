@@ -75,6 +75,20 @@ export function inboxThreadHref(threadId: string, link?: string | CrossScreenLin
   } as Href;
 }
 
+export function inboxThreadMessagesHref(
+  threadId: string,
+  link?: string | CrossScreenLink | null,
+): Href {
+  const normalized = normalizeCrossLink(link);
+  if (!normalized?.returnTo && !normalized?.parentReturnTo) {
+    return `/inbox/${threadId}/messages` as Href;
+  }
+  return {
+    pathname: '/inbox/[threadId]/messages',
+    params: { threadId, ...crossLinkParams({ returnTo: normalized.returnTo, parentReturnTo: normalized.parentReturnTo }) },
+  } as Href;
+}
+
 export function inboxMessageHref(
   messageId: string,
   threadId: string,
