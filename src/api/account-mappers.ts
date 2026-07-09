@@ -39,6 +39,10 @@ export type AccountOverviewResponse = {
   inboxSetupSkipped?: boolean;
   creatorVerificationStatus?: CreatorVerificationStatus | string;
   creatorVerified?: boolean;
+  deletionRequestedAtISO?: string;
+  deletionScheduledAtISO?: string;
+  accountDataRetentionDays?: number;
+  deletionStatus?: string;
 };
 
 export type CreatorVerificationResponse = {
@@ -154,5 +158,9 @@ export function mapAccountOverview(view: AccountOverviewView): AccountOverviewRe
     inboxSetupSkipped: view.inboxSetupSkipped,
     creatorVerificationStatus: view.creatorVerificationStatus,
     creatorVerified: view.creatorVerified,
+    deletionRequestedAtISO: view.deletionRequestedAtISO ?? undefined,
+    deletionScheduledAtISO: view.deletionScheduledAtISO ?? undefined,
+    accountDataRetentionDays: view.accountDataRetentionDays ?? undefined,
+    deletionStatus: view.deletionStatus ?? undefined,
   };
 }

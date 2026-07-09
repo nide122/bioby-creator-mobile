@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/account/export.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exportWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/account/onboarding-status": {
         parameters: {
             query?: never;
@@ -1806,10 +1822,26 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["revoke"];
+        delete: operations["remove"];
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/members/{memberId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["changeRole"];
         trace?: never;
     };
     "/api/v1/tenants/members/accept": {
@@ -1919,12 +1951,24 @@ export interface components {
         AcceptMemberTokenRequest: {
             token: string;
         };
+        AccountDeletionRequestView: {
+            /** Format: int32 */
+            accountDataRetentionDays?: number;
+            deletionRequestedAtISO?: string;
+            deletionScheduledAtISO?: string;
+            status?: string;
+        };
         AccountOverviewView: {
+            /** Format: int32 */
+            accountDataRetentionDays?: number;
             agentSendMode?: string;
             classificationStrictness?: string;
             creatorFocusMode?: string;
             creatorVerificationStatus?: string;
             creatorVerified?: boolean;
+            deletionRequestedAtISO?: string;
+            deletionScheduledAtISO?: string;
+            deletionStatus?: string;
             inboxFilterConfigured?: boolean;
             inboxSetupSkipped?: boolean;
             mailbox?: components["schemas"]["MailboxOverviewView"];
@@ -2046,6 +2090,9 @@ export interface components {
             payload?: components["schemas"]["JsonNode"];
             /** Format: int32 */
             version?: number;
+        };
+        ChangeMemberRoleRequest: {
+            role: string;
         };
         ClassificationRequest: {
             emailCategory: string;
@@ -3394,7 +3441,29 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "*/*": components["schemas"]["AccountDeletionRequestView"];
+                };
+            };
+        };
+    };
+    exportWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
             };
         };
     };
@@ -6069,7 +6138,7 @@ export interface operations {
             };
         };
     };
-    revoke: {
+    remove: {
         parameters: {
             query?: never;
             header?: never;
@@ -6086,6 +6155,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    changeRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeMemberRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TeamMemberView"];
+                };
             };
         };
     };

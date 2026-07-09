@@ -6,8 +6,10 @@ import { ApiError } from '@/src/api/api-client';
 import {
   acceptTenantInvite,
   acceptTenantInviteByToken,
+  changeTeamMemberRole,
   fetchTeamMembers,
   inviteTeamMember,
+  removeTeamMember,
   revokeTeamInvite,
 } from '@/src/api/tenants-api';
 import type { InvitableTeamRole } from '@/src/types/domain';
@@ -43,6 +45,36 @@ export function useInviteTeamMember() {
         throw new ApiError(403, 'FORBIDDEN', 'Owner role required');
       }
       return inviteTeamMember(input);
+    },
+    onSuccess: async () => {
+      await invalidateTenantScopedQueries(queryClient);
+    },
+  });
+}
+
+export function useChangeTeamMemberRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { memberId: number; role: InvitableTeamRole }) => {
+      if (!isWorkspaceOwner()) {
+        throw new ApiError(403, 'FORBIDDEN', 'Owner role required');
+      }
+      return changeTeamMemberRole(input);
+    },
+    onSuccess: async () => {
+      await invalidateTenantScopedQueries(queryClient);
+    },
+  });
+}
+
+export function useRemoveTeamMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (memberId: number) => {
+      if (!isWorkspaceOwner()) {
+        throw new ApiError(403, 'FORBIDDEN', 'Owner role required');
+      }
+      return removeTeamMember(memberId);
     },
     onSuccess: async () => {
       await invalidateTenantScopedQueries(queryClient);

@@ -46,6 +46,20 @@ export async function inviteTeamMember(input: { email: string; role: InvitableTe
   });
 }
 
+export async function changeTeamMemberRole(input: {
+  memberId: number;
+  role: InvitableTeamRole;
+}): Promise<TeamMember> {
+  if (!shouldUseBackendApi()) {
+    const { changeMockTeamMemberRole } = await import('@/src/api/mock-account');
+    return changeMockTeamMemberRole(input);
+  }
+  return apiRequest<TeamMember>(`/api/v1/tenants/members/${input.memberId}/role`, {
+    method: 'PATCH',
+    body: { role: input.role },
+  });
+}
+
 export async function acceptTenantInvite(tenantPublicId: string): Promise<TeamMember> {
   if (!shouldUseBackendApi()) {
     const { acceptMockTenantInvite } = await import('@/src/api/mock-account');
@@ -65,9 +79,13 @@ export async function acceptTenantInviteByToken(token: string): Promise<TeamMemb
 }
 
 export async function revokeTeamInvite(memberId: number): Promise<void> {
+  return removeTeamMember(memberId);
+}
+
+export async function removeTeamMember(memberId: number): Promise<void> {
   if (!shouldUseBackendApi()) {
-    const { revokeMockTeamInvite } = await import('@/src/api/mock-account');
-    return revokeMockTeamInvite(memberId);
+    const { removeMockTeamMember } = await import('@/src/api/mock-account');
+    return removeMockTeamMember(memberId);
   }
   await apiRequest<void>(`/api/v1/tenants/members/${memberId}`, { method: 'DELETE' });
 }

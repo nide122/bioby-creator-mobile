@@ -11,13 +11,14 @@ import { fontSize, lineHeight, palette, spacing } from '@/constants/tokens';
 import { ApiError } from '@/src/api/api-client';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
 import {
+  useChangeTeamMemberRole,
   useInviteTeamMember,
-  useRevokeTeamInvite,
+  useRemoveTeamMember,
   useTeamMembers,
   useTeamRoles,
 } from '@/src/hooks/use-account-settings';
 import type { InvitableTeamRole, TeamMember, TeamRoleCard, TeamRoleId } from '@/src/types/domain';
-import { alertAction } from '@/src/lib/app-dialog';
+import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { localizeMemberRole, localizeTeamRoles } from '@/src/lib/team-role-i18n';
 import { useSessionStore } from '@/src/stores/session-store';
 
@@ -38,7 +39,8 @@ export default function SettingsTeamScreen() {
   const team = useTeamRoles();
   const members = useTeamMembers();
   const inviteMutation = useInviteTeamMember();
-  const revokeMutation = useRevokeTeamInvite();
+  const removeMutation = useRemoveTeamMember();
+  const changeRoleMutation = useChangeTeamMemberRole();
   const membershipRole = useSessionStore((s) => s.membershipRole);
   const isLocalDemoWorkspace = useSessionStore((s) => s.isLocalDemoWorkspace);
   const canManageMembers = membershipRole === 'OWNER' || isLocalDemoWorkspace;
@@ -116,13 +118,36 @@ export default function SettingsTeamScreen() {
     );
   };
 
-  const onRevoke = (member: TeamMember) => {
-    if (!canManageMembers || revokeMutation.isPending) return;
-    revokeMutation.mutate(member.id, {
+  const onRemove = (member: TeamMember) => {
+    if (!canManageMembers || removeMutation.isPending) return;
+    void confirmAction({
+      title: t('teamSettingsScreen.removeConfirmTitle'),
+      message: t('teamSettingsScreen.removeConfirmMessage', {
+        name: member.displayName || member.email,
+      }),
+      confirmLabel: t('teamSettingsScreen.removeMember'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      removeMutation.mutate(member.id, {
+        onError: (err) => {
+          void alertAction(
+            t('teamSettingsScreen.removeFailedTitle'),
+            removeErrorMessage(err, t),
+          );
+        },
+      });
+    });
+  };
+
+  const onChangeRole = (member: TeamMember, role: InvitableTeamRole) => {
+    if (!canManageMembers || member.role === role || changeRoleMutation.isPending) return;
+    changeRoleMutation.mutate({ memberId: member.id, role }, {
       onError: (err) => {
         void alertAction(
-          t('teamSettingsScreen.revokeFailedTitle'),
-          revokeErrorMessage(err, t),
+          t('teamSettingsScreen.changeRoleFailedTitle'),
+          changeRoleErrorMessage(err, t),
         );
       },
     });
@@ -148,37 +173,62 @@ export default function SettingsTeamScreen() {
               <View
                 key={member.id}
                 style={[styles.assignmentRow, { borderColor: theme.border, backgroundColor: theme.card }]}>
-                <View style={{ flex: 1, gap: spacing.xs }}>
-                  <Text style={[styles.assignmentTitle, { color: theme.foreground }]}>
-                    {member.displayName || member.email}
-                  </Text>
-                  <Text style={[styles.lead, { color: theme.mutedForeground }]}>
-                    {t('teamSettingsScreen.memberMeta', {
-                      email: member.email,
-                      role: localizeMemberRole(member.role, t),
-                    })}
-                  </Text>
-                </View>
-                {member.status === 'INVITED' ? (
-                  canManageMembers ? (
-                    <View style={styles.memberActions}>
+                <View style={styles.memberHeader}>
+                  <View style={{ flex: 1, gap: spacing.xs }}>
+                    <Text style={[styles.assignmentTitle, { color: theme.foreground }]}>
+                      {member.displayName || member.email}
+                    </Text>
+                    <Text style={[styles.lead, { color: theme.mutedForeground }]}>
+                      {t('teamSettingsScreen.memberMeta', {
+                        email: member.email,
+                        role: localizeMemberRole(member.role, t),
+                      })}
+                    </Text>
+                  </View>
+                  <View style={styles.memberActions}>
+                    {member.status === 'INVITED' ? (
                       <Badge tone="warning" label={t('teamSettingsScreen.badgePending')} />
-                      <Pressable
-                        accessibilityRole="button"
-                        disabled={revokeMutation.isPending}
-                        onPress={() => onRevoke(member)}
-                        style={[styles.secondary, { borderColor: theme.border }]}>
-                        <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>
-                          {t('teamSettingsScreen.revokeInvite')}
-                        </Text>
-                      </Pressable>
+                    ) : (
+                      <Badge tone="mint" label={t('teamSettingsScreen.badgeActive')} />
+                    )}
+                  </View>
+                </View>
+                {canManageMembers && member.status === 'ACTIVE' && member.role !== 'OWNER' ? (
+                  <View style={[styles.managementPanel, { borderColor: theme.border }]}>
+                    <View style={styles.roleRow}>
+                      {INVITABLE_ROLES.map((role) => {
+                        const selected = member.role === role;
+                        return (
+                          <Pressable
+                            key={role}
+                            accessibilityRole="button"
+                            disabled={changeRoleMutation.isPending}
+                            onPress={() => onChangeRole(member, role)}
+                            style={[
+                              styles.compactRoleChip,
+                              {
+                                borderColor: selected ? theme.primary : theme.border,
+                                backgroundColor: selected ? `${theme.primary}14` : theme.card,
+                              },
+                            ]}>
+                            <Text style={[styles.roleChipLabel, { color: selected ? theme.primary : theme.foreground }]}>
+                              {t(`teamSettingsScreen.roles.${role.toLowerCase()}`)}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
                     </View>
-                  ) : (
-                    <Badge tone="warning" label={t('teamSettingsScreen.badgePending')} />
-                  )
-                ) : (
-                  <Badge tone="mint" label={t('teamSettingsScreen.badgeActive')} />
-                )}
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={removeMutation.isPending}
+                      onPress={() => onRemove(member)}
+                      style={[styles.secondary, { borderColor: theme.border }]}>
+                      <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>
+                        {t('teamSettingsScreen.removeMember')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
             ))}
           </View>
@@ -264,12 +314,20 @@ export default function SettingsTeamScreen() {
   );
 }
 
-function revokeErrorMessage(err: unknown, t: (key: string) => string): string {
+function removeErrorMessage(err: unknown, t: (key: string) => string): string {
   if (err instanceof ApiError && err.code === 'FORBIDDEN') {
     return t('teamSettingsScreen.ownerOnlyLead');
   }
   if (err instanceof Error) return err.message;
-  return t('teamSettingsScreen.revokeFailedFallback');
+  return t('teamSettingsScreen.removeFailedFallback');
+}
+
+function changeRoleErrorMessage(err: unknown, t: (key: string) => string): string {
+  if (err instanceof ApiError && err.code === 'FORBIDDEN') {
+    return t('teamSettingsScreen.ownerOnlyLead');
+  }
+  if (err instanceof Error) return err.message;
+  return t('teamSettingsScreen.changeRoleFailedFallback');
 }
 
 function inviteErrorMessage(err: unknown, t: (key: string) => string): string {
@@ -356,12 +414,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     padding: spacing.md,
-    flexDirection: 'row',
     gap: spacing.md,
-    alignItems: 'flex-start',
   },
+  memberHeader: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   assignmentTitle: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
   memberActions: { gap: spacing.sm, alignItems: 'flex-end' },
+  managementPanel: {
+    borderTopWidth: 1,
+    paddingTop: spacing.sm,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
   fieldLabel: { fontSize: fontSize.caption, marginTop: spacing.md, marginBottom: spacing.xs },
   rolePreview: { marginTop: spacing.sm },
   roleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -372,6 +436,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   roleChipLabel: { fontSize: fontSize.caption, fontWeight: '600' },
+  compactRoleChip: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minHeight: 32,
+    justifyContent: 'center',
+  },
   permissionBox: {
     borderWidth: 1,
     borderRadius: 8,

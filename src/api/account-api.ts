@@ -1,4 +1,4 @@
-import { apiRequest } from '@/src/api/api-client';
+import { apiDownloadBlob, apiRequest } from '@/src/api/api-client';
 import {
   mapAccountOverview,
   mapCreatorProfileResponse,
@@ -14,6 +14,7 @@ import {
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { normalizeOAuthRedirectUri } from '@/src/auth/google-oauth';
 import type {
+  AccountDeletionRequestView,
   AccountOverviewView,
   CreatorProfileView,
   CreatorVerificationView,
@@ -108,6 +109,29 @@ export async function fetchAccountOverview(): Promise<AccountOverviewResponse | 
   if (!shouldUseBackendApi()) return null;
   const view = await apiRequest<AccountOverviewView>('/api/v1/account/overview');
   return mapAccountOverview(view);
+}
+
+export async function downloadWorkspaceExportJson(): Promise<Blob> {
+  return apiDownloadBlob('/api/v1/account/export.json');
+}
+
+export type AccountDeletionRequestResponse = {
+  deletionRequestedAtISO?: string;
+  deletionScheduledAtISO?: string;
+  accountDataRetentionDays?: number;
+  status?: string;
+};
+
+export async function requestAccountDeletion(): Promise<AccountDeletionRequestResponse> {
+  const view = await apiRequest<AccountDeletionRequestView>('/api/v1/account/deletion-request', {
+    method: 'POST',
+  });
+  return {
+    deletionRequestedAtISO: view.deletionRequestedAtISO ?? undefined,
+    deletionScheduledAtISO: view.deletionScheduledAtISO ?? undefined,
+    accountDataRetentionDays: view.accountDataRetentionDays ?? undefined,
+    status: view.status ?? undefined,
+  };
 }
 
 export async function fetchOnboardingStatus(): Promise<OnboardingDashboardStatus | null> {

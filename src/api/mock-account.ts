@@ -77,8 +77,25 @@ export async function inviteMockTeamMember(input: {
 }
 
 export async function revokeMockTeamInvite(memberId: number): Promise<void> {
+  return removeMockTeamMember(memberId);
+}
+
+export async function removeMockTeamMember(memberId: number): Promise<void> {
   await mockDelay(90);
-  mockTeamMembers = mockTeamMembers.filter((m) => m.id !== memberId);
+  mockTeamMembers = mockTeamMembers.filter((m) => m.id !== memberId || m.role === 'OWNER');
+}
+
+export async function changeMockTeamMemberRole(input: {
+  memberId: number;
+  role: InvitableTeamRole;
+}): Promise<TeamMember> {
+  await mockDelay(90);
+  const member = mockTeamMembers.find((m) => m.id === input.memberId);
+  if (!member || member.role === 'OWNER') {
+    throw new Error('MEMBER_NOT_FOUND');
+  }
+  member.role = input.role;
+  return { ...member };
 }
 
 export async function acceptMockTenantInvite(_tenantPublicId: string): Promise<TeamMember> {

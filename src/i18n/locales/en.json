@@ -2059,6 +2059,13 @@
     "revokeInvite": "Revoke",
     "revokeFailedTitle": "Revoke failed",
     "revokeFailedFallback": "Could not revoke the invite.",
+    "removeMember": "Remove",
+    "removeConfirmTitle": "Remove member?",
+    "removeConfirmMessage": "Remove {{name}} from the current workspace?",
+    "removeFailedTitle": "Remove failed",
+    "removeFailedFallback": "Could not remove the member.",
+    "changeRoleFailedTitle": "Role update failed",
+    "changeRoleFailedFallback": "Could not update the member role.",
     "inviteMembersTitle": "Invite teammate",
     "inviteLead": "Registered users see the invite in the app. New users receive an email with a sign-up link.",
     "inviteEmailPlaceholder": "email@example.com",
@@ -2074,7 +2081,7 @@
     "inviteEmailFailedBody": "The invite was saved, but the email could not be sent. Share the workspace name so they can register with this email.",
     "invitePendingError": "An invite is already pending for this email.",
     "inviteAlreadyMember": "This user is already a member.",
-    "ownerOnlyLead": "Only the workspace owner can invite or revoke members.",
+    "ownerOnlyLead": "Only the workspace owner can invite, remove, or change member roles.",
     "roles": {
       "agent": "Agent",
       "finance": "Finance",
@@ -3547,13 +3554,35 @@
       "title": "Export queued",
       "message": "We'll email a download link. (Demo)"
     },
+    "workspaceExport": {
+      "failedTitle": "Export failed",
+      "failedMessage": "Could not download the workspace JSON. Check your connection and try again."
+    },
     "inboxAlert": {
-      "title": "Export queued",
-      "message": "Summaries only—not full mailbox. (Demo)"
+      "title": "Included in workspace export",
+      "message": "Opportunity metadata and summaries are included in the workspace JSON export. Full mailbox bodies are not exported."
     },
     "pipelineExport": {
       "failedTitle": "Export failed",
       "failedMessage": "Could not download the pipeline CSV. Check your connection and try again."
+    },
+    "deleteAccount": {
+      "heading": "Privacy & deletion",
+      "title": "Delete account and data",
+      "body": "Your account will be disabled immediately. Personal workspace data is permanently removed after a {{days}}-day cooling period.",
+      "cta": "Request account deletion",
+      "pendingCta": "Deletion already requested",
+      "confirmTitle": "Delete your account?",
+      "confirmMessage": "This disables your account now and schedules permanent data deletion after {{days}} days. You will be signed out.",
+      "confirmCta": "Request deletion",
+      "successTitle": "Deletion requested",
+      "successMessage": "Your account is disabled. Data will be permanently removed after the {{days}}-day cooling period.",
+      "successMessageScheduled": "Your account is disabled. Data is scheduled for permanent deletion on {{date}}.",
+      "failedTitle": "Could not request deletion",
+      "failedMessage": "Try again in a moment or contact support.",
+      "alreadyRequested": "Account deletion has already been requested.",
+      "pendingBanner": "Account deletion is pending. Data will be permanently removed after the {{days}}-day cooling period.",
+      "pendingBannerScheduled": "Account deletion is pending. Data is scheduled for permanent removal on {{date}}."
     }
   }
 }
