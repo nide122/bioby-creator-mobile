@@ -19,8 +19,8 @@ function InboxPreviewCard() {
   return (
     <View
       className={webClassName(
-        corporateCleanClass.showcaseCard,
-        corporateCleanClass.showcaseCardInbox,
+        corporateCleanClass.landingPreviewCard,
+        corporateCleanClass.landingPreviewCardInbox,
       )}
       style={[styles.card, styles.cardInbox, { borderColor: '#dbeafe', backgroundColor: '#ffffff' }]}>
       <View style={styles.chipRow}>
@@ -76,8 +76,8 @@ function SummaryPreviewCard() {
   return (
     <View
       className={webClassName(
-        corporateCleanClass.showcaseCard,
-        corporateCleanClass.showcaseCardSummary,
+        corporateCleanClass.landingPreviewCard,
+        corporateCleanClass.landingPreviewCardSummary,
       )}
       style={[styles.card, styles.cardSummary, { borderColor: '#dbeafe', backgroundColor: '#ffffff' }]}>
       <View style={styles.summaryHeader}>
@@ -127,8 +127,8 @@ function TodayPreviewCard() {
   return (
     <View
       className={webClassName(
-        corporateCleanClass.showcaseCard,
-        corporateCleanClass.showcaseCardToday,
+        corporateCleanClass.landingPreviewCard,
+        corporateCleanClass.landingPreviewCardToday,
       )}
       style={[styles.card, styles.cardToday, { borderColor: '#dbeafe', backgroundColor: '#ffffff' }]}>
       <View style={[styles.todayRail, { backgroundColor: '#fb923c' }]} />
@@ -167,7 +167,7 @@ function TodayPreviewCard() {
 export function LandingHeroShowcase() {
   return (
     <View
-      className={webClassName(corporateCleanClass.showcaseStage)}
+      className={webClassName(corporateCleanClass.landingPreviewStage)}
       style={styles.stage}
       accessibilityRole="image"
       accessibilityLabel="Product preview cards">
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   chip: {
     borderWidth: 1,
-    borderRadius: radii.pill,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
   },
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   componentLabel: { fontSize: fontSize.caption, fontWeight: '700', lineHeight: lineHeight.body },
   metaLabel: { fontSize: 10, lineHeight: 14 },
   badge: {
-    borderRadius: radii.pill,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
   },
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   confidenceBadge: {
-    borderRadius: radii.pill,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
   },

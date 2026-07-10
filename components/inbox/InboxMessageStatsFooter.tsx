@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { fontSize, palette } from '@/constants/tokens';
+import { fontSize, palette, type ThemePalette } from '@/constants/tokens';
 import type { InboxMessageStats } from '@/src/types/domain';
 
 type InboxMessageStatsFooterProps = {
@@ -11,7 +11,7 @@ type InboxMessageStatsFooterProps = {
   accentUnread?: boolean;
 };
 
-type Theme = (typeof palette)['light'];
+type Theme = ThemePalette;
 
 type StatSegment = {
   key: string;

@@ -28,7 +28,7 @@ export function calendarLocaleTagForLanguage(lang: string): string {
 }
 
 /** BCP 47 tag for API `Accept-Language` (matches backend locale resolution). */
-export function apiLanguageHeader(): string {
+export function apiLanguageHeader(): AppLocale {
   return i18n.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 }
 

@@ -196,6 +196,12 @@ export type InboxThread = {
   exceptionalBudget?: boolean;
   pipelinePhase?: OpportunityPipelinePhase;
   dealEscrowPhase?: EscrowLifecyclePhase;
+  /** Linked deal when the opportunity has been escalated. */
+  dealId?: string;
+  /** List/detail risk flags (detail payloads may include full sets). */
+  riskFlags?: InboxRiskFlag[];
+  packages?: InboxDeliverablePackage[];
+  deliverables?: string[];
 };
 
 export type InboxMessageDirection = 'inbound' | 'outbound';
@@ -261,7 +267,6 @@ export type LatestApprovedScript = {
 /** AI Inbox 线程详情（mock）；接入 API 后可独立类型或由服务端拼装 */
 export type InboxThreadDetail = InboxThread & {
   briefStage?: string;
-  dealId?: string;
   messages: InboxMessage[];
   riskFlags: InboxRiskFlag[];
   /** Resolved contract clause risks (API Phase 2). */
@@ -288,6 +293,8 @@ export type InboxThreadDetail = InboxThread & {
   briefExtractionSource?: AiProcessingSource;
   contractSummary?: ContractSummary;
   latestApprovedScript?: LatestApprovedScript;
+  /** Human-readable posting window when extracted from brief. */
+  postingSchedule?: string;
 };
 
 export type DocumentKind =

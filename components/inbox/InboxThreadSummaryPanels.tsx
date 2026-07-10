@@ -59,23 +59,25 @@ export function ThreadPriorityBanner({
   if (!priority && !nextAction) return null;
 
   return (
-    <View
-      style={[
-        styles.priorityBanner,
-        {
-          borderColor: theme.border,
-          backgroundColor: theme.secondary,
-        },
-      ]}>
-      <View style={styles.priorityBannerMain}>
-        {priority && priorityLabel ? (
-          <Badge tone={inboxPriorityBadgeTone(priority)} label={priorityLabel} />
-        ) : null}
-        {nextAction ? (
-          <Text style={[styles.priorityHint, { color: theme.foregroundSubtitle }]} numberOfLines={2}>
-            {nextAction}
-          </Text>
-        ) : null}
+    <View style={styles.priorityBannerWrap}>
+      <View
+        style={[
+          styles.priorityBanner,
+          {
+            borderColor: theme.border,
+            backgroundColor: theme.secondary,
+          },
+        ]}>
+        <View style={styles.priorityBannerMain}>
+          {priority && priorityLabel ? (
+            <Badge tone={inboxPriorityBadgeTone(priority)} label={priorityLabel} />
+          ) : null}
+          {nextAction ? (
+            <Text style={[styles.priorityHint, { color: theme.foregroundSubtitle }]} numberOfLines={2}>
+              {nextAction}
+            </Text>
+          ) : null}
+        </View>
       </View>
       {showExplain && onExplainPress ? (
         <Pressable
@@ -83,7 +85,11 @@ export function ThreadPriorityBanner({
           accessibilityLabel={t('inboxPriority.rankingExplain.a11y')}
           hitSlop={6}
           onPress={onExplainPress}
-          style={({ pressed }) => [styles.explainPressable, pressed && { opacity: 0.7 }]}>
+          style={({ pressed }) => [
+            styles.explainPressable,
+            { paddingHorizontal: spacing.md },
+            pressed && { opacity: 0.7 },
+          ]}>
           <Text style={[styles.explainLink, { color: theme.primary }]}>
             {t('inboxPriority.rankingExplain.button')}
           </Text>
@@ -237,15 +243,15 @@ export function ThreadRiskCheckCard({ flags }: ThreadRiskCheckCardProps) {
 }
 
 const styles = StyleSheet.create({
+  priorityBannerWrap: {
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
   priorityBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
   },
   priorityBannerMain: {
     flex: 1,
@@ -261,7 +267,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.body,
   },
-  explainPressable: { flexShrink: 0 },
+  explainPressable: { alignSelf: 'flex-start' },
   explainLink: { fontSize: fontSize.bodySmall, fontWeight: '600' },
 
   aiCard: {

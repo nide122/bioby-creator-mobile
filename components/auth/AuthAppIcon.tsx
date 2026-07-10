@@ -1,37 +1,21 @@
-import { Image, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
+import { Image, type ImageStyle, type StyleProp } from 'react-native';
 
-import { radii } from '@/constants/tokens';
-
-const appIcon = require('../../assets/images/app-icon.png');
+const appIcon = require('../../assets/images/bioby-logo.png');
 
 type Props = {
   size?: number;
   style?: StyleProp<ImageStyle>;
 };
 
-/** Squircle app icon used on auth / landing headers. */
+/** Transparent BioBy mark for auth / landing headers. */
 export function AuthAppIcon({ size = 48, style }: Props) {
   return (
-    <View
-      style={[styles.frame, { width: size, height: size, borderRadius: size * 0.22 }]}
+    <Image
+      source={appIcon}
+      style={[{ width: size, height: size }, style]}
+      resizeMode="contain"
       accessibilityRole="image"
-      accessibilityLabel="BioBy">
-      <Image
-        source={appIcon}
-        style={[styles.image, { width: size, height: size, borderRadius: size * 0.22 }, style]}
-        resizeMode="cover"
-      />
-    </View>
+      accessibilityLabel="BioBy"
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  frame: {
-    overflow: 'hidden',
-    borderRadius: radii.md,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-});

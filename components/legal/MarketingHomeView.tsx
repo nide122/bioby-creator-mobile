@@ -1,13 +1,13 @@
 import { type Href, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthAppIcon } from '@/components/auth/AuthAppIcon';
 import { LandingHeroBackground } from '@/components/landing/LandingHeroBackground';
 import { LandingProductPreview } from '@/components/landing/LandingProductPreview';
+import { ProductIntroSections } from '@/components/legal/ProductIntroSections';
 import { LegalFooter } from '@/components/legal/LegalFooter';
 import { LegalLanguageToggle } from '@/components/legal/LegalLanguageToggle';
 import { GoogleIcon } from '@/components/oauth/GoogleIcon';
@@ -44,6 +45,9 @@ function LandingInfoDetails({
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetHeight = windowHeight - insets.top - spacing.sm;
+  const scrollBottomPad = Math.max(insets.bottom, spacing.lg);
 
   return (
     <View style={styles.sheetRoot}>
@@ -54,51 +58,18 @@ function LandingInfoDetails({
           {
             backgroundColor: theme.card,
             borderColor: theme.border,
-            paddingBottom: Math.max(insets.bottom, spacing.md),
+            height: sheetHeight,
+            maxHeight: sheetHeight,
           },
         ]}>
         <View style={[styles.sheetHandle, { backgroundColor: theme.muted }]} />
         <ScrollView
           style={styles.sheetScroll}
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}>
-          <Text style={[styles.sectionEyebrow, { color: theme.foreground }]}>{content.aboutTitle}</Text>
-          <View
-            className={webClassName(corporateCleanClass.card)}
-            style={[styles.glassCard, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-            {content.aboutParagraphs.map((p, index) => (
-              <Text key={`about-${index}`} style={[styles.body, { color: theme.mutedForeground }]}>
-                {p}
-              </Text>
-            ))}
-          </View>
-
-          <Text style={[styles.sectionEyebrow, { color: theme.foreground }]}>{content.featuresTitle}</Text>
-          <View style={styles.featureGrid}>
-            {content.features.map((feature) => (
-              <View
-                key={feature.title}
-                className={webClassName(corporateCleanClass.card)}
-                style={[styles.featureCard, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-                <Text style={[styles.featureTitle, { color: theme.foreground }]}>{feature.title}</Text>
-                <Text style={[styles.body, { color: theme.mutedForeground }]}>{feature.body}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text style={[styles.sectionEyebrow, { color: theme.foreground }]}>{content.trustTitle}</Text>
-          <View
-            className={webClassName(corporateCleanClass.card)}
-            style={[styles.glassCard, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-            {content.trustBullets.map((bullet, index) => (
-              <View key={`trust-${index}`} style={styles.bulletRow}>
-                <Text style={[styles.bulletDot, { color: theme.primary }]}>•</Text>
-                <Text style={[styles.body, styles.bulletText, { color: theme.mutedForeground }]}>{bullet}</Text>
-              </View>
-            ))}
-          </View>
-
-          <LegalFooter metaOnly />
+          contentContainerStyle={[styles.sheetScrollContent, { paddingBottom: scrollBottomPad }]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          nestedScrollEnabled>
+          <ProductIntroSections content={content} theme={theme} />
         </ScrollView>
         <Pressable
           accessibilityRole="button"
@@ -196,10 +167,11 @@ export function MarketingHomeView({ content }: Props) {
   const devMenuBottom = 40 + Math.max(insets.bottom, spacing.xs) + spacing.xs;
 
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: theme.background }]}
-      className={webClassName(corporateCleanClass.landingScreen, corporateCleanClass.landingHeroGradient)}
-      edges={['top', 'left', 'right']}>
+    <Fragment>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: theme.background }]}
+        className={webClassName(corporateCleanClass.landingScreen, corporateCleanClass.landingHeroGradient)}
+        edges={['top', 'left', 'right']}>
       <LandingHeroBackground />
 
       <View
@@ -236,15 +208,16 @@ export function MarketingHomeView({ content }: Props) {
         </View>
       </View>
 
-      <View
-        className={webClassName(corporateCleanClass.landingBottomDock)}
-        style={[
-          styles.bottomDock,
-          {
-            gap: BOTTOM_CTA_GAP,
-            paddingBottom: Math.max(insets.bottom, spacing.xs),
-          },
-        ]}>
+      {!infoOpen ? (
+        <View
+          className={webClassName(corporateCleanClass.landingBottomDock)}
+          style={[
+            styles.bottomDock,
+            {
+              gap: BOTTOM_CTA_GAP,
+              paddingBottom: Math.max(insets.bottom, spacing.xs),
+            },
+          ]}>
         <View style={[styles.heroActions, { gap: BOTTOM_CTA_GAP }]}>
           {isAuthenticated ? (
             <>
@@ -351,15 +324,22 @@ export function MarketingHomeView({ content }: Props) {
         )}
         </View>
       </View>
+      ) : null}
 
       {__DEV__ ? (
         <LandingDevMenu theme={theme} open={devOpen} onClose={() => setDevOpen(false)} bottomOffset={devMenuBottom} />
       ) : null}
+      </SafeAreaView>
 
-      <Modal visible={infoOpen} transparent animationType="slide" onRequestClose={() => setInfoOpen(false)}>
+      <Modal
+        visible={infoOpen}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setInfoOpen(false)}>
         <LandingInfoDetails content={content} theme={theme} onClose={() => setInfoOpen(false)} />
       </Modal>
-    </SafeAreaView>
+    </Fragment>
   );
 }
 
@@ -542,18 +522,21 @@ const styles = StyleSheet.create({
   sheetRoot: {
     flex: 1,
     justifyContent: 'flex-end',
+    zIndex: 1000,
   },
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.42)',
   },
   sheetPanel: {
-    maxHeight: '82%',
+    width: '100%',
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     borderWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
+    overflow: 'hidden',
+    flexDirection: 'column',
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -561,13 +544,15 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     marginBottom: spacing.md,
+    flexShrink: 0,
   },
   sheetScroll: {
-    maxHeight: Platform.OS === 'web' ? '72vh' : undefined,
+    flex: 1,
+    minHeight: 0,
   },
   sheetScrollContent: {
     gap: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingTop: spacing.xs,
   },
   sheetClose: {
     position: 'absolute',

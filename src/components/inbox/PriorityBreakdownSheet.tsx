@@ -123,9 +123,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dialogTitle: {
-    fontSize: fontSize.subtitle,
+    fontSize: fontSize.sectionTitle,
     fontWeight: '700',
-    lineHeight: lineHeight.subtitle,
+    lineHeight: lineHeight.lead,
   },
   scoreCaption: {
     fontSize: fontSize.caption,

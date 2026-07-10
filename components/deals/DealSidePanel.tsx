@@ -33,6 +33,7 @@ import { ApiError } from '@/src/api/api-client';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { isBriefConfirmed } from '@/src/lib/brief-confirm-eligibility';
 import { resolveAttachmentParseErrorMessage } from '@/src/lib/email-attachment-errors';
+import { contractSummaryErrorMessage } from '@/src/lib/contract-summary-error';
 import { EmailAttachmentsList, EmailAttachmentBadge } from '@/components/mail/EmailAttachmentsList';
 import { isParseableDocumentAttachment } from '@/components/mail/email-attachment-utils';
 import { DealTermsWithContractSection } from '@/components/deals/DealTermsWithContractSection';

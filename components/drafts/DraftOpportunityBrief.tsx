@@ -59,13 +59,17 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
   const packages = detail.packages ?? [];
   const deliverables =
     packages.length > 0
-      ? packages.map((pkg) => (pkg.quoteDisplay ? `${pkg.quoteDisplay} · ${pkg.deliverable}` : pkg.deliverable))
+      ? packages.flatMap((pkg) =>
+          (pkg.items ?? []).map((item) => {
+            const name = item.name?.trim();
+            if (!name) return null;
+            return pkg.quoteDisplay ? `${pkg.quoteDisplay} · ${name}` : name;
+          }).filter((line): line is string => !!line),
+        )
       : (detail.deliverables ?? []);
   const missingFields = visibleMissingFields(detail.missingFields, detail.budgetDisplay, {
-    deliverables: detail.deliverables,
     packages: detail.packages,
     usageRights: detail.usageRights,
-    postingSchedule: detail.postingSchedule,
   });
   const signals = mergeDetailSignals(detail.signals, detail.classificationSignals)
     .slice(0, 5)

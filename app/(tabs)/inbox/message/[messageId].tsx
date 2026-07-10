@@ -17,6 +17,7 @@ import { ApiError } from '@/src/api/api-client';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { isBriefConfirmed } from '@/src/lib/brief-confirm-eligibility';
 import { resolveAttachmentParseErrorMessage } from '@/src/lib/email-attachment-errors';
+import { contractSummaryErrorMessage } from '@/src/lib/contract-summary-error';
 import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-editor';
 import { EmailAttachmentsList } from '@/components/mail/EmailAttachmentsList';
 import { dedupeVisibleAttachments } from '@/components/mail/email-attachment-utils';

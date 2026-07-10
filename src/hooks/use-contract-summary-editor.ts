@@ -15,7 +15,7 @@ import {
 } from '@/src/api/contract-summary-api';
 import type { EmailMessageDetail } from '@/src/api/mailbox-api';
 import type { PickedContractPdf } from '@/src/lib/pick-contract-pdf';
-import type { InboxThreadDetail } from '@/src/types/domain';
+import type { ContractSummary as DomainContractSummary, InboxThreadDetail } from '@/src/types/domain';
 
 function cloneSummary(summary: ContractSummary): ContractSummary {
   return {
@@ -199,7 +199,7 @@ export function useContractSummaryEditor({
         }
         if (queryClient && threadQueryKey) {
           queryClient.setQueryData<InboxThreadDetail>(threadQueryKey, (current) =>
-            current ? { ...current, contractSummary: persisted } : current
+            current ? { ...current, contractSummary: persisted as DomainContractSummary } : current
           );
           await queryClient.invalidateQueries({ queryKey: threadQueryKey });
         }

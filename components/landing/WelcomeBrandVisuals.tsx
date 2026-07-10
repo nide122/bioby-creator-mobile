@@ -1,8 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
-  Image as SvgImage,
   LinearGradient,
   Path,
   RadialGradient,
@@ -11,7 +10,7 @@ import Svg, {
 
 import { fontSize, spacing } from '@/constants/tokens';
 
-const brandLogo = require('../../assets/images/brand-logo.png');
+const brandLogo = require('../../assets/images/bioby-logo.png');
 
 export const LANDING_BG = '#f8fafc';
 export const LANDING_CARD = '#ffffff';
@@ -61,36 +60,19 @@ export function LandingBackgroundAura() {
   );
 }
 
-/** Matches logo-color.svg layout so the mark keeps its designed inset. */
-const BRAND_LOGO_VIEWBOX = 1024;
-const BRAND_LOGO_INSET = { x: 147, y: 152, width: 727, height: 717 };
-
 export function LandingBrandMark() {
   return (
-    <View
+    <Image
+      source={brandLogo}
       style={brandMarkStyles.frame}
+      resizeMode="contain"
       accessibilityRole="image"
-      accessibilityLabel="BioBy logo">
-      <Svg
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${BRAND_LOGO_VIEWBOX} ${BRAND_LOGO_VIEWBOX}`}
-        preserveAspectRatio="xMidYMid meet">
-        <SvgImage
-          x={BRAND_LOGO_INSET.x}
-          y={BRAND_LOGO_INSET.y}
-          width={BRAND_LOGO_INSET.width}
-          height={BRAND_LOGO_INSET.height}
-          href={brandLogo}
-          preserveAspectRatio="xMidYMid meet"
-        />
-      </Svg>
-    </View>
+      accessibilityLabel="BioBy logo"
+    />
   );
 }
 
 const brandMarkStyles = StyleSheet.create({
-  /** Transparent marks sit directly on the dark landing chrome. */
   frame: {
     width: 17,
     height: 17,

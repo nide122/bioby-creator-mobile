@@ -29,7 +29,11 @@ export async function syncTenantPreferredLocale(): Promise<void> {
   if (!shouldUseBackendApi() || !useSessionStore.getState().isAuthenticated) {
     return;
   }
-  await updateTenantSettings({ preferredLocale: apiLanguageHeader() });
+  try {
+    await updateTenantSettings({ preferredLocale: apiLanguageHeader() });
+  } catch {
+    // Locale sync is best-effort and should not block the current screen.
+  }
 }
 
 /**

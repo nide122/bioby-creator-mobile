@@ -700,14 +700,12 @@ export default function DecisionQueueScreen() {
   const queryClient = useQueryClient();
   const queue = useDecisionQueue();
   const aiActionLog = useAiActionLog();
-  const refreshToday = useCallback(
-    () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['decisions'] }),
-        queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
-      ]),
-    [queryClient]
-  );
+  const refreshToday = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+      queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
+    ]);
+  }, [queryClient]);
   const { refreshing, onRefresh } = useTabRefresh(refreshToday);
 
   function handleResolve(card: DecisionCard, actionLabel: string, href?: string) {

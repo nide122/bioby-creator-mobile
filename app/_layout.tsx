@@ -32,8 +32,8 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  /** Public OAuth-compliant landing; auth forms live at /login and /register. */
-  initialRouteName: 'home',
+  /** Product intro first; sign-in landing remains at /home. */
+  initialRouteName: 'intro',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -96,6 +96,7 @@ function RootLayoutNav() {
           <Stack.Screen name="c" options={{ headerShown: false }} />
           <Stack.Screen name="trust-passport" options={{ title: t('stacks.trustPassport') }} />
           <Stack.Screen name="team" options={{ headerShown: false }} />
+          <Stack.Screen name="intro" options={{ headerShown: false }} />
           <Stack.Screen name="home" options={{ headerShown: false }} />
           <Stack.Screen name="privacy" options={{ title: t('stacks.privacy') }} />
           <Stack.Screen name="terms" options={{ title: t('stacks.terms') }} />

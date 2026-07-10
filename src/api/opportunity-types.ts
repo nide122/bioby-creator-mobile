@@ -1,4 +1,4 @@
-import type { AiProcessingSource, MoneyAmount } from '@/src/types/domain';
+import type { AiProcessingSource, DocumentKind, MoneyAmount } from '@/src/types/domain';
 
 import type { PriorityAssessmentView } from '@/src/lib/priority-assessment';
 
@@ -55,6 +55,7 @@ export type OpportunityListItem = {
   exceptionalBudget?: boolean | null;
   pipelinePhase?: string | null;
   dealEscrowPhase?: string | null;
+  dealId?: string | null;
   contractRiskPreview?: unknown;
   /** Multi-email thread awaiting thread-level classification backfill. */
   classificationPending?: boolean;

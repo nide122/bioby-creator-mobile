@@ -1,5 +1,5 @@
 /** Where NavigationBootstrap should redirect, or null to stay on current route. */
-export type RouteGuardRedirect = '/home' | '/onboarding' | '/' | null;
+export type RouteGuardRedirect = '/intro' | '/home' | '/onboarding' | '/' | null;
 
 export type RouteGuardInput = {
   pathname: string;
@@ -40,7 +40,7 @@ function isPublicMediaKitPath(pathname: string): boolean {
 }
 
 function isPublicLegalPath(pathname: string): boolean {
-  return pathname === '/home' || pathname === '/privacy' || pathname === '/terms';
+  return pathname === '/intro' || pathname === '/home' || pathname === '/privacy' || pathname === '/terms';
 }
 
 function isTeamInviteAcceptPath(pathname: string): boolean {
@@ -73,7 +73,7 @@ export function getRouteGuardRedirect({
   if (!pathname) return null;
 
   if (isLegacyWelcomePath(pathname)) {
-    return '/home';
+    return '/intro';
   }
 
   if (isPublicMediaKitPath(pathname)) {
@@ -82,7 +82,7 @@ export function getRouteGuardRedirect({
 
   if (isPublicLegalPath(pathname)) {
     if (!isAuthenticated) return null;
-    if (!onboardingComplete && pathname === '/home') {
+    if (!onboardingComplete && (pathname === '/home' || pathname === '/intro')) {
       return '/onboarding';
     }
     return null;
@@ -95,7 +95,7 @@ export function getRouteGuardRedirect({
     if (inAuthFlow || isOAuthCallbackPath(pathname) || isTeamInviteAcceptPath(pathname) || webOAuthCallbackInProgress) {
       return null;
     }
-    return '/home';
+    return '/intro';
   }
 
   if (!onboardingComplete) {

@@ -1058,7 +1058,7 @@ function inboxThreadIcon(category: InboxEmailCategory): IconName {
 
 function commercialProgressPillColors(
   item: Pick<InboxThread, 'dealEscrowPhase' | 'pipelinePhase' | 'category' | 'dealId'>,
-  theme: (typeof palette)['light'],
+  theme: (typeof palette)['light' | 'dark'],
 ) {
   if (item.dealEscrowPhase === 'settled' || item.pipelinePhase === 'CLOSED') {
     return {
@@ -1099,7 +1099,7 @@ function CommercialTrailingMeta({
   brandLabel?: string | null;
   progressLabel?: string;
   progressPill: ReturnType<typeof commercialProgressPillColors>;
-  theme: (typeof palette)['light'];
+  theme: (typeof palette)['light' | 'dark'];
 }) {
   return (
     <View style={styles.threadTrailingTop}>

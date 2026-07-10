@@ -78,6 +78,7 @@ export const elevation: { surface: ViewStyle } = {
 
 /** 布局：控制台竖向节奏与水平边距 16 → 24 → 32 */
 export const spacing = {
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -96,6 +97,7 @@ export const radii = {
   md: 14,
   lg: 20,
   xl: 28,
+  pill: 999,
 } as const;
 
 /** 字号：基准 14px；眉题极小全大写场景用 `eyebrow` */
@@ -112,8 +114,10 @@ export const fontSize = {
 
 export const lineHeight = {
   body: 22,
+  bodySmall: 18,
   bodyRelaxed: 24,
   lead: 24,
+  caption: 16,
   tight: 1.25,
 } as const;
 

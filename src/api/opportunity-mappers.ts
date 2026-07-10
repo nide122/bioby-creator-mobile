@@ -162,6 +162,7 @@ export function mapOpportunityToThread(item: OpportunityListItem): InboxThread {
     exceptionalBudget: item.exceptionalBudget ?? undefined,
     pipelinePhase: asPipelinePhase(item.pipelinePhase),
     dealEscrowPhase: asEscrowPhase(item.dealEscrowPhase),
+    dealId: item.dealId ?? undefined,
     classificationPending: item.classificationPending ?? false,
   };
 }

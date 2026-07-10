@@ -3,17 +3,25 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const svgPath = path.join(root, 'logo-color.svg');
-const outPath = path.join(root, 'assets', 'images', 'brand-logo.png');
+const imagesDir = path.join(root, 'assets', 'images');
+const sourcePath = path.join(imagesDir, 'bioby-logo.png');
 
-const svg = fs.readFileSync(svgPath, 'utf8');
-const match =
-  svg.match(/xlink:href="data:img\/png;base64,([^"]+)"/) ??
-  svg.match(/href="data:image\/png;base64,([^"]+)"/);
-if (!match) {
-  console.error('Could not find embedded PNG in logo-color.svg');
+if (!fs.existsSync(sourcePath)) {
+  console.error(`Missing canonical logo: ${sourcePath}`);
   process.exit(1);
 }
 
-fs.writeFileSync(outPath, Buffer.from(match[1], 'base64'));
-console.log(`Wrote ${outPath} (${fs.statSync(outPath).size} bytes)`);
+const targets = [
+  'app-icon.png',
+  'brand-logo.png',
+  'favicon.png',
+  'icon.png',
+  'splash-icon.png',
+  'adaptive-icon.png',
+];
+
+for (const name of targets) {
+  const outPath = path.join(imagesDir, name);
+  fs.copyFileSync(sourcePath, outPath);
+  console.log(`Synced ${name} (${fs.statSync(outPath).size} bytes)`);
+}
