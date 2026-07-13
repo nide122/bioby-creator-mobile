@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 
-import { useLocalSearchParams } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -31,7 +31,11 @@ import { alertAction } from '@/src/lib/app-dialog';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
 import {
   readCachedProposalPreview,
+  useConfirmProposalDraft,
+  useGenerateProposalRevision,
+  useProposalDraft,
   useProposalPreview,
+  useProposalRevisions,
   useSaveProposal,
 } from '@/src/hooks/use-growth';
 import { useSessionStore } from '@/src/stores/session-store';
@@ -56,20 +60,26 @@ function isProposalSeedRicher(next: ProposalPreview, current: ProposalPreview): 
 }
 
 export default function ProposalDetailScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const assetsNav = useAssetsHubNavigation();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string | string[]; draftId?: string | string[] }>();
   const safeId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const draftId = Array.isArray(params.draftId) ? params.draftId[0] : params.draftId;
 
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
-  const query = useProposalPreview(safeId);
+  const query = useProposalPreview(draftId ? undefined : safeId);
+  const proposalDraftQuery = useProposalDraft(draftId);
   const saveProposal = useSaveProposal();
+  const confirmProposalDraft = useConfirmProposalDraft();
+  const generateProposalRevision = useGenerateProposalRevision();
+  const revisionsQuery = useProposalRevisions(draftId ? undefined : safeId);
   const profile = useSessionStore((s) => s.profileBasics);
   const cachedProposal = safeId ? readCachedProposalPreview(queryClient, safeId) : undefined;
-  const seedProposal = query.data ?? cachedProposal;
+  const seedProposal = proposalDraftQuery.data?.proposal ?? query.data ?? cachedProposal;
   const [draft, setDraft] = useState<ProposalPreview | null>(() => cachedProposal ?? null);
   const [proposalSent, setProposalSent] = useState(false);
   const seededIdRef = useRef<string | null>(cachedProposal?.id ?? null);
@@ -102,7 +112,7 @@ export default function ProposalDetailScreen() {
     );
   }
 
-  if (query.isPending && !activeProposal) {
+  if ((query.isPending || proposalDraftQuery.isPending) && !activeProposal) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <ActivityIndicator accessibilityLabel={t('proposalDetailScreen.loadingA11y')} color={theme.primary} />
@@ -110,8 +120,9 @@ export default function ProposalDetailScreen() {
     );
   }
 
-  if ((query.error && !activeProposal) || (!query.isPending && !activeProposal)) {
-    const msg = query.error?.message ?? t('proposalDetailScreen.emptyDataFallback');
+  if (((query.error || proposalDraftQuery.error) && !activeProposal)
+      || (!query.isPending && !proposalDraftQuery.isPending && !activeProposal)) {
+    const msg = query.error?.message ?? proposalDraftQuery.error?.message ?? t('proposalDetailScreen.emptyDataFallback');
     return (
       <PlaceholderScreen
         title={t('proposalDetailScreen.loadFailedTitle')}
@@ -119,7 +130,9 @@ export default function ProposalDetailScreen() {
         <QueryRetryCard
           message={msg}
           onRetry={() =>
-            safeId
+            draftId
+              ? queryClient.invalidateQueries({ queryKey: ['growth', 'proposal-draft', draftId] })
+              : safeId
               ? queryClient.invalidateQueries({ queryKey: ['growth', 'proposal', safeId] })
               : queryClient.invalidateQueries({ queryKey: ['growth'] })
           }
@@ -127,6 +140,9 @@ export default function ProposalDetailScreen() {
       </PlaceholderScreen>
     );
   }
+
+  // The loading and empty states above cover every undefined seed; keep the editor type-safe.
+  if (!activeProposal) return null;
 
   const creatorName = profile?.displayName ?? activeProposal.creatorDisplayName;
   const shareSummary = `${activeProposal.title}\nCreator: ${creatorName}\nBrand: ${activeProposal.brandHint}\n${activeProposal.executiveSummary}`;
@@ -149,11 +165,30 @@ export default function ProposalDetailScreen() {
 
   const onSaveDraft = async () => {
     try {
-      await saveProposal.mutateAsync(activeProposal);
+      const saved = draftId
+        ? await confirmProposalDraft.mutateAsync({ draftId, proposal: activeProposal })
+        : await saveProposal.mutateAsync(activeProposal);
+      setDraft(saved);
+      if (draftId) {
+        router.replace(`/proposal/${saved.id}` as Href);
+      }
       void alertAction(t('proposalDetailScreen.saveSuccessTitle'), t('proposalDetailScreen.saveSuccessDesc'));
     } catch (error) {
       const message = error instanceof Error ? error.message : t('proposalDetailScreen.saveFailedDesc');
       void alertAction(t('proposalDetailScreen.saveFailedTitle'), message);
+    }
+  };
+
+  const onUpdateProposal = async () => {
+    try {
+      const nextDraft = await generateProposalRevision.mutateAsync({
+        proposalId: activeProposal.id,
+        locale: i18n.language,
+      });
+      router.push(`/proposal/${nextDraft.proposal.id}?draftId=${nextDraft.id}` as Href);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('proposalDetailScreen.emptyDataFallback');
+      void alertAction(t('proposalDetailScreen.loadFailedTitle'), message);
     }
   };
 
@@ -384,6 +419,21 @@ export default function ProposalDetailScreen() {
         <Badge tone="mint" label={t('proposalDetailScreen.badgeAwaitingBrand')} />
       ) : null}
 
+      {!isDraft && revisionsQuery.data && revisionsQuery.data.length > 1 ? (
+        <SettingsGroup title={t('proposalDetailScreen.versionHistoryTitle')}>
+          {revisionsQuery.data.map((revision) => (
+            <HubListRow
+              key={revision.id}
+              icon="git-branch-outline"
+              title={t('proposalDetailScreen.versionHistoryItem', { version: revision.version ?? 1 })}
+              subtitle={revision.title}
+              detail={revision.current ? t('proposalDetailScreen.versionCurrent') : undefined}
+              onPress={() => router.push(`/proposal/${revision.id}` as Href)}
+            />
+          ))}
+        </SettingsGroup>
+      ) : null}
+
       <SettingsGroup title={t('hubLinks.actions')}>
         {isDraft ? (
           <HubListRow
@@ -391,7 +441,16 @@ export default function ProposalDetailScreen() {
             title={t('proposalDetailScreen.ctaSaveDraft')}
             subtitle={t('proposalDetailScreen.ctaSaveDraftSubtitle')}
             onPress={() => void onSaveDraft()}
-            detail={saveProposal.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
+            detail={saveProposal.isPending || confirmProposalDraft.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
+          />
+        ) : null}
+        {!isDraft ? (
+          <HubListRow
+            icon="refresh-outline"
+            title={t('proposalDetailScreen.ctaUpdateProposal')}
+            subtitle={t('proposalDetailScreen.ctaUpdateProposalSubtitle')}
+            onPress={() => void onUpdateProposal()}
+            detail={generateProposalRevision.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
           />
         ) : null}
         <HubListRow

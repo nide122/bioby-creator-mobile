@@ -6,8 +6,14 @@ import {
   fetchMediaKitDocument,
   fetchMediaKitPreview,
   fetchProposalPreview,
+  fetchProposalForOpportunity,
+  fetchProposalRevisions,
+  fetchProposalDraft,
   fetchRateCardPackages,
   createProposal,
+  generateProposalDraft,
+  generateProposalRevision,
+  confirmProposalDraft,
   saveProposal,
   upsertRateCardPackages,
   importBattleReportToMediaKit,
@@ -29,6 +35,7 @@ import { mergeMediaKitPreviewPublicProofs } from '@/src/lib/public-proof';
 import { usePublicProofCatalog } from '@/src/hooks/use-trust-metrics';
 import { useSessionStore } from '@/src/stores/session-store';
 import type { MediaKitDocument, ProposalPreview, RateCardPackage } from '@/src/types/domain';
+import type { ProposalDraft } from '@/src/api/growth-api';
 
 export function rateCardPackagesQueryKey(): unknown[] {
   return tenantQueryKey(getActiveTenantPublicId(), 'growth', 'rate-cards', { api: shouldUseBackendApi() });
@@ -54,6 +61,12 @@ export function useRateCardPackages() {
 
 export function proposalPreviewQueryKey(proposalId: string | undefined): unknown[] {
   return tenantQueryKey(getActiveTenantPublicId(), 'growth', 'proposal', proposalId, {
+    api: shouldUseBackendApi(),
+  });
+}
+
+export function proposalDraftQueryKey(draftId: string | undefined): unknown[] {
+  return tenantQueryKey(getActiveTenantPublicId(), 'growth', 'proposal-draft', draftId, {
     api: shouldUseBackendApi(),
   });
 }
@@ -102,6 +115,74 @@ export function useCreateProposal() {
       if (!proposal.preview) {
         await invalidateTenantScopedQueries(queryClient);
       }
+    },
+  });
+}
+
+export function useProposalForOpportunity(opportunityId: string | undefined) {
+  const enabled = useTenantScopedQueryEnabled();
+  const apiMode = shouldUseBackendApi();
+  const queryKey = useTenantQueryKey('growth', 'proposal-for-opportunity', opportunityId, { api: apiMode });
+  return useQuery({
+    queryKey,
+    queryFn: () => fetchProposalForOpportunity(opportunityId as string),
+    enabled: enabled && !!opportunityId,
+    retry: false,
+  });
+}
+
+export function useProposalRevisions(proposalId: string | undefined) {
+  const enabled = useTenantScopedQueryEnabled();
+  const apiMode = shouldUseBackendApi();
+  const queryKey = useTenantQueryKey('growth', 'proposal-revisions', proposalId, { api: apiMode });
+  return useQuery({
+    queryKey,
+    queryFn: () => fetchProposalRevisions(proposalId as string),
+    enabled: enabled && !!proposalId,
+  });
+}
+
+export function useProposalDraft(draftId: string | undefined) {
+  const enabled = useTenantScopedQueryEnabled();
+  return useQuery({
+    queryKey: proposalDraftQueryKey(draftId),
+    queryFn: () => fetchProposalDraft(draftId as string),
+    enabled: enabled && !!draftId,
+  });
+}
+
+export function useGenerateProposalDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ProposalCreateInput) => generateProposalDraft(input),
+    onSuccess: (draft) => {
+      queryClient.setQueryData(proposalDraftQueryKey(draft.id), draft);
+      queryClient.setQueryData(proposalPreviewQueryKey(draft.proposal.id), draft.proposal);
+    },
+  });
+}
+
+export function useGenerateProposalRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ proposalId, locale }: { proposalId: string; locale?: string }) =>
+      generateProposalRevision(proposalId, locale),
+    onSuccess: (draft) => {
+      queryClient.setQueryData(proposalDraftQueryKey(draft.id), draft);
+      queryClient.setQueryData(proposalPreviewQueryKey(draft.proposal.id), draft.proposal);
+    },
+  });
+}
+
+export function useConfirmProposalDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ draftId, proposal }: { draftId: string; proposal: ProposalPreview }) =>
+      confirmProposalDraft(draftId, proposal),
+    onSuccess: async (proposal, variables) => {
+      queryClient.setQueryData(proposalPreviewQueryKey(proposal.id), proposal);
+      queryClient.removeQueries({ queryKey: proposalDraftQueryKey(variables.draftId) });
+      await invalidateTenantScopedQueries(queryClient);
     },
   });
 }

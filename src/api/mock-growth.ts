@@ -242,6 +242,14 @@ export async function fetchMockProposalPreview(proposalId: string): Promise<Prop
   };
 }
 
+export async function fetchMockProposalForOpportunity(opportunityId: string): Promise<ProposalPreview | null> {
+  await mockDelay(100);
+  const proposal = Object.values(PROPOSALS)
+    .filter((item) => item.opportunityId === opportunityId)
+    .sort((a, b) => b.id.localeCompare(a.id))[0];
+  return proposal ? structuredClone(proposal) : null;
+}
+
 export async function fetchMockMediaKitDocument(): Promise<MediaKitDocument> {
   await mockDelay(120);
   throwIfGrowthQueryPrimed();

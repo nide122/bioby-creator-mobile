@@ -341,5 +341,10 @@ export function mapProposalPreview(dto: unknown): ProposalPreview {
     preview: root.preview === true,
     saved: root.saved === true || root.preview !== true,
     generationSource: asString(root.generationSource) ?? undefined,
+    version: typeof root.version === 'number' ? root.version : undefined,
+    current: root.current === true,
+    baseProposalId: asString(root.baseProposalId) ?? undefined,
+    rootProposalId: asString(root.rootProposalId) ?? undefined,
+    proposedVersion: typeof root.proposedVersion === 'number' ? root.proposedVersion : undefined,
   };
 }

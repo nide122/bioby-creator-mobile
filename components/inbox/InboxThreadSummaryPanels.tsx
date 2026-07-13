@@ -11,7 +11,7 @@ import { contractWarningVisuals } from '@/src/lib/contract-warning-visuals';
 import { attentionItemText, localizeRiskFlag } from '@/src/lib/inbox-detail-labels';
 import { inboxPriorityBadgeTone } from '@/src/lib/inbox-priority-visuals';
 import { Badge } from '@/components/product';
-import type { InboxDeliverablePackage, InboxPriority, InboxRiskFlag } from '@/src/types/domain';
+import type { InboxDeliverablePackage, InboxPriority, InboxRiskFlag, ProposalPreview } from '@/src/types/domain';
 
 function summarizeDeliverables(packages: InboxDeliverablePackage[]): string {
   const items = packages.flatMap((pkg) => pkg.items ?? []);
@@ -110,6 +110,10 @@ type ThreadAiSummaryCardProps = {
   deadlineAtISO?: string | null;
   deadlineKind?: string | null;
   deadlineText?: string | null;
+  proposal?: ProposalPreview | null;
+  onOpenProposal?: () => void;
+  onCreateProposal?: () => void;
+  proposalCreating?: boolean;
 };
 
 export function ThreadAiSummaryCard({
@@ -123,6 +127,10 @@ export function ThreadAiSummaryCard({
   deadlineAtISO,
   deadlineKind,
   deadlineText,
+  proposal,
+  onOpenProposal,
+  onCreateProposal,
+  proposalCreating = false,
 }: ThreadAiSummaryCardProps) {
   const { t, i18n } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -169,6 +177,63 @@ export function ThreadAiSummaryCard({
       <Text style={[styles.cooperationTitle, { color: theme.foreground }]} numberOfLines={3}>
         {title}
       </Text>
+
+      {proposal ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenProposal}
+          style={({ pressed }) => [
+            styles.proposalRow,
+            { borderColor: theme.primary + '55', backgroundColor: theme.primary + '0D' },
+            pressed && { opacity: 0.8 },
+          ]}>
+          <View style={[styles.proposalIcon, { backgroundColor: theme.primary + '18' }]}>
+            <Ionicons name="document-text-outline" size={18} color={theme.primary} />
+          </View>
+          <View style={styles.proposalCopy}>
+            <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
+              {t('inboxThreadDetail.proposalSavedTitle')}
+            </Text>
+            <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
+              {proposal.title}
+            </Text>
+          </View>
+          <Text style={[styles.proposalLink, { color: theme.primary }]}>
+            {t('inboxThreadDetail.proposalViewCta')}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+        </Pressable>
+      ) : onCreateProposal ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={proposalCreating}
+          onPress={onCreateProposal}
+          style={({ pressed }) => [
+            styles.proposalRow,
+            { borderColor: theme.primary + '55', backgroundColor: theme.primary + '0D' },
+            (proposalCreating || pressed) && { opacity: 0.72 },
+          ]}>
+          <View style={[styles.proposalIcon, { backgroundColor: theme.primary + '18' }]}>
+            {proposalCreating ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Ionicons name="document-text-outline" size={18} color={theme.primary} />
+            )}
+          </View>
+          <View style={styles.proposalCopy}>
+            <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
+              {t('inboxThreadDetail.proposalCreateTitle')}
+            </Text>
+            <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
+              {t('inboxThreadDetail.proposalCreateHint')}
+            </Text>
+          </View>
+          <Text style={[styles.proposalLink, { color: theme.primary }]}>
+            {t('inboxThreadDetail.proposalCreateCta')}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+        </Pressable>
+      ) : null}
 
       {showPending ? (
         <View style={styles.pendingRow}>
@@ -293,6 +358,19 @@ const styles = StyleSheet.create({
   },
   confidenceText: { fontSize: fontSize.caption, fontWeight: '700' },
   cooperationTitle: { fontSize: fontSize.cardTitle, fontWeight: '800', lineHeight: lineHeight.bodyRelaxed },
+  proposalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  proposalIcon: { width: 32, height: 32, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
+  proposalCopy: { flex: 1, gap: 2, minWidth: 0 },
+  proposalTitle: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
+  proposalHint: { fontSize: fontSize.caption, lineHeight: lineHeight.caption },
+  proposalLink: { fontSize: fontSize.bodySmall, fontWeight: '700' },
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pendingText: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   summaryText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },

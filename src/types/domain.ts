@@ -471,6 +471,8 @@ export type CreatorPublicSnapshot = {
 
 export type ProposalPreview = {
   id: string;
+  /** Internal Proposal draft id. Present only before creator confirmation. */
+  draftId?: string;
   packageId?: string;
   opportunityId?: string;
   title: string;
@@ -485,6 +487,12 @@ export type ProposalPreview = {
   preview?: boolean;
   saved?: boolean;
   generationSource?: string;
+  version?: number;
+  current?: boolean;
+  /** Present only while confirming a generated revision draft. */
+  baseProposalId?: string;
+  rootProposalId?: string;
+  proposedVersion?: number;
 };
 
 export type MediaKitPlatformRow = {

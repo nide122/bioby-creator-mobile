@@ -44,6 +44,8 @@ import { restoreSession } from '@/src/api/auth-api';
 import { hasStoredSession } from '@/src/auth/token-storage';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
+import { useProposalForOpportunity } from '@/src/hooks/use-growth';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-editor';
 import { pickContractPdf } from '@/src/lib/pick-contract-pdf';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
@@ -207,6 +209,8 @@ export default function InboxThreadDetailScreen() {
   const [showPriorityBreakdownSheet, setShowPriorityBreakdownSheet] = useState(false);
 
   const query = useInboxThreadDetail(threadId);
+  const proposalQuery = useProposalForOpportunity(threadId);
+  const { openProposal, openingProposal } = useOpenProposal();
   const briefConfirmed = query.data ? isBriefConfirmed(query.data) : false;
   const contractEditor = useContractSummaryEditor({
     opportunityId: threadId,
@@ -631,6 +635,19 @@ export default function InboxThreadDetailScreen() {
             deadlineAtISO={detail.deadlineAtISO}
             deadlineKind={detail.deadlineKind}
             deadlineText={detail.deadlineText}
+            proposal={proposalQuery.data}
+            onOpenProposal={() => {
+              if (proposalQuery.data?.id) {
+                router.push(`/proposal/${proposalQuery.data.id}` as Href);
+              }
+            }}
+            onCreateProposal={() =>
+              void openProposal({
+                opportunityId: detail.id,
+                brandHint: detail.brandName ?? detail.claimedBrandName ?? undefined,
+              })
+            }
+            proposalCreating={openingProposal}
           />
           {showContractWarning ? <ThreadRiskCheckCard flags={effectiveContractRisks} /> : null}
           {detail.latestApprovedScript ? (

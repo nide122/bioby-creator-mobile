@@ -1572,6 +1572,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/opportunities/{opportunityId}/proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["proposalForOpportunity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/opportunities/manual": {
         parameters: {
             query?: never;
@@ -1652,6 +1668,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposal-drafts/{draftId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["proposalDraft"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposal-drafts/{draftId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmProposalDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposal-drafts/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["generateProposalDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/proposals/{id}": {
         parameters: {
             query?: never;
@@ -1662,6 +1726,38 @@ export interface paths {
         get: operations["proposal"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["proposalRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/revisions/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["generateProposalRevision"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2102,6 +2198,12 @@ export interface components {
             code: string;
             email: string;
         };
+        ConfirmProposalDraftRequest: {
+            /** @description Full creator-edited Proposal document. The server persists this only after confirmation. */
+            proposalDocument: {
+                [key: string]: unknown;
+            };
+        };
         ContractSummaryFromAttachmentRequest: {
             attachmentId: string;
             emailMessageId: string;
@@ -2422,6 +2524,15 @@ export interface components {
             purpose?: string;
             source?: string;
             suggestedPurpose?: string;
+        };
+        GenerateProposalDraftRequest: {
+            brandHint?: string;
+            locale?: string;
+            opportunityId?: string;
+            packageId: string;
+        };
+        GenerateProposalRevisionRequest: {
+            locale?: string;
         };
         GenerateReplyDraftRequest: {
             acceptedBody?: string;
@@ -3013,6 +3124,28 @@ export interface components {
             bio?: string;
             displayName?: string;
             nicheTags?: string[];
+        };
+        ProposalDraftConfirmationView: {
+            draft: components["schemas"]["ProposalDraftView"];
+            /** @description The saved Proposal document. */
+            proposal: {
+                [key: string]: unknown;
+            };
+        };
+        ProposalDraftView: {
+            /** @enum {string} */
+            approvalState: "PENDING" | "APPROVED";
+            /** @enum {string} */
+            generationSource?: "llm" | "rules";
+            id: string;
+            /** @enum {string} */
+            kind: "proposal";
+            opportunityId?: string;
+            proposalDocument: {
+                [key: string]: unknown;
+            };
+            /** @enum {boolean} */
+            requiresApproval: true;
         };
         PushDeviceView: {
             enabled?: boolean;
@@ -5680,6 +5813,28 @@ export interface operations {
             };
         };
     };
+    proposalForOpportunity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opportunityId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The latest saved Proposal associated with this opportunity. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JsonNode"];
+                };
+            };
+        };
+    };
     createManual: {
         parameters: {
             query?: never;
@@ -5804,6 +5959,78 @@ export interface operations {
             };
         };
     };
+    proposalDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proposal draft for creator review. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDraftView"];
+                };
+            };
+        };
+    };
+    confirmProposalDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmProposalDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Proposal saved after creator confirmation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDraftConfirmationView"];
+                };
+            };
+        };
+    };
+    generateProposalDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateProposalDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Proposal draft generated for creator review; no Proposal is persisted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDraftView"];
+                };
+            };
+        };
+    };
     proposal: {
         parameters: {
             query?: never;
@@ -5822,6 +6049,54 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["JsonNode"];
+                };
+            };
+        };
+    };
+    proposalRevisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proposal versions from newest to oldest. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JsonNode"][];
+                };
+            };
+        };
+    };
+    generateProposalRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GenerateProposalRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description A review-only Proposal revision draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDraftView"];
                 };
             };
         };

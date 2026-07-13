@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { alertAction } from '@/src/lib/app-dialog';
 import { resolveDefaultProposalPackageId } from '@/src/lib/proposal-from-package';
-import { proposalPreviewQueryKey, useCreateProposal, useRateCardPackages } from '@/src/hooks/use-growth';
+import { proposalDraftQueryKey, proposalPreviewQueryKey, useGenerateProposalDraft, useRateCardPackages } from '@/src/hooks/use-growth';
 
 export type OpenProposalInput = {
   packageId?: string;
@@ -18,12 +18,12 @@ export function useOpenProposal() {
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
   const rateCards = useRateCardPackages();
-  const createProposal = useCreateProposal();
+  const generateProposalDraft = useGenerateProposalDraft();
   const [openingProposal, setOpeningProposal] = useState(false);
 
   const openProposal = useCallback(
     async (input?: OpenProposalInput) => {
-      if (openingProposal || createProposal.isPending) return;
+      if (openingProposal || generateProposalDraft.isPending) return;
       const packageId = input?.packageId ?? resolveDefaultProposalPackageId(rateCards.data ?? []);
       if (!packageId) {
         router.push('/pricing' as Href);
@@ -31,15 +31,16 @@ export function useOpenProposal() {
       }
       setOpeningProposal(true);
       try {
-        const proposal = await createProposal.mutateAsync({
+        const draft = await generateProposalDraft.mutateAsync({
           packageId,
           opportunityId: input?.opportunityId,
           brandHint: input?.brandHint,
           locale: i18n.language,
           previewOnly: true,
         });
-        queryClient.setQueryData(proposalPreviewQueryKey(proposal.id), proposal);
-        router.push(`/proposal/${proposal.id}` as Href);
+        queryClient.setQueryData(proposalDraftQueryKey(draft.id), draft);
+        queryClient.setQueryData(proposalPreviewQueryKey(draft.proposal.id), draft.proposal);
+        router.push(`/proposal/${draft.proposal.id}?draftId=${draft.id}` as Href);
       } catch (error) {
         const message = error instanceof Error ? error.message : t('proposalDetailScreen.emptyDataFallback');
         void alertAction(t('proposalDetailScreen.loadFailedTitle'), message);
@@ -47,8 +48,8 @@ export function useOpenProposal() {
         setOpeningProposal(false);
       }
     },
-    [createProposal, i18n.language, openingProposal, queryClient, rateCards.data, router, t],
+    [generateProposalDraft, i18n.language, openingProposal, queryClient, rateCards.data, router, t],
   );
 
-  return { openProposal, openingProposal: openingProposal || createProposal.isPending };
+  return { openProposal, openingProposal: openingProposal || generateProposalDraft.isPending };
 }

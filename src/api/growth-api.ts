@@ -12,6 +12,7 @@ import {
   fetchMockMediaKitDocument,
   fetchMockMediaKitPreview,
   fetchMockProposalPreview,
+  fetchMockProposalForOpportunity,
   fetchMockRateCardPackages,
   createMockProposal,
   saveMockProposal,
@@ -31,6 +32,13 @@ import type { ProposalCreateInput } from '@/src/lib/proposal-from-package';
 export type PublicMediaKitPayload = {
   preview: MediaKitPreview;
   sectionOrder?: MediaKitSectionId[];
+};
+
+export type ProposalDraft = {
+  id: string;
+  approvalState: 'PENDING' | 'APPROVED';
+  generationSource?: string;
+  proposal: ProposalPreview;
 };
 
 export async function fetchRateCardPackages(): Promise<RateCardPackage[]> {
@@ -74,6 +82,95 @@ export async function createProposal(input: ProposalCreateInput): Promise<Propos
   return mapProposalPreview(dto);
 }
 
+export async function fetchProposalForOpportunity(opportunityId: string): Promise<ProposalPreview | null> {
+  if (!shouldUseBackendApi()) {
+    return fetchMockProposalForOpportunity(opportunityId);
+  }
+  try {
+    const dto = await apiRequest<unknown>(`/api/v1/opportunities/${encodeURIComponent(opportunityId)}/proposal`);
+    return mapProposalPreview(dto);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export async function fetchProposalRevisions(proposalId: string): Promise<ProposalPreview[]> {
+  if (!shouldUseBackendApi()) {
+    const current = await fetchMockProposalPreview(proposalId);
+    return [current];
+  }
+  const items = await apiRequest<unknown[]>(`/api/v1/proposals/${encodeURIComponent(proposalId)}/revisions`);
+  return items.map(mapProposalPreview);
+}
+
+export async function generateProposalDraft(input: ProposalCreateInput): Promise<ProposalDraft> {
+  if (!shouldUseBackendApi()) {
+    const proposal = await createMockProposal({ ...input, previewOnly: true });
+    return {
+      id: `local-${proposal.id}`,
+      approvalState: 'PENDING',
+      generationSource: proposal.generationSource,
+      proposal: { ...proposal, draftId: `local-${proposal.id}`, preview: true, saved: false },
+    };
+  }
+  const dto = await apiRequest<unknown>('/api/v1/proposal-drafts/generate', {
+    method: 'POST',
+    body: input,
+  });
+  return mapProposalDraft(dto);
+}
+
+export async function generateProposalRevision(proposalId: string, locale?: string): Promise<ProposalDraft> {
+  if (!shouldUseBackendApi()) {
+    const base = await fetchMockProposalPreview(proposalId);
+    const proposal = await createMockProposal({
+      packageId: base.packageId ?? 'launch-bundle',
+      opportunityId: base.opportunityId,
+      brandHint: base.brandHint,
+      locale,
+      previewOnly: true,
+    });
+    proposal.baseProposalId = proposalId;
+    proposal.rootProposalId = base.rootProposalId ?? proposalId;
+    proposal.proposedVersion = (base.version ?? 1) + 1;
+    return {
+      id: `local-revision-${proposal.id}`,
+      approvalState: 'PENDING',
+      generationSource: proposal.generationSource,
+      proposal: { ...proposal, draftId: `local-revision-${proposal.id}`, preview: true, saved: false },
+    };
+  }
+  const dto = await apiRequest<unknown>(`/api/v1/proposals/${encodeURIComponent(proposalId)}/revisions/generate`, {
+    method: 'POST',
+    body: { locale },
+  });
+  return mapProposalDraft(dto);
+}
+
+export async function fetchProposalDraft(draftId: string): Promise<ProposalDraft> {
+  if (!shouldUseBackendApi()) {
+    throw new Error('Proposal draft recovery is unavailable in mock mode.');
+  }
+  const dto = await apiRequest<unknown>(`/api/v1/proposal-drafts/${encodeURIComponent(draftId)}`);
+  return mapProposalDraft(dto);
+}
+
+export async function confirmProposalDraft(draftId: string, proposal: ProposalPreview): Promise<ProposalPreview> {
+  if (!shouldUseBackendApi()) {
+    return saveMockProposal({ ...proposal, preview: false, saved: true });
+  }
+  const dto = await apiRequest<unknown>(`/api/v1/proposal-drafts/${encodeURIComponent(draftId)}/confirm`, {
+    method: 'POST',
+    body: { proposalDocument: proposal },
+  });
+  const root = dto && typeof dto === 'object' ? (dto as { proposal?: unknown }) : {};
+  const saved = mapProposalPreview(root.proposal);
+  if (saved.creatorSnapshot) return saved;
+  const mediaKitPreview = await fetchMediaKitPreview();
+  return { ...saved, creatorSnapshot: toCreatorPublicSnapshot(mediaKitPreview) };
+}
+
 export async function saveProposal(proposal: ProposalPreview): Promise<ProposalPreview> {
   if (!shouldUseBackendApi()) {
     return saveMockProposal(proposal);
@@ -86,6 +183,24 @@ export async function saveProposal(proposal: ProposalPreview): Promise<ProposalP
   if (saved.creatorSnapshot) return saved;
   const mediaKitPreview = await fetchMediaKitPreview();
   return { ...saved, creatorSnapshot: toCreatorPublicSnapshot(mediaKitPreview) };
+}
+
+function mapProposalDraft(dto: unknown): ProposalDraft {
+  const root = dto && typeof dto === 'object' ? (dto as Record<string, unknown>) : {};
+  const id = typeof root.id === 'string' ? root.id : '';
+  if (!id) throw new Error('Proposal draft response is missing an id.');
+  const proposal = mapProposalPreview(root.proposalDocument);
+  return {
+    id,
+    approvalState: root.approvalState === 'APPROVED' ? 'APPROVED' : 'PENDING',
+    generationSource: typeof root.generationSource === 'string' ? root.generationSource : proposal.generationSource,
+    proposal: {
+      ...proposal,
+      draftId: id,
+      preview: true,
+      saved: false,
+    },
+  };
 }
 
 export async function fetchMediaKitDocument(): Promise<MediaKitDocument> {
