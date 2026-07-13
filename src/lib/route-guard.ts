@@ -39,6 +39,10 @@ function isPublicMediaKitPath(pathname: string): boolean {
   return pathname.startsWith('/c/');
 }
 
+function isPublicProposalPath(pathname: string): boolean {
+  return pathname.startsWith('/p/');
+}
+
 function isPublicLegalPath(pathname: string): boolean {
   return pathname === '/intro' || pathname === '/home' || pathname === '/privacy' || pathname === '/terms';
 }
@@ -76,7 +80,7 @@ export function getRouteGuardRedirect({
     return '/intro';
   }
 
-  if (isPublicMediaKitPath(pathname)) {
+  if (isPublicMediaKitPath(pathname) || isPublicProposalPath(pathname)) {
     return null;
   }
 

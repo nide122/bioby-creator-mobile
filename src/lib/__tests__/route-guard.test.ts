@@ -112,6 +112,16 @@ describe('getRouteGuardRedirect', () => {
       ).toBeNull();
     });
 
+    it('allows public proposal links without auth', () => {
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/p/share-token',
+          isAuthenticated: false,
+          onboardingComplete: false,
+        })
+      ).toBeNull();
+    });
+
     it('allows public legal pages without auth', () => {
       for (const pathname of ['/intro', '/home', '/privacy', '/terms']) {
         expect(

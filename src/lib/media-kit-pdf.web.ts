@@ -87,7 +87,9 @@ async function canvasToSinglePagePdfBlob(
   });
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes], { type: 'application/pdf' });
+  const blobBytes = new Uint8Array(pdfBytes.byteLength);
+  blobBytes.set(pdfBytes);
+  return new Blob([blobBytes.buffer], { type: 'application/pdf' });
 }
 
 async function htmlToPdfBlob(html: string): Promise<Blob> {
@@ -131,8 +133,20 @@ function downloadPdfBlob(blob: Blob, filename: string): void {
   link.href = url;
   link.download = filename;
   link.rel = 'noopener';
+  link.style.display = 'none';
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
+export async function downloadGeneratedPdf(
+  html: string,
+  filename: string,
+): Promise<void> {
+  const blob = await htmlToPdfBlob(html);
+  const safeName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+  downloadPdfBlob(blob, safeName);
 }
 
 export async function shareGeneratedPdf(
@@ -152,9 +166,28 @@ export async function shareGeneratedPdf(
       if (error instanceof Error && error.name === 'AbortError') {
         return;
       }
-      throw error;
+      // Desktop browsers can report file sharing support but reject the call
+      // after asynchronous PDF rendering consumes the transient user gesture.
+      // In that case, preserve the export action by downloading the file.
+      downloadPdfBlob(blob, safeName);
+      return;
     }
   }
 
   downloadPdfBlob(blob, safeName);
+}
+
+export async function shareGeneratedPdfOnly(
+  html: string,
+  filename: string,
+  _dialogTitle: string,
+): Promise<void> {
+  const blob = await htmlToPdfBlob(html);
+  const safeName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+  const file = new File([blob], safeName, { type: 'application/pdf' });
+
+  if (typeof navigator === 'undefined' || !navigator.canShare?.({ files: [file] })) {
+    throw new Error('File sharing is not supported by this browser');
+  }
+  await navigator.share({ files: [file] });
 }

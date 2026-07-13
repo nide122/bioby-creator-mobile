@@ -94,6 +94,7 @@ function RootLayoutNav() {
           <Stack.Screen name="media-kit-edit" options={{ title: t('stacks.mediaKitEdit') }} />
           <Stack.Screen name="media-kit-public" options={{ title: t('stacks.mediaKitPublic') }} />
           <Stack.Screen name="c" options={{ headerShown: false }} />
+          <Stack.Screen name="p" options={{ headerShown: false }} />
           <Stack.Screen name="trust-passport" options={{ title: t('stacks.trustPassport') }} />
           <Stack.Screen name="team" options={{ headerShown: false }} />
           <Stack.Screen name="intro" options={{ headerShown: false }} />

@@ -15,6 +15,9 @@ import {
   generateProposalRevision,
   confirmProposalDraft,
   saveProposal,
+  createProposalShare,
+  fetchProposalShares,
+  revokeProposalShare,
   upsertRateCardPackages,
   importBattleReportToMediaKit,
   upsertMediaKitDocument,
@@ -194,6 +197,46 @@ export function useSaveProposal() {
     onSuccess: async (proposal) => {
       queryClient.setQueryData(proposalPreviewQueryKey(proposal.id), proposal);
       await invalidateTenantScopedQueries(queryClient);
+    },
+  });
+}
+
+export function useProposalShares(proposalId: string | undefined) {
+  const enabled = useTenantScopedQueryEnabled();
+  const apiMode = shouldUseBackendApi();
+  const queryKey = useTenantQueryKey('growth', 'proposal-shares', proposalId, { api: apiMode });
+  return useQuery({
+    queryKey,
+    queryFn: () => fetchProposalShares(proposalId as string),
+    enabled: enabled && apiMode && !!proposalId,
+  });
+}
+
+export function useCreateProposalShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (proposalId: string) => createProposalShare(proposalId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: tenantQueryKey(
+        getActiveTenantPublicId(),
+        'growth',
+        'proposal-shares',
+      ) });
+    },
+  });
+}
+
+export function useRevokeProposalShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ proposalId, shareId }: { proposalId: string; shareId: number }) =>
+      revokeProposalShare(proposalId, shareId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: tenantQueryKey(
+        getActiveTenantPublicId(),
+        'growth',
+        'proposal-shares',
+      ) });
     },
   });
 }
