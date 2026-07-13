@@ -1748,6 +1748,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposals/{proposalId}/convert-to-deal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["convertProposalToDeal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/deal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["proposalLinkedDeal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/proposals/{proposalId}/revisions/generate": {
         parameters: {
             query?: never;
@@ -1764,6 +1796,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposals/{proposalId}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listProposalShares"];
+        put?: never;
+        post: operations["createProposalShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/shares/{shareId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeProposalShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/creators/{slug}/media-kit": {
         parameters: {
             query?: never;
@@ -1772,6 +1836,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["publicMediaKit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/proposals/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["publicProposal"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2239,6 +2319,10 @@ export interface components {
         CreateDraftRequest: {
             kind?: string;
             opportunityId?: string;
+        };
+        CreateProposalShareRequest: {
+            /** Format: date-time */
+            expiresAt?: string;
         };
         CreatorPlatformProfilePayload: {
             avatarUrl?: string;
@@ -3146,6 +3230,32 @@ export interface components {
             };
             /** @enum {boolean} */
             requiresApproval: true;
+        };
+        ProposalShareView: {
+            /** Format: date-time */
+            createdAt?: string;
+            enabled: boolean;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: int64 */
+            id: number;
+            proposalId: string;
+            /** Format: int32 */
+            proposalVersion: number;
+            /** @description Present for an active recoverable share link. */
+            publicPath?: string;
+            /** Format: date-time */
+            revokedAt?: string;
+        };
+        PublicProposalView: {
+            /** Format: date-time */
+            expiresAt?: string;
+            proposal: {
+                [key: string]: unknown;
+            };
+            proposalId: string;
+            /** Format: int32 */
+            version: number;
         };
         PushDeviceView: {
             enabled?: boolean;
@@ -6075,6 +6185,57 @@ export interface operations {
             };
         };
     };
+    convertProposalToDeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Existing or newly created Deal linked to this Proposal version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealListItemView"];
+                };
+            };
+        };
+    };
+    proposalLinkedDeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deal created from this Proposal version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealListItemView"];
+                };
+            };
+            /** @description Proposal has not been converted to a Deal. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     generateProposalRevision: {
         parameters: {
             query?: never;
@@ -6101,6 +6262,77 @@ export interface operations {
             };
         };
     };
+    listProposalShares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proposal share records, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalShareView"][];
+                };
+            };
+        };
+    };
+    createProposalShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateProposalShareRequest"];
+            };
+        };
+        responses: {
+            /** @description Share created. publicPath is returned for the active link. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalShareView"];
+                };
+            };
+        };
+    };
+    revokeProposalShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+                shareId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked Proposal share. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalShareView"];
+                };
+            };
+        };
+    };
     publicMediaKit: {
         parameters: {
             query?: never;
@@ -6119,6 +6351,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["JsonNode"];
+                };
+            };
+        };
+    };
+    publicProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public, version-locked Proposal document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProposalView"];
                 };
             };
         };

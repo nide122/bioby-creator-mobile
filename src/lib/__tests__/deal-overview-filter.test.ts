@@ -35,9 +35,6 @@ describe('deal-overview-filter', () => {
   it('maps overview buckets to escrow phases', () => {
     expect(matchesDealOverviewFilter(deal('1', 'awaiting_prepay'), 'awaiting_payment')).toBe(true);
     expect(matchesDealOverviewFilter(deal('3', 'pending_verification'), 'pending_review')).toBe(true);
-    expect(matchesDealOverviewFilter(deal('1', 'awaiting_prepay'), 'needs_action')).toBe(true);
-    expect(matchesDealOverviewFilter(deal('3', 'pending_verification'), 'needs_action')).toBe(true);
-    expect(matchesDealOverviewFilter(deal('2', 'in_execution'), 'needs_action')).toBe(false);
     expect(matchesDealOverviewFilter(deal('2', 'in_execution'), 'in_progress')).toBe(true);
     expect(matchesDealOverviewFilter(deal('6', 'disputed'), 'in_progress')).toBe(true);
     expect(matchesDealOverviewFilter(deal('1', 'awaiting_prepay'), 'in_progress')).toBe(false);
@@ -46,7 +43,6 @@ describe('deal-overview-filter', () => {
   it('counts and filters active deals by bucket', () => {
     const counts = countDealsByOverviewFilter(rows);
     expect(counts.all_active).toBe(6);
-    expect(counts.needs_action).toBe(3);
     expect(counts.awaiting_payment).toBe(2);
     expect(counts.pending_review).toBe(1);
     expect(counts.in_progress).toBe(3);
@@ -54,8 +50,5 @@ describe('deal-overview-filter', () => {
 
     const awaiting = filterDealsForOverview(rows, 'awaiting_payment');
     expect(awaiting.map((row) => row.id)).toEqual(['7', '1']);
-
-    const needsAction = filterDealsForOverview(rows, 'needs_action');
-    expect(needsAction.map((row) => row.id)).toEqual(['7', '1', '3']);
   });
 });

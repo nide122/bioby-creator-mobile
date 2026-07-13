@@ -4,10 +4,12 @@ import { mapRateCardDto, toRateCardUpsertRequest } from '@/src/api/growth-mapper
 import type { RateCardPackageView } from '@/src/types/api';
 import { mapMediaKitDocument, mapMediaKitDto, mapProposalPreview, mapPublicMediaKitPayload } from '@/src/api/media-kit-mappers';
 import { fetchPublicProofCatalog } from '@/src/api/trust-api';
+import { mapDealDto } from '@/src/api/deal-mappers';
 import { parseContactSlug } from '@/src/lib/media-kit-contact-url';
 import { mergeMediaKitPreviewPublicProofs } from '@/src/lib/public-proof';
 import { resolveSectionOrderFromDocument } from '@/src/lib/media-kit-sections';
 import { toCreatorPublicSnapshot } from '@/src/lib/media-kit-creator-snapshot';
+import { buildPublicProposalWebUrl } from '@/src/lib/proposal-public-link';
 import {
   fetchMockMediaKitDocument,
   fetchMockMediaKitPreview,
@@ -20,10 +22,13 @@ import {
   importMockBattleReportToMediaKit,
   upsertMockMediaKitDocument,
 } from '@/src/api/mock-growth';
+import { fetchMockDealList } from '@/src/api/mock-deals';
+import type { DealListItemView } from '@/src/types/api';
 import type {
   MediaKitDocument,
   MediaKitPreview,
   MediaKitSectionId,
+  DealSummary,
   ProposalPreview,
   RateCardPackage,
 } from '@/src/types/domain';
@@ -38,6 +43,24 @@ export type ProposalDraft = {
   id: string;
   approvalState: 'PENDING' | 'APPROVED';
   generationSource?: string;
+  proposal: ProposalPreview;
+};
+
+export type ProposalShare = {
+  id: number;
+  proposalId: string;
+  proposalVersion: number;
+  enabled: boolean;
+  expiresAt?: string;
+  revokedAt?: string;
+  createdAt?: string;
+  publicUrl?: string;
+};
+
+export type PublicProposalPayload = {
+  proposalId: string;
+  version: number;
+  expiresAt?: string;
   proposal: ProposalPreview;
 };
 
@@ -102,6 +125,33 @@ export async function fetchProposalRevisions(proposalId: string): Promise<Propos
   }
   const items = await apiRequest<unknown[]>(`/api/v1/proposals/${encodeURIComponent(proposalId)}/revisions`);
   return items.map(mapProposalPreview);
+}
+
+export async function fetchProposalDeal(proposalId: string): Promise<DealSummary | null> {
+  if (!shouldUseBackendApi()) return null;
+  try {
+    const dto = await apiRequest<DealListItemView>(
+      `/api/v1/proposals/${encodeURIComponent(proposalId)}/deal`,
+    );
+    return mapDealDto(dto);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export async function convertProposalToDeal(proposalId: string): Promise<DealSummary> {
+  if (!shouldUseBackendApi()) {
+    const deals = await fetchMockDealList();
+    const fallback = deals.find((deal) => deal.source === 'self') ?? deals[0];
+    if (!fallback) throw new Error('No mock Deal is available.');
+    return fallback;
+  }
+  const dto = await apiRequest<DealListItemView>(
+    `/api/v1/proposals/${encodeURIComponent(proposalId)}/convert-to-deal`,
+    { method: 'POST' },
+  );
+  return mapDealDto(dto);
 }
 
 export async function generateProposalDraft(input: ProposalCreateInput): Promise<ProposalDraft> {
@@ -183,6 +233,65 @@ export async function saveProposal(proposal: ProposalPreview): Promise<ProposalP
   if (saved.creatorSnapshot) return saved;
   const mediaKitPreview = await fetchMediaKitPreview();
   return { ...saved, creatorSnapshot: toCreatorPublicSnapshot(mediaKitPreview) };
+}
+
+export async function createProposalShare(proposalId: string): Promise<ProposalShare> {
+  const dto = await apiRequest<unknown>(`/api/v1/proposals/${encodeURIComponent(proposalId)}/shares`, {
+    method: 'POST',
+    body: {},
+  });
+  const share = mapProposalShare(dto);
+  if (!share.publicUrl) {
+    throw new Error('Proposal share response is missing a public link.');
+  }
+  return share;
+}
+
+export async function fetchProposalShares(proposalId: string): Promise<ProposalShare[]> {
+  const items = await apiRequest<unknown[]>(`/api/v1/proposals/${encodeURIComponent(proposalId)}/shares`);
+  return items.map(mapProposalShare);
+}
+
+export async function revokeProposalShare(proposalId: string, shareId: number): Promise<ProposalShare> {
+  const dto = await apiRequest<unknown>(
+    `/api/v1/proposals/${encodeURIComponent(proposalId)}/shares/${encodeURIComponent(String(shareId))}`,
+    { method: 'DELETE' },
+  );
+  return mapProposalShare(dto);
+}
+
+export async function fetchPublicProposal(token: string): Promise<PublicProposalPayload> {
+  const dto = await apiRequest<unknown>(`/api/v1/public/proposals/${encodeURIComponent(token)}`, {
+    auth: false,
+  });
+  const root = dto && typeof dto === 'object' ? (dto as Record<string, unknown>) : {};
+  const proposalId = typeof root.proposalId === 'string' ? root.proposalId : '';
+  const version = typeof root.version === 'number' ? root.version : 1;
+  const proposal = mapProposalPreview(root.proposal);
+  return {
+    proposalId,
+    version,
+    expiresAt: typeof root.expiresAt === 'string' ? root.expiresAt : undefined,
+    proposal: { ...proposal, id: proposalId || proposal.id, version },
+  };
+}
+
+function mapProposalShare(dto: unknown): ProposalShare {
+  const root = dto && typeof dto === 'object' ? (dto as Record<string, unknown>) : {};
+  const id = typeof root.id === 'number' ? root.id : Number(root.id);
+  if (!Number.isFinite(id)) throw new Error('Proposal share response is missing an id.');
+  const publicPath = typeof root.publicPath === 'string' ? root.publicPath.trim() : '';
+  const publicUrl = publicPath ? buildPublicProposalWebUrl(publicPath) : undefined;
+  return {
+    id,
+    proposalId: typeof root.proposalId === 'string' ? root.proposalId : '',
+    proposalVersion: typeof root.proposalVersion === 'number' ? root.proposalVersion : 1,
+    enabled: root.enabled === true,
+    expiresAt: typeof root.expiresAt === 'string' ? root.expiresAt : undefined,
+    revokedAt: typeof root.revokedAt === 'string' ? root.revokedAt : undefined,
+    createdAt: typeof root.createdAt === 'string' ? root.createdAt : undefined,
+    publicUrl,
+  };
 }
 
 function mapProposalDraft(dto: unknown): ProposalDraft {

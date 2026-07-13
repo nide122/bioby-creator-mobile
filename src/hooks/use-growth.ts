@@ -8,12 +8,14 @@ import {
   fetchProposalPreview,
   fetchProposalForOpportunity,
   fetchProposalRevisions,
+  fetchProposalDeal,
   fetchProposalDraft,
   fetchRateCardPackages,
   createProposal,
   generateProposalDraft,
   generateProposalRevision,
   confirmProposalDraft,
+  convertProposalToDeal,
   saveProposal,
   createProposalShare,
   fetchProposalShares,
@@ -142,6 +144,28 @@ export function useProposalRevisions(proposalId: string | undefined) {
     queryKey,
     queryFn: () => fetchProposalRevisions(proposalId as string),
     enabled: enabled && !!proposalId,
+  });
+}
+
+export function useProposalDeal(proposalId: string | undefined) {
+  const enabled = useTenantScopedQueryEnabled();
+  const apiMode = shouldUseBackendApi();
+  const queryKey = useTenantQueryKey('growth', 'proposal-deal', proposalId, { api: apiMode });
+  return useQuery({
+    queryKey,
+    queryFn: () => fetchProposalDeal(proposalId as string),
+    enabled: enabled && !!proposalId,
+    retry: false,
+  });
+}
+
+export function useConvertProposalToDeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (proposalId: string) => convertProposalToDeal(proposalId),
+    onSuccess: async () => {
+      await invalidateTenantScopedQueries(queryClient);
+    },
   });
 }
 

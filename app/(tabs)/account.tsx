@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import appI18n from '@/src/i18n';
 
 import {
+  HubListRow,
   HubScreen,
   QueryRetryCard,
   SegmentedControl,
@@ -34,6 +35,8 @@ import { useCreatorFocusMode } from '@/src/hooks/use-creator-focus';
 import { useAccountOverview } from '@/src/hooks/use-account-overview';
 import { useOnboardingDashboardStatus } from '@/src/hooks/use-onboarding-dashboard-status';
 import { useAccountRowSummaries } from '@/src/hooks/use-account-row-summaries';
+import { useAssetsHubSummaries } from '@/src/hooks/use-assets-hub-summaries';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { usePendingTenantInvites } from '@/src/hooks/use-tenants';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
@@ -95,6 +98,8 @@ export default function AccountScreen() {
     return resolveAccountProfileHeroMeta(profile, emailFallback);
   }, [accountEmail, profile, t]);
   const { profileDetail, planDetail, teamDetail, workspaceDetail, dataDetail } = useAccountRowSummaries();
+  const pitchHub = useAssetsHubSummaries();
+  const { openProposal } = useOpenProposal();
   const pendingInvites = usePendingTenantInvites();
   const canUseOps = shouldUseBackendApi() && membershipRole === 'OWNER';
 
@@ -111,6 +116,7 @@ export default function AccountScreen() {
       invalidateTenantScopedQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['tenants', 'mine'] }),
       queryClient.invalidateQueries({ queryKey: ['account', 'team-roles'] }),
+      queryClient.invalidateQueries({ queryKey: ['growth'] }),
     ]);
   }, [queryClient]);
   const { refreshing, onRefresh } = useTabRefresh(refreshAccount);
@@ -287,6 +293,33 @@ export default function AccountScreen() {
           title={t('account.rows.planTitle')}
           detail={planDetail}
           onPress={() => router.push('/settings/subscription' as Href)}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup title={t('assetsScreen.sections.pitch')} insetDividers={false}>
+        <HubListRow
+          testID="account-row-rate-card"
+          icon="pricetag-outline"
+          title={t('assetsScreen.rows.rateCard.title')}
+          subtitle={t('assetsScreen.rows.rateCard.subtitle')}
+          detail={pitchHub.rateCardDetail}
+          onPress={() => router.push('/pricing' as Href)}
+        />
+        <HubListRow
+          testID="account-row-proposal"
+          icon="document-text-outline"
+          title={t('assetsScreen.rows.proposal.title')}
+          subtitle={t('assetsScreen.rows.proposal.subtitle')}
+          detail={pitchHub.proposalDetail}
+          onPress={() => void openProposal()}
+        />
+        <HubListRow
+          testID="account-row-reply-templates"
+          icon="chatbubble-ellipses-outline"
+          title={t('assetsScreen.rows.replyTemplates.title')}
+          subtitle={t('assetsScreen.rows.replyTemplates.subtitle')}
+          detail={pitchHub.replyTemplatesDetail}
+          onPress={() => router.push('/settings/reply-templates' as Href)}
         />
       </SettingsGroup>
 

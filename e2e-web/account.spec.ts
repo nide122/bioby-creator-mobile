@@ -5,7 +5,7 @@ import { enterDemoWorkspace } from './helpers';
 test.describe('Account', () => {
   test('sign out returns to home and blocks inbox', async ({ page }) => {
     await enterDemoWorkspace(page);
-    await page.getByTestId('header-account-avatar').click();
+    await page.getByTestId('tab-account').click();
     await page.getByTestId('account-sign-out').scrollIntoViewIfNeeded();
     await page.getByTestId('account-sign-out').click();
 

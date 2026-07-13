@@ -155,8 +155,13 @@ export function localizeDecisionActionLabel(
   t: TFunction,
   card?: DecisionCard,
 ): string {
-  if (card?.category === 'opportunity' && action.id === 'open') {
-    return t('inboxThreadDetail.ctaReplyDraft');
+  if (
+    (card?.category === 'opportunity' && action.id === 'open') ||
+    action.id === 'upload' ||
+    action.label?.trim() === 'Upload proof' ||
+    action.label?.trim() === 'Submit proof'
+  ) {
+    return t('decisionCard.actions.open');
   }
   const mapped = mapCopy(action.label, ACTION_LABEL_EXACT, 'decisionCard.actions', t);
   return mapped ?? action.label;

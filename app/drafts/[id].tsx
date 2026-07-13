@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -19,11 +18,9 @@ import {
   getTextInputProps,
   getTextInputStyle,
   HubLinkGroup,
-  HubListRow,
   HubScreen,
   QueryRetryCard,
   SectionCard,
-  SettingsGroup,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { DraftOpportunityBrief } from '@/components/drafts/DraftOpportunityBrief';
@@ -233,14 +230,6 @@ export default function DraftDetailScreen() {
     emailSubject.trim() !== cooperationTitle &&
     emailSubject.trim() !== threadDetail?.subject?.trim();
 
-  const onShareCopy = async () => {
-    try {
-      await Share.share({ message: body });
-    } catch {
-      void alertAction(t('draftDetail.shareErrorTitle'), t('draftDetail.shareErrorMsg'));
-    }
-  };
-
   const syncRemoteDraft = async (): Promise<RemoteDraftSyncResult | null> => {
     if (!draftId) return null;
     const result = await syncDraftToNativeMailbox(draftId, {
@@ -256,7 +245,7 @@ export default function DraftDetailScreen() {
     return result;
   };
 
-    const onSyncRemoteDraft = async () => {
+  const onSyncRemoteDraft = async () => {
     if (!draftId || remoteDraftLoading || remoteDraftSending) return;
     if (!shouldUseBackendApi()) {
       void alertAction(t('draftDetail.nativeDraftUnavailableTitle'), t('draftDetail.nativeDraftUnavailableBody'));
@@ -510,32 +499,10 @@ export default function DraftDetailScreen() {
           ) : null}
         </SectionCard>
 
-        <SettingsGroup title={t('hubLinks.actions')}>
-          <HubListRow icon="share-outline" title={t('draftDetail.shareCopyCta')} onPress={onShareCopy} />
-          {effectiveThreadId ? (
-            <HubListRow
-              icon="mail-outline"
-              title={t('draftDetail.backToThread')}
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                  return;
-                }
-                router.replace(`/inbox/${effectiveThreadId}` as Href);
-              }}
-            />
-          ) : null}
-        </SettingsGroup>
-
         {linkedDealId ? (
           <HubLinkGroup
             title={t('draftDetail.nextStepsTitle')}
             links={[
-              {
-                label: t('draftDetail.viewDelivery'),
-                href: `/deal/${linkedDealId}/delivery`,
-                icon: 'cube-outline',
-              },
               {
                 label: t('draftDetail.viewPacket'),
                 href: `/deal/${linkedDealId}/packet`,
@@ -544,16 +511,6 @@ export default function DraftDetailScreen() {
             ]}
           />
         ) : null}
-
-        <HubLinkGroup
-          links={[
-            {
-              label: t('draftDetail.backToList'),
-              href: '/drafts',
-              icon: 'list-outline',
-            },
-          ]}
-        />
       </HubScreen>
 
       <ReplyTemplatePicker

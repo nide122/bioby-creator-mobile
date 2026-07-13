@@ -6,7 +6,7 @@ test.describe('BioBy Creator Web smoke', () => {
   test('dev skip opens main tabs', async ({ page }) => {
     await enterDemoWorkspace(page);
     await page.getByTestId('tab-deals').click();
-    await page.getByTestId('header-account-avatar').click();
+    await page.getByTestId('tab-account').click();
     await page.getByTestId('tab-today').click();
   });
 

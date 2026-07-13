@@ -38,7 +38,7 @@ export default function DealsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const [previewDealId, setPreviewDealId] = useState<string | null>(null);
-  const [overviewFilter, setOverviewFilter] = useState<DealOverviewFilter>('needs_action');
+  const [overviewFilter, setOverviewFilter] = useState<DealOverviewFilter>('all_active');
 
   const activeRows = useMemo(() => activeDeals(deals.data ?? []), [deals.data]);
   const filterCounts = useMemo(() => countDealsByOverviewFilter(deals.data ?? []), [deals.data]);
@@ -97,10 +97,7 @@ export default function DealsScreen() {
       onRefresh={onRefresh}
       eyebrow={t('tabs.deals')}
       title={t('dealsScreen.title')}
-      lead={t('dealsScreen.description', {
-        active: activeRows.length,
-        needAction: filterCounts.needs_action,
-      })}
+      lead={t('dealsScreen.description', { active: activeRows.length })}
       toolbar={toolbar}>
       {activeRows.length === 0 && overviewFilter !== 'settled' ? (
         <EmptyStateCard
@@ -117,7 +114,7 @@ export default function DealsScreen() {
           description={t('dealsScreen.filterEmptyDesc')}
           primaryAction={{
             label: t('dealsScreen.filterReset'),
-            onPress: () => setOverviewFilter('needs_action'),
+            onPress: () => setOverviewFilter('all_active'),
           }}
         />
       ) : null}
@@ -132,7 +129,6 @@ export default function DealsScreen() {
               <DealCard
                 key={item.id}
                 deal={item}
-                recommended={item.source === 'recommended'}
                 selected={item.id === previewDealId}
                 onPress={() => openDeal(item)}
                 onPreviewPress={() => setPreviewDealId(item.id)}

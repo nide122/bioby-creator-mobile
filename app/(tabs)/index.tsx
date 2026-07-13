@@ -683,7 +683,7 @@ function DoneState({
         links={[
           { label: t('today.shortcuts.mail'), href: '/inbox', icon: 'mail-outline' },
           { label: t('today.shortcuts.deals'), href: '/deals', icon: 'briefcase-outline' },
-          { label: t('today.shortcuts.assets'), href: '/growth', icon: 'folder-open-outline' },
+          { label: t('today.shortcuts.account'), href: '/account', icon: 'person-circle-outline' },
         ]}
       />
     </Animated.View>

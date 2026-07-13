@@ -53,7 +53,7 @@ describe('decision-card-i18n', () => {
     expect(localized.headline).toBe('决定 ClearSkin Lab 的商机');
     expect(localized.aiNote).toBe('检测到宽泛授权或二次剪辑条款');
     expect(localized.urgencyNote).toBe('今天需要处理');
-    expect(localized.actions[0].label).toBe('打开邮件');
+    expect(localized.actions[0].label).toBe('打开');
     expect(localized.actions[1].label).toBe('推迟');
   });
 
@@ -62,19 +62,19 @@ describe('decision-card-i18n', () => {
     expect(localizeDecisionSourceHint(payoutCard.sourceHint, i18n.t.bind(i18n))).toBe('合作 · Camping light unboxing');
     const localized = localizeDecisionCard(payoutCard, i18n.t.bind(i18n));
     expect(localized.aiNote).toBe('上传发布证明以释放托管款。');
-    expect(localized.actions[0].label).toBe('上传证明');
+    expect(localized.actions[0].label).toBe('打开');
   });
 
   it('localizes queue preview lines from English API payloads', () => {
     const preview = formatLocalizedDecisionQueuePreviewLines(opportunityCard, i18n.t.bind(i18n));
-    expect(preview.title).toBe('2 short videos | Claims need pre-review');
-    expect(preview.subtitle).toBe('ClearSkin Lab · 打开邮件 · 今天需要处理');
+    expect(preview.title).toBe('ClearSkin Lab · 2 short videos | Claims need pre-review');
+    expect(preview.subtitle).toBe('检测到宽泛授权或二次剪辑条款');
   });
 
   it('localizes presentation urgency without breaking subject extraction', () => {
     const { display } = getLocalizedDecisionPresentation(opportunityCard, i18n.t.bind(i18n));
     expect(display.subject).toBe('2 short videos | Claims need pre-review');
     expect(display.urgencyLabel).toBe('今天需要处理');
-    expect(display.primaryAction?.label).toBe('打开邮件');
+    expect(display.primaryAction?.label).toBe('打开');
   });
 });

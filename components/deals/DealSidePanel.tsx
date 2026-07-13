@@ -39,7 +39,6 @@ import { isParseableDocumentAttachment } from '@/components/mail/email-attachmen
 import { DealTermsWithContractSection } from '@/components/deals/DealTermsWithContractSection';
 import { DealStatusStrip } from '@/components/deals/DealStatusStrip';
 import { resolveFulfillmentStatus } from '@/src/lib/deal-fulfillment-status';
-import { dealPanelQuickHref, dealPanelQuickLabelKey } from '@/src/lib/deal-panel-fields';
 import { useDealTermsAndContract } from '@/src/hooks/use-deal-terms-and-contract';
 import type { DealSummary, EscrowLifecyclePhase, InboxMessage, InboxMessageStats } from '@/src/types/domain';
 
@@ -270,11 +269,6 @@ export function DealSidePanel({ deal, onClose }: Props) {
     if (!deal) return;
     onClose();
     router.push({ pathname: '/deal/[dealId]', params: { dealId: deal.id } });
-  };
-  const openQuickAction = () => {
-    if (!deal) return;
-    onClose();
-    router.push(dealPanelQuickHref(deal) as never);
   };
   const openBrand = () => {
     if (!deal?.brandId) return;
@@ -610,13 +604,10 @@ export function DealSidePanel({ deal, onClose }: Props) {
           </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: theme.border, backgroundColor: theme.background }]}>
-            <Pressable accessibilityRole="button" onPress={openQuickAction} style={[styles.footerBtn, { backgroundColor: theme.primary }]}>
+            <Pressable accessibilityRole="button" onPress={openFullDeal} style={[styles.footerBtn, { backgroundColor: theme.primary }]}>
               <Text style={[styles.footerBtnLabel, { color: theme.primaryForeground }]}>
-                {deal ? t(dealPanelQuickLabelKey(deal)) : t('dealsScreen.openDealCta')}
+                {t('dealsScreen.panelOpenFullDeal')}
               </Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={openFullDeal} style={[styles.footerBtnGhost, { borderColor: theme.border }]}>
-              <Text style={[styles.footerBtnGhostLabel, { color: theme.foreground }]}>{t('dealsScreen.panelOpenFullDeal')}</Text>
             </Pressable>
           </View>
         </View>
@@ -912,21 +903,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
-  footerBtnGhost: {
-    minHeight: 40,
-    borderRadius: radii.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
   footerBtnLabel: {
     fontSize: fontSize.bodySmall,
     fontWeight: '800',
     letterSpacing: 0.2,
-  },
-  footerBtnGhostLabel: {
-    fontSize: fontSize.bodySmall,
-    fontWeight: '700',
   },
 });

@@ -62,6 +62,7 @@ function headlineIsGenericDraftReview(headline: string): boolean {
 }
 
 const GENERIC_NEXT_STEP_LABELS = new Set([
+  'open',
   'open thread',
   'review draft',
   'review',

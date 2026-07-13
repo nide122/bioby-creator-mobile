@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Share,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -27,19 +28,31 @@ import { AutoGrowTextInput } from '@/components/product/AutoGrowTextInput';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
-import { alertAction } from '@/src/lib/app-dialog';
+import { alertAction, confirmAction } from '@/src/lib/app-dialog';
+import { copyTextToClipboard } from '@/src/lib/copy-to-clipboard';
+import {
+  buildProposalPdfFilename,
+  downloadProposalPdf,
+  shareProposalPdf,
+} from '@/src/lib/proposal-pdf';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
 import {
   readCachedProposalPreview,
   useConfirmProposalDraft,
+  useConvertProposalToDeal,
+  useCreateProposalShare,
   useGenerateProposalRevision,
   useProposalDraft,
+  useProposalDeal,
   useProposalPreview,
   useProposalRevisions,
+  useProposalShares,
+  useRevokeProposalShare,
   useSaveProposal,
 } from '@/src/hooks/use-growth';
 import { useSessionStore } from '@/src/stores/session-store';
 import type { ProposalPreview } from '@/src/types/domain';
+import type { ProposalShare } from '@/src/api/growth-api';
 
 function bulletsToText(items: string[]): string {
   return items.join('\n');
@@ -73,15 +86,24 @@ export default function ProposalDetailScreen() {
 
   const query = useProposalPreview(draftId ? undefined : safeId);
   const proposalDraftQuery = useProposalDraft(draftId);
+  const proposalDealQuery = useProposalDeal(draftId ? undefined : safeId);
   const saveProposal = useSaveProposal();
   const confirmProposalDraft = useConfirmProposalDraft();
+  const convertProposalToDeal = useConvertProposalToDeal();
   const generateProposalRevision = useGenerateProposalRevision();
   const revisionsQuery = useProposalRevisions(draftId ? undefined : safeId);
+  const proposalSharesQuery = useProposalShares(draftId ? undefined : safeId);
+  const createProposalShare = useCreateProposalShare();
+  const revokeProposalShare = useRevokeProposalShare();
   const profile = useSessionStore((s) => s.profileBasics);
   const cachedProposal = safeId ? readCachedProposalPreview(queryClient, safeId) : undefined;
   const seedProposal = proposalDraftQuery.data?.proposal ?? query.data ?? cachedProposal;
   const [draft, setDraft] = useState<ProposalPreview | null>(() => cachedProposal ?? null);
   const [proposalSent, setProposalSent] = useState(false);
+  const [createdShare, setCreatedShare] = useState<ProposalShare | null>(null);
+  const [shareActionsVisible, setShareActionsVisible] = useState(false);
+  const [shareSheetMode, setShareSheetMode] = useState<'main' | 'pdf'>('main');
+  const [pdfAction, setPdfAction] = useState<'download' | 'share' | null>(null);
   const seededIdRef = useRef<string | null>(cachedProposal?.id ?? null);
 
   useEffect(() => {
@@ -145,21 +167,118 @@ export default function ProposalDetailScreen() {
   if (!activeProposal) return null;
 
   const creatorName = profile?.displayName ?? activeProposal.creatorDisplayName;
+  const currentRevision = revisionsQuery.data?.find((revision) => revision.current);
   const shareSummary = `${activeProposal.title}\nCreator: ${creatorName}\nBrand: ${activeProposal.brandHint}\n${activeProposal.executiveSummary}`;
+  const latestActiveShare = createdShare
+    ?? proposalSharesQuery.data?.find((share) => share.enabled && !share.revokedAt && !!share.publicUrl)
+    ?? null;
 
-  const onShareProposal = async () => {
+  const onShareProposal = () => {
     if (isDraft) {
       void alertAction(t('proposalDetailScreen.saveBeforeShareTitle'), t('proposalDetailScreen.saveBeforeShareDesc'));
       return;
     }
+    setShareSheetMode('main');
+    setShareActionsVisible(true);
+  };
+
+  const closeShareActions = () => {
+    setShareActionsVisible(false);
+    setShareSheetMode('main');
+  };
+
+  const onGenerateShareLink = async () => {
     try {
-      await Share.share({
-        title: activeProposal.title,
-        message: shareSummary,
-      });
+      const share = await createProposalShare.mutateAsync(activeProposal.id);
+      if (!share.publicUrl) {
+        throw new Error(t('proposalDetailScreen.shareLinkUnavailable'));
+      }
+      setCreatedShare(share);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('proposalDetailScreen.shareFailDesc');
+      void alertAction(t('proposalDetailScreen.shareFailTitle'), message);
+    }
+  };
+
+  const onCopyShareLink = async () => {
+    if (!latestActiveShare?.publicUrl) return;
+    try {
+      await copyTextToClipboard(latestActiveShare.publicUrl);
+      closeShareActions();
       setProposalSent(true);
+      void alertAction(t('proposalDetailScreen.shareLinkCopiedTitle'), t('proposalDetailScreen.shareLinkCopiedDesc'));
     } catch {
       void alertAction(t('proposalDetailScreen.shareFailTitle'), t('proposalDetailScreen.shareFailDesc'));
+    }
+  };
+
+  const onCopySummary = async () => {
+    try {
+      await copyTextToClipboard(shareSummary);
+      closeShareActions();
+      setProposalSent(true);
+      void alertAction(t('proposalDetailScreen.summaryCopiedTitle'), t('proposalDetailScreen.summaryCopiedDesc'));
+    } catch {
+      void alertAction(t('proposalDetailScreen.shareFailTitle'), t('proposalDetailScreen.shareFailDesc'));
+    }
+  };
+
+  const onDownloadPdf = async () => {
+    if (pdfAction) return;
+    setPdfAction('download');
+    try {
+      await downloadProposalPdf(activeProposal, t);
+      closeShareActions();
+      void alertAction(
+        t('proposalPdf.downloadSuccessTitle'),
+        t('proposalPdf.downloadSuccessDesc', { filename: buildProposalPdfFilename(activeProposal) }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('proposalPdf.exportFailedDesc');
+      void alertAction(t('proposalPdf.exportFailedTitle'), message);
+    } finally {
+      setPdfAction(null);
+    }
+  };
+
+  const onSharePdf = async () => {
+    if (pdfAction) return;
+    setPdfAction('share');
+    try {
+      await shareProposalPdf(activeProposal, t);
+      closeShareActions();
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      const message = error instanceof Error ? error.message : t('proposalPdf.exportFailedDesc');
+      void alertAction(t('proposalPdf.shareFailedTitle'), message);
+    } finally {
+      setPdfAction(null);
+    }
+  };
+
+  const onRevokeShare = async () => {
+    if (!latestActiveShare) return;
+    setShareActionsVisible(false);
+    const confirmed = await confirmAction({
+      title: t('proposalDetailScreen.revokeShareTitle'),
+      message: t('proposalDetailScreen.revokeShareDesc'),
+      confirmLabel: t('proposalDetailScreen.revokeShareConfirm'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+    });
+    if (!confirmed) return;
+    try {
+      await revokeProposalShare.mutateAsync({
+        proposalId: activeProposal.id,
+        shareId: latestActiveShare.id,
+      });
+      if (createdShare?.id === latestActiveShare.id) setCreatedShare(null);
+      setShareActionsVisible(false);
+      setProposalSent(false);
+      void alertAction(t('proposalDetailScreen.revokeShareSuccessTitle'), t('proposalDetailScreen.revokeShareSuccessDesc'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('proposalDetailScreen.shareFailDesc');
+      void alertAction(t('proposalDetailScreen.revokeShareFailedTitle'), message);
     }
   };
 
@@ -192,6 +311,30 @@ export default function ProposalDetailScreen() {
     }
   };
 
+  const onOpenOrConvertDeal = async () => {
+    if (proposalDealQuery.data) {
+      router.push(`/deal/${proposalDealQuery.data.id}` as Href);
+      return;
+    }
+    if (proposalDealQuery.isPending || convertProposalToDeal.isPending) return;
+    const confirmed = await confirmAction({
+      title: t('proposalDetailScreen.convertDealConfirmTitle'),
+      message: t('proposalDetailScreen.convertDealConfirmDesc', {
+        version: activeProposal.version ?? 1,
+      }),
+      confirmLabel: t('proposalDetailScreen.convertDealConfirmAction'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
+    try {
+      const deal = await convertProposalToDeal.mutateAsync(activeProposal.id);
+      router.push(`/deal/${deal.id}` as Href);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('proposalDetailScreen.convertDealFailedDesc');
+      void alertAction(t('proposalDetailScreen.convertDealFailedTitle'), message);
+    }
+  };
+
   const generationLabel =
     activeProposal.generationSource === 'llm'
       ? t('proposalDetailScreen.badgeAiDraft')
@@ -210,6 +353,36 @@ export default function ProposalDetailScreen() {
           <Badge tone="warning" label={t('proposalDetailScreen.badgeDraft')} />
           <Badge tone="mint" label={generationLabel} />
         </View>
+      ) : null}
+
+      {!isDraft && activeProposal.current === false ? (
+        <SectionCard
+          title={t('proposalDetailScreen.historicalVersionTitle', {
+            version: activeProposal.version ?? 1,
+          })}
+          subtitle={t('proposalDetailScreen.historicalVersionSubtitle')}
+          emphasis>
+          <View style={styles.badgeRow}>
+            <Badge tone="warning" label={t('proposalDetailScreen.historicalVersionBadge')} />
+          </View>
+          {currentRevision ? (
+            <HubListRow
+              icon="arrow-up-circle-outline"
+              title={t('proposalDetailScreen.returnCurrentVersion', {
+                version: currentRevision.version ?? 1,
+              })}
+              subtitle={currentRevision.title}
+              onPress={() => router.replace(`/proposal/${currentRevision.id}` as Href)}
+            />
+          ) : revisionsQuery.isPending ? (
+            <View style={styles.historicalVersionLoading}>
+              <ActivityIndicator color={theme.primary} />
+              <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+                {t('proposalDetailScreen.loadingCurrentVersion')}
+              </Text>
+            </View>
+          ) : null}
+        </SectionCard>
       ) : null}
 
       <SectionCard
@@ -419,7 +592,7 @@ export default function ProposalDetailScreen() {
         <Badge tone="mint" label={t('proposalDetailScreen.badgeAwaitingBrand')} />
       ) : null}
 
-      {!isDraft && revisionsQuery.data && revisionsQuery.data.length > 1 ? (
+      {!isDraft && activeProposal.current !== false && revisionsQuery.data && revisionsQuery.data.length > 1 ? (
         <SettingsGroup title={t('proposalDetailScreen.versionHistoryTitle')}>
           {revisionsQuery.data.map((revision) => (
             <HubListRow
@@ -444,13 +617,38 @@ export default function ProposalDetailScreen() {
             detail={saveProposal.isPending || confirmProposalDraft.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
           />
         ) : null}
-        {!isDraft ? (
+        {!isDraft && activeProposal.current !== false && !proposalDealQuery.data ? (
           <HubListRow
             icon="refresh-outline"
             title={t('proposalDetailScreen.ctaUpdateProposal')}
             subtitle={t('proposalDetailScreen.ctaUpdateProposalSubtitle')}
             onPress={() => void onUpdateProposal()}
             detail={generateProposalRevision.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
+          />
+        ) : null}
+        {!isDraft && activeProposal.current !== false ? (
+          <HubListRow
+            icon="briefcase-outline"
+            title={
+              proposalDealQuery.data
+                ? t('proposalDetailScreen.ctaViewDeal')
+                : t('proposalDetailScreen.ctaConvertDeal')
+            }
+            subtitle={
+              proposalDealQuery.data
+                ? t('proposalDetailScreen.ctaViewDealSubtitle')
+                : t('proposalDetailScreen.ctaConvertDealSubtitle', {
+                    version: activeProposal.version ?? 1,
+                  })
+            }
+            onPress={() => void onOpenOrConvertDeal()}
+            detail={
+              proposalDealQuery.isPending
+                ? t('proposalDetailScreen.checkingDeal')
+                : convertProposalToDeal.isPending
+                  ? t('proposalDetailScreen.convertingDeal')
+                  : undefined
+            }
           />
         ) : null}
         <HubListRow
@@ -464,21 +662,6 @@ export default function ProposalDetailScreen() {
                 : t('proposalDetailScreen.ctaShareDraftSubtitle')
           }
           onPress={onShareProposal}
-        />
-        <HubListRow
-          icon="copy-outline"
-          title={t('proposalDetailScreen.ctaCopySummary')}
-          onPress={() => {
-            if (isDraft) {
-              void alertAction(
-                t('proposalDetailScreen.saveBeforeShareTitle'),
-                t('proposalDetailScreen.saveBeforeShareDesc'),
-              );
-              return;
-            }
-            setProposalSent(true);
-            void alertAction(t('proposalDetailScreen.alertSummaryTitle'), shareSummary);
-          }}
         />
       </SettingsGroup>
 
@@ -499,6 +682,103 @@ export default function ProposalDetailScreen() {
           ]}
         />
       ) : null}
+
+      <Modal
+        visible={shareActionsVisible}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={closeShareActions}>
+        <View style={styles.shareSheetRoot}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('proposalDetailScreen.closeShareActions')}
+            style={styles.shareSheetBackdrop}
+            onPress={closeShareActions}
+          />
+          <View style={[styles.shareSheet, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={[styles.shareSheetHandle, { backgroundColor: theme.muted }]} />
+            <Text style={[styles.shareSheetTitle, { color: theme.foreground }]}>
+              {t(shareSheetMode === 'pdf' ? 'proposalPdf.actionsTitle' : 'proposalDetailScreen.shareActionsTitle')}
+            </Text>
+            <Text style={[styles.shareSheetSubtitle, { color: theme.mutedForeground }]}>
+              {shareSheetMode === 'pdf'
+                ? t('proposalPdf.actionsSubtitle')
+                : t('proposalDetailScreen.shareActionsSubtitle', { version: activeProposal.version ?? 1 })}
+            </Text>
+            <SettingsGroup>
+              {shareSheetMode === 'pdf' ? (
+                <>
+                  <HubListRow
+                    icon="download-outline"
+                    title={t('proposalPdf.downloadAction')}
+                    subtitle={t('proposalPdf.downloadActionSubtitle')}
+                    onPress={() => void onDownloadPdf()}
+                    detail={pdfAction === 'download' ? t('proposalPdf.downloading') : undefined}
+                  />
+                  <HubListRow
+                    icon="share-outline"
+                    title={t('proposalPdf.shareAction')}
+                    subtitle={t('proposalPdf.shareActionSubtitle')}
+                    onPress={() => void onSharePdf()}
+                    detail={pdfAction === 'share' ? t('proposalPdf.sharing') : undefined}
+                  />
+                  <HubListRow
+                    icon="arrow-back-outline"
+                    title={t('proposalPdf.backAction')}
+                    onPress={() => setShareSheetMode('main')}
+                  />
+                </>
+              ) : proposalSharesQuery.isPending && !createdShare ? (
+                <View style={styles.shareSheetLoading}>
+                  <ActivityIndicator color={theme.primary} />
+                  <Text style={[styles.shareSheetSubtitle, { color: theme.mutedForeground }]}>
+                    {t('proposalDetailScreen.checkingShareLink')}
+                  </Text>
+                </View>
+              ) : latestActiveShare ? (
+                <>
+                  <HubListRow
+                    icon="link-outline"
+                    title={t('proposalDetailScreen.copyShareLink')}
+                    subtitle={t('proposalDetailScreen.copyShareLinkSubtitle')}
+                    onPress={() => void onCopyShareLink()}
+                  />
+                  <HubListRow
+                    icon="close-circle-outline"
+                    title={t('proposalDetailScreen.revokeShare')}
+                    subtitle={t('proposalDetailScreen.revokeShareSubtitle', {
+                      version: latestActiveShare.proposalVersion,
+                    })}
+                    onPress={() => void onRevokeShare()}
+                    detail={revokeProposalShare.isPending ? t('proposalDetailScreen.revokingShare') : undefined}
+                  />
+                </>
+              ) : (
+                <HubListRow
+                  icon="add-circle-outline"
+                  title={t('proposalDetailScreen.generateShareLink')}
+                  subtitle={t('proposalDetailScreen.generateShareLinkSubtitle')}
+                  onPress={() => void onGenerateShareLink()}
+                  detail={createProposalShare.isPending ? t('proposalDetailScreen.creatingShareLink') : undefined}
+                />
+              )}
+              <HubListRow
+                icon="copy-outline"
+                title={t('proposalDetailScreen.ctaCopySummary')}
+                subtitle={t('proposalDetailScreen.copySummarySubtitle')}
+                onPress={() => void onCopySummary()}
+              />
+              <HubListRow
+                icon="document-outline"
+                title={t('proposalPdf.exportAction')}
+                subtitle={t('proposalPdf.exportActionSubtitle')}
+                onPress={() => setShareSheetMode('pdf')}
+              />
+            </SettingsGroup>
+          </View>
+        </View>
+      </Modal>
     </HubScreen>
   );
 }
@@ -558,6 +838,7 @@ function EditableReviewBlock({
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  historicalVersionLoading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   meta: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   fieldLabel: { fontSize: fontSize.caption, lineHeight: lineHeight.body, marginTop: spacing.md },
   input: { marginTop: spacing.xs },
@@ -596,4 +877,34 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   reviewText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
+  shareSheetRoot: { flex: 1, justifyContent: 'flex-end' },
+  shareSheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.48)',
+  },
+  shareSheet: {
+    borderTopWidth: 1,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  shareSheetHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    alignSelf: 'center',
+    marginBottom: spacing.sm,
+  },
+  shareSheetTitle: { fontSize: fontSize.cardTitle, fontWeight: '800', lineHeight: lineHeight.lead },
+  shareSheetSubtitle: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
+  shareSheetLoading: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
 });

@@ -17,7 +17,6 @@ import type { DealSummary, EscrowLifecyclePhase } from '@/src/types/domain';
 
 type Props = {
   deal: DealSummary;
-  recommended?: boolean;
   selected?: boolean;
   onPreviewPress?: () => void;
 } & Pick<PressableProps, 'onPress'>;
@@ -41,7 +40,6 @@ function escrowTone(phase: EscrowLifecyclePhase): 'primary' | 'mint' | 'warning'
 
 export function DealCard({
   deal,
-  recommended,
   selected,
   onPress,
   onPreviewPress,
@@ -109,10 +107,6 @@ export function DealCard({
       </View>
 
       <View style={styles.footer}>
-        <View style={styles.footerBadges}>
-          {recommended && deal.recommendBadge ? <Badge tone="primary" label={deal.recommendBadge} /> : null}
-          {deal.opportunityThreadId ? <Badge tone="neutral" label={t('dealsScreen.timelineLinkedBadge')} /> : null}
-        </View>
         {onPreviewPress ? (
           <Pressable
             accessibilityRole="button"
@@ -189,15 +183,8 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     gap: spacing.sm,
-  },
-  footerBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
   },
   previewButton: {
     flexDirection: 'row',
