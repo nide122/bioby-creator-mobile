@@ -1,5 +1,5 @@
 import { type Href, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 
@@ -23,10 +23,14 @@ export function InboxEmailStatusCard({
   email,
   verificationStatus,
   onPress,
+  onSync,
+  syncing,
 }: {
   email?: string | null;
   verificationStatus?: CreatorVerificationStatus;
   onPress: () => void;
+  onSync?: () => void;
+  syncing?: boolean;
 }) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -35,26 +39,53 @@ export function InboxEmailStatusCard({
   if (!email) return null;
 
   return (
-    <Pressable
-      testID="inbox-email-status-card"
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.card,
+        styles.emailStatusCard,
         { borderColor: theme.border, backgroundColor: theme.card },
-        pressed && styles.cardPressed,
       ]}>
-      <View style={[styles.emailIconBadge, { backgroundColor: theme.accentMintSoft }]}>
-        <Ionicons name="mail-outline" size={18} color={theme.primary} />
-      </View>
-      <View style={styles.emailCopy}>
-        {verificationStatus ? <CreatorVerificationBadge status={verificationStatus} compact /> : null}
-        <Text style={[styles.emailAddress, { color: theme.foreground }]} numberOfLines={1}>
-          {email}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={theme.foregroundEyebrow} />
-    </Pressable>
+      <Pressable
+        testID="inbox-email-status-card"
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.emailStatusMain, pressed && styles.cardPressed]}>
+        <View style={[styles.emailIconBadge, { backgroundColor: theme.accentMintSoft }]}>
+          <Ionicons name="mail-outline" size={18} color={theme.primary} />
+        </View>
+        <View style={styles.emailCopy}>
+          {verificationStatus ? <CreatorVerificationBadge status={verificationStatus} compact /> : null}
+          <Text style={[styles.emailAddress, { color: theme.foreground }]} numberOfLines={1}>
+            {email}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={theme.foregroundEyebrow} />
+      </Pressable>
+      {onSync ? (
+        <Pressable
+          testID="inbox-sync-button"
+          accessibilityRole="button"
+          accessibilityLabel={t('inboxScreen.syncNowA11y')}
+          disabled={syncing}
+          onPress={onSync}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.syncButton,
+            { borderColor: theme.border, backgroundColor: theme.card },
+            pressed && !syncing && styles.syncButtonPressed,
+            syncing && styles.syncButtonDisabled,
+          ]}>
+          {syncing ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <Ionicons name="refresh-outline" size={16} color={theme.primary} />
+          )}
+          <Text style={[styles.syncButtonLabel, { color: theme.primary }]} numberOfLines={1}>
+            {syncing ? t('inboxScreen.syncMailboxCtaBusy') : t('inboxScreen.syncMailboxCta')}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -198,6 +229,37 @@ const styles = StyleSheet.create({
     minHeight: layout.touchMin,
   },
   cardPressed: { opacity: 0.88 },
+  emailStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  emailStatusMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  syncButton: {
+    minHeight: 36,
+    borderRadius: radii.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    flexShrink: 0,
+    maxWidth: 132,
+  },
+  syncButtonLabel: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  syncButtonPressed: { opacity: 0.72 },
+  syncButtonDisabled: { opacity: 0.55 },
   emailIconBadge: {
     width: 36,
     height: 36,

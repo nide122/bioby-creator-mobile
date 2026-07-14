@@ -37,7 +37,8 @@
     "verification": "核销",
     "settings": "设置",
     "workspace": "切换工作区",
-    "team": "团队",
+    "workspaceCreate": "创建工作区",
+    "team": "协作者",
     "subscription": "订阅",
     "replyStyle": "回复风格",
     "replyTemplates": "回复模板",
@@ -2076,6 +2077,9 @@
     "retryDesc": "请重试。",
     "title": "切换工作区",
     "description": "选择当前会话使用的租户边界，切换后会重新加载数据。",
+    "createTitle": "使用另一个创作者身份",
+    "createSubtitle": "为不同马甲或合作类型创建彼此隔离的工作区。",
+    "createAction": "创建工作区",
     "listTitle": "你的成员身份",
     "listSubtitle": "当前工作区会高亮显示；待接受邀请可在此处理。",
     "invitedBadge": "待接受",
@@ -2092,52 +2096,57 @@
     "acceptFailedTitle": "接受失败",
     "acceptFailedFallback": "无法接受邀请。"
   },
+  "workspaceCreateScreen": {
+    "title": "创建工作区",
+    "description": "每个工作区的合作、收件箱、创作者资料和设置彼此独立。",
+    "nameTitle": "工作区身份",
+    "nameSubtitle": "填写你希望用于交易的创作者名称或马甲。",
+    "namePlaceholder": "例如：工作室名称",
+    "createAction": "创建并切换",
+    "failedTitle": "创建失败",
+    "failedFallback": "无法创建工作区。"
+  },
   "teamAcceptScreen": {
-    "title": "团队邀请",
+    "title": "工作区邀请",
     "invalidLink": "邀请链接无效。",
     "invalidLinkBody": "请联系工作区 Owner 重新发送邀请。",
     "apiRequired": "需要 API 模式",
-    "apiRequiredBody": "请配置 EXPO_PUBLIC_API_BASE_URL 以接受团队邀请。",
+    "apiRequiredBody": "请配置 EXPO_PUBLIC_API_BASE_URL 以接受工作区邀请。",
     "signInLead": "登录以接受邀请",
     "signInBody": "请使用收到邀请的邮箱登录。",
     "signIn": "登录",
     "register": "注册账号",
     "accepting": "正在接受邀请…",
-    "acceptingA11y": "正在接受团队邀请",
+    "acceptingA11y": "正在接受工作区邀请",
     "successTitle": "已加入工作区",
     "successBody": "你已成功加入。可在「设置 → 工作区」切换到该工作区。",
     "failedTitle": "无法接受邀请",
     "failedFallback": "邀请可能已过期或已被使用。"
   },
   "teamSettingsScreen": {
-    "loadingA11y": "加载团队角色中",
-    "emptyDataFallback": "暂无团队数据",
-    "loadFailedTitle": "团队加载失败",
+    "loadingA11y": "加载协作者中",
+    "emptyDataFallback": "暂无协作者数据",
+    "loadFailedTitle": "协作者加载失败",
     "retryDesc": "请重试。",
-    "eyebrow": "团队",
-    "metricRoles": "角色",
+    "metricMembers": "成员",
     "metricPending": "待接受邀请",
-    "title": "团队成员",
-    "description": "邀请已注册用户并管理待接受邀请。",
-    "membersTitle": "成员",
-    "membersSubtitle": "当前工作区内的活跃成员与待接受邀请。",
+    "title": "协作者",
+    "description": "邀请助手加入当前工作区。所有成员拥有相同的日常业务能力。",
+    "membersTitle": "工作区成员",
+    "membersSubtitle": "当前工作区的所有者、普通成员与待接受邀请。",
     "membersEmpty": "暂无成员。",
     "memberMeta": "{{email}} · {{role}}",
     "badgeActive": "活跃",
-    "revokeInvite": "撤销",
-    "revokeFailedTitle": "撤销失败",
-    "revokeFailedFallback": "无法撤销邀请。",
+    "badgePending": "待处理",
+    "revokeInvite": "撤销邀请",
     "removeMember": "移除",
-    "removeConfirmTitle": "移除成员？",
+    "removeConfirmTitle": "移除协作者？",
     "removeConfirmMessage": "确定要将 {{name}} 从当前工作区移除吗？",
     "removeFailedTitle": "移除失败",
-    "removeFailedFallback": "无法移除成员。",
-    "changeRoleFailedTitle": "角色修改失败",
-    "changeRoleFailedFallback": "无法修改成员角色。",
-    "inviteMembersTitle": "邀请成员",
-    "inviteLead": "已注册用户可在 App 内接受邀请；未注册用户将收到注册邀请邮件。",
+    "removeFailedFallback": "无法移除该协作者。",
+    "inviteMembersTitle": "邀请协作者",
+    "inviteLead": "受邀者将以普通成员身份加入，并可处理工作区内的日常业务。",
     "inviteEmailPlaceholder": "email@example.com",
-    "inviteRoleLabel": "角色",
     "sendInvite": "发送邀请",
     "inviteFailedTitle": "邀请失败",
     "inviteFailedFallback": "无法发送邀请。",
@@ -2149,73 +2158,12 @@
     "inviteEmailFailedBody": "邀请已保存，但邮件未能发送。请告知对方使用该邮箱注册。",
     "invitePendingError": "该邮箱已有待接受邀请。",
     "inviteAlreadyMember": "该用户已是成员。",
-    "ownerOnlyLead": "仅工作区 Owner 可邀请、移除或修改成员角色。",
-    "roles": {
-      "agent": "经办",
-      "finance": "财务",
-      "viewer": "只读"
-    },
+    "ownerOnlyLead": "仅工作区所有者可以邀请或移除协作者。",
     "memberRoles": {
       "OWNER": "所有者",
-      "AGENT": "经办",
-      "FINANCE": "财务",
-      "VIEWER": "只读"
+      "MEMBER": "成员"
     },
-    "roleCards": {
-      "owner": {
-        "title": "所有者",
-        "summary": "对收件箱接入、团队角色及敏感商务条款拥有最终审批权。",
-        "allowed": {
-          "connectInbox": "连接或断开收件箱",
-          "manageMembers": "邀请或移除成员",
-          "viewDealsPayments": "查看全部商单与付款",
-          "approveHighRiskSends": "审批高风险发送"
-        },
-        "denied": {
-          "signBrandContracts": "无法在 Bioby 内签署品牌方合同。"
-        }
-      },
-      "agent": {
-        "title": "经办",
-        "summary": "负责商机筛选、草稿撰写及交付进度推进。",
-        "allowed": {
-          "processInboxLeads": "处理收件箱线索",
-          "generateEditDrafts": "生成与编辑草稿",
-          "moveDeliveryForward": "推进交付与验收"
-        },
-        "denied": {
-          "removeInboxAccess": "移除收件箱接入",
-          "changePayoutAccount": "修改收款账户"
-        }
-      },
-      "finance": {
-        "title": "财务",
-        "summary": "审阅账单、发票与结算节奏。",
-        "allowed": {
-          "viewPaymentsEscrow": "查看付款与托管摘要",
-          "exportBillingRecords": "导出账单记录"
-        },
-        "denied": {
-          "changeAcceptanceTerms": "修改接单条款"
-        }
-      },
-      "viewer": {
-        "title": "只读",
-        "summary": "供编辑、助理或培训使用的只读席位。",
-        "allowed": {
-          "readDealsDraftsTrust": "查看商单、草稿与信任凭证"
-        },
-        "denied": {
-          "sendMessagesApproveDrafts": "发送消息或审批草稿"
-        }
-      }
-    },
-    "badgePending": "待处理",
-    "allowedCount": "{{count}} 项允许",
-    "deniedCount": "{{count}} 项受限",
-    "permissionAllowed": "允许",
-    "permissionDenied": "受限",
-    "footnote": "席位变更可能影响账单。"
+    "footnote": "所有成员都可处理日常业务；只有所有者可以邀请或移除协作者。"
   },
   "subscriptionSettingsScreen": {
     "loadingA11y": "加载订阅中",
@@ -3384,7 +3332,7 @@
     "prefsHeading": "偏好",
     "legalHeading": "法律信息",
     "summaries": {
-      "teamRoles": "{{count}} 个角色",
+      "teamMembers": "{{count}} 名成员",
       "dataHub": "导出中心",
       "workspaceSwitch": "API 租户",
       "mediaKitPublic": "对外公开",
@@ -3394,7 +3342,7 @@
       "profileTitle": "资料",
       "mediaKitTitle": "媒体资料包",
       "workspaceTitle": "切换工作区",
-      "teamTitle": "团队",
+      "teamTitle": "协作者",
       "planTitle": "订阅",
       "replyStyleTitle": "回复风格",
       "replyTemplatesTitle": "回复模板",

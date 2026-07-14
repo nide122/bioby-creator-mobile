@@ -37,7 +37,8 @@
     "verification": "Verification",
     "settings": "Settings",
     "workspace": "Switch workspace",
-    "team": "Team",
+    "workspaceCreate": "Create workspace",
+    "team": "Collaborators",
     "subscription": "Subscription",
     "replyStyle": "Reply style",
     "replyTemplates": "Reply templates",
@@ -2076,6 +2077,9 @@
     "retryDesc": "Please retry.",
     "title": "Switch workspace",
     "description": "Pick which tenant boundary your session uses. Data reloads after switch.",
+    "createTitle": "Use another creator identity",
+    "createSubtitle": "Create an isolated workspace for a different persona or type of collaboration.",
+    "createAction": "Create workspace",
     "listTitle": "Your memberships",
     "listSubtitle": "Active workspace is highlighted. Pending invites can be accepted here.",
     "invitedBadge": "Invited",
@@ -2092,52 +2096,57 @@
     "acceptFailedTitle": "Accept failed",
     "acceptFailedFallback": "Could not accept the invite."
   },
+  "workspaceCreateScreen": {
+    "title": "Create workspace",
+    "description": "Each workspace keeps its collaborations, inbox, creator profile, and settings separate.",
+    "nameTitle": "Workspace identity",
+    "nameSubtitle": "Use the creator name or persona you want to trade as.",
+    "namePlaceholder": "e.g. Studio name",
+    "createAction": "Create and switch",
+    "failedTitle": "Creation failed",
+    "failedFallback": "Could not create the workspace."
+  },
   "teamAcceptScreen": {
-    "title": "Team invitation",
+    "title": "Workspace invitation",
     "invalidLink": "This invite link is invalid.",
     "invalidLinkBody": "Ask the workspace owner to send a new invitation.",
     "apiRequired": "API mode required",
-    "apiRequiredBody": "Set EXPO_PUBLIC_API_BASE_URL to accept team invitations.",
+    "apiRequiredBody": "Set EXPO_PUBLIC_API_BASE_URL to accept workspace invitations.",
     "signInLead": "Sign in to accept",
     "signInBody": "Use the email address that received this invitation.",
     "signIn": "Sign in",
     "register": "Create account",
     "accepting": "Accepting invitation…",
-    "acceptingA11y": "Accepting team invitation",
+    "acceptingA11y": "Accepting workspace invitation",
     "successTitle": "You're in",
     "successBody": "You joined the workspace. Open Workspace settings to switch into it.",
     "failedTitle": "Could not accept",
     "failedFallback": "The invite may have expired or already been used."
   },
   "teamSettingsScreen": {
-    "loadingA11y": "Loading team roles",
-    "emptyDataFallback": "No team data yet",
-    "loadFailedTitle": "Couldn't load team",
+    "loadingA11y": "Loading collaborators",
+    "emptyDataFallback": "No collaborator data yet",
+    "loadFailedTitle": "Couldn't load collaborators",
     "retryDesc": "Please retry.",
-    "eyebrow": "Team",
-    "metricRoles": "Roles",
+    "metricMembers": "Members",
     "metricPending": "Pending invites",
-    "title": "Team members",
-    "description": "Invite registered users and manage pending invites.",
-    "membersTitle": "Members",
-    "membersSubtitle": "Active and pending invites in this workspace.",
+    "title": "Collaborators",
+    "description": "Invite an assistant into this workspace. Every member has the same day-to-day access.",
+    "membersTitle": "Workspace members",
+    "membersSubtitle": "The owner, members, and pending invitations for this workspace.",
     "membersEmpty": "No members yet.",
     "memberMeta": "{{email}} · {{role}}",
     "badgeActive": "Active",
-    "revokeInvite": "Revoke",
-    "revokeFailedTitle": "Revoke failed",
-    "revokeFailedFallback": "Could not revoke the invite.",
+    "badgePending": "Pending",
+    "revokeInvite": "Revoke invite",
     "removeMember": "Remove",
-    "removeConfirmTitle": "Remove member?",
+    "removeConfirmTitle": "Remove collaborator?",
     "removeConfirmMessage": "Remove {{name}} from the current workspace?",
     "removeFailedTitle": "Remove failed",
-    "removeFailedFallback": "Could not remove the member.",
-    "changeRoleFailedTitle": "Role update failed",
-    "changeRoleFailedFallback": "Could not update the member role.",
-    "inviteMembersTitle": "Invite teammate",
-    "inviteLead": "Registered users see the invite in the app. New users receive an email with a sign-up link.",
+    "removeFailedFallback": "Could not remove this collaborator.",
+    "inviteMembersTitle": "Invite collaborator",
+    "inviteLead": "Invitees join as members and can handle day-to-day work in this workspace.",
     "inviteEmailPlaceholder": "email@example.com",
-    "inviteRoleLabel": "Role",
     "sendInvite": "Send invite",
     "inviteFailedTitle": "Invite failed",
     "inviteFailedFallback": "Could not send the invite.",
@@ -2146,76 +2155,15 @@
     "inviteEmailSuccessTitle": "Invite email sent",
     "inviteEmailSuccessBody": "They will receive an email to create an account and join your workspace.",
     "inviteEmailFailedTitle": "Invite saved",
-    "inviteEmailFailedBody": "The invite was saved, but the email could not be sent. Share the workspace name so they can register with this email.",
+    "inviteEmailFailedBody": "The invite was saved, but the email could not be sent. Ask them to register with this email.",
     "invitePendingError": "An invite is already pending for this email.",
     "inviteAlreadyMember": "This user is already a member.",
-    "ownerOnlyLead": "Only the workspace owner can invite, remove, or change member roles.",
-    "roles": {
-      "agent": "Agent",
-      "finance": "Finance",
-      "viewer": "Viewer"
-    },
+    "ownerOnlyLead": "Only the workspace owner can invite or remove collaborators.",
     "memberRoles": {
       "OWNER": "Owner",
-      "AGENT": "Agent",
-      "FINANCE": "Finance",
-      "VIEWER": "Viewer"
+      "MEMBER": "Member"
     },
-    "roleCards": {
-      "owner": {
-        "title": "Owner",
-        "summary": "Final approval for inbox access, team roles, and sensitive commercial terms.",
-        "allowed": {
-          "connectInbox": "Connect or disconnect inbox",
-          "manageMembers": "Invite or remove members",
-          "viewDealsPayments": "View all deals and payments",
-          "approveHighRiskSends": "Approve high-risk sends"
-        },
-        "denied": {
-          "signBrandContracts": "Cannot sign brand-side contracts inside Bioby."
-        }
-      },
-      "agent": {
-        "title": "Agent",
-        "summary": "Handles pitch triage, drafts, and delivery progress.",
-        "allowed": {
-          "processInboxLeads": "Process inbox leads",
-          "generateEditDrafts": "Generate and edit drafts",
-          "moveDeliveryForward": "Move delivery and verification forward"
-        },
-        "denied": {
-          "removeInboxAccess": "Remove inbox access",
-          "changePayoutAccount": "Change payout account"
-        }
-      },
-      "finance": {
-        "title": "Finance",
-        "summary": "Reviews billing, invoices, and settlement timing.",
-        "allowed": {
-          "viewPaymentsEscrow": "View payments and escrow summary",
-          "exportBillingRecords": "Export billing records"
-        },
-        "denied": {
-          "changeAcceptanceTerms": "Change acceptance terms"
-        }
-      },
-      "viewer": {
-        "title": "Viewer",
-        "summary": "Read-only seat for editors, assistants, or training.",
-        "allowed": {
-          "readDealsDraftsTrust": "Read deals, drafts, and trust proof"
-        },
-        "denied": {
-          "sendMessagesApproveDrafts": "Send messages or approve drafts"
-        }
-      }
-    },
-    "badgePending": "Pending",
-    "allowedCount": "{{count}} allowed",
-    "deniedCount": "{{count}} restricted",
-    "permissionAllowed": "Allowed",
-    "permissionDenied": "Restricted",
-    "footnote": "Seat changes may affect billing."
+    "footnote": "Every member can handle day-to-day work; only the owner can invite or remove collaborators."
   },
   "subscriptionSettingsScreen": {
     "loadingA11y": "Loading subscription",
@@ -3384,7 +3332,7 @@
     "prefsHeading": "Preferences",
     "legalHeading": "Legal",
     "summaries": {
-      "teamRoles": "{{count}} roles",
+      "teamMembers": "{{count}} members",
       "dataHub": "Export hub",
       "workspaceSwitch": "API tenants",
       "mediaKitPublic": "Public",
@@ -3394,7 +3342,7 @@
       "profileTitle": "Profile",
       "mediaKitTitle": "Media kit",
       "workspaceTitle": "Switch workspace",
-      "teamTitle": "Team",
+      "teamTitle": "Collaborators",
       "planTitle": "Subscription",
       "replyStyleTitle": "Reply style",
       "replyTemplatesTitle": "Reply templates",

@@ -10,9 +10,8 @@ import type {
   MailboxOAuthProviderStatusView,
   OnboardingStatusView,
   SubscriptionUsageView,
-  TeamRoleView,
 } from '@/src/types/api';
-import type { SubscriptionUsageSnapshot, TeamRoleCard, TeamRoleId } from '@/src/types/domain';
+import type { SubscriptionUsageSnapshot } from '@/src/types/domain';
 import type { AgentSendMode, ClassificationStrictness, CreatorFocusMode, CreatorProfileBasics } from '@/src/stores/session-store';
 import type { CreatorVerificationStatus } from '@/src/lib/creator-verification';
 import type { OnboardingDashboardStatus } from '@/src/lib/onboarding-status';
@@ -58,13 +57,6 @@ export type MailboxConnectionResponse = MailboxConnectionView;
 
 export type MailboxOAuthProviderStatusResponse = MailboxOAuthProviderStatusView;
 
-function asTeamRoleId(value?: string | null): TeamRoleId {
-  if (value === 'owner' || value === 'agent' || value === 'finance' || value === 'viewer') {
-    return value;
-  }
-  return 'viewer';
-}
-
 export function mapSubscriptionUsage(view?: SubscriptionUsageView): SubscriptionUsageSnapshot {
   return {
     planName: view?.planName ?? '',
@@ -74,16 +66,6 @@ export function mapSubscriptionUsage(view?: SubscriptionUsageView): Subscription
     draftConcurrentUsed: view?.draftConcurrentUsed ?? 0,
     draftConcurrentLimit: view?.draftConcurrentLimit ?? 0,
     renewalHint: view?.renewalHint ?? '',
-  };
-}
-
-export function mapTeamRole(view: TeamRoleView): TeamRoleCard {
-  return {
-    id: asTeamRoleId(view.id),
-    title: view.title ?? '',
-    summary: view.summary ?? '',
-    allowed: view.allowed ?? [],
-    denied: view.denied ?? [],
   };
 }
 

@@ -5,14 +5,15 @@ import type { PropsWithChildren } from 'react';
 import type { AccountOverviewResponse } from '@/src/api/account-api';
 import { fetchAccountOverview } from '@/src/api/account-api';
 import type { AuthSession } from '@/src/api/auth-types';
-import { switchTenant } from '@/src/api/tenants-api';
-import { useSwitchTenant } from '@/src/hooks/use-tenants';
+import { createTenant, switchTenant } from '@/src/api/tenants-api';
+import { useCreateTenant, useSwitchTenant } from '@/src/hooks/use-tenants';
 import { useSessionStore } from '@/src/stores/session-store';
 
 jest.mock('@/src/api/tenants-api');
 jest.mock('@/src/api/account-api');
 
 const mockedSwitchTenant = switchTenant as jest.MockedFunction<typeof switchTenant>;
+const mockedCreateTenant = createTenant as jest.MockedFunction<typeof createTenant>;
 const mockedFetchOverview = fetchAccountOverview as jest.MockedFunction<typeof fetchAccountOverview>;
 
 const mockSession: AuthSession = {
@@ -84,6 +85,7 @@ describe('useSwitchTenant', () => {
       complianceAcceptedAt: '2026-06-01T00:00:00.000Z',
     });
     mockedSwitchTenant.mockResolvedValue(mockSession);
+    mockedCreateTenant.mockResolvedValue(mockSession);
   });
 
   afterEach(() => {
@@ -162,5 +164,26 @@ describe('useSwitchTenant', () => {
     expect(s.emailSkipped).toBe(true);
     expect(s.emailWizardFinished).toBe(true);
     expect(s.onboardingComplete).toBe(true);
+  });
+
+  it('creates a workspace, applies its session, and invalidates tenant caches', async () => {
+    mockedFetchOverview.mockResolvedValue({
+      ...baseOverview,
+      profile: null,
+      mailbox: { connected: false, emailAddress: null, provider: null, status: null },
+      onboardingCompletedAt: null,
+    });
+    queryClient.setQueryData(['tenant', 'tenant-a', 'inbox', 'threads'], [{ id: 'old' }]);
+
+    const { result } = renderHook(() => useCreateTenant(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync('Workspace B');
+    });
+
+    expect(mockedCreateTenant).toHaveBeenCalledWith('Workspace B');
+    expect(useSessionStore.getState().tenantPublicId).toBe('tenant-b');
+    expect(useSessionStore.getState().onboardingComplete).toBe(false);
+    expect(queryClient.getQueryState(['tenant', 'tenant-a', 'inbox', 'threads'])?.isInvalidated).toBe(true);
   });
 });

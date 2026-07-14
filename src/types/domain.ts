@@ -632,27 +632,15 @@ export type PaymentsOverview = {
   footnote: string;
 };
 
-/** Studio · 团队角色卡（mock） */
-export type TeamRoleId = 'owner' | 'agent' | 'finance' | 'viewer';
-
-export type TeamRoleCard = {
-  id: TeamRoleId;
-  title: string;
-  summary: string;
-  allowed: string[];
-  denied: string[];
-};
-
 /** 团队成员（API / mock） */
 export type TeamMemberStatus = 'ACTIVE' | 'INVITED';
-
-export type InvitableTeamRole = 'AGENT' | 'FINANCE' | 'VIEWER';
+export type TeamMemberRole = 'OWNER' | 'MEMBER';
 
 export type TeamMember = {
   id: number;
   email: string;
   displayName: string | null;
-  role: string;
+  role: TeamMemberRole;
   status: TeamMemberStatus;
   createdAt: string;
   /** MEMBER = registered user; EMAIL = unregistered email invite */

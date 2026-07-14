@@ -5,7 +5,6 @@ import {
   mapCreatorVerification,
   mapOnboardingStatus,
   mapSubscriptionUsage,
-  mapTeamRole,
   type AccountOverviewResponse,
   type CreatorVerificationResponse,
   type MailboxConnectionResponse,
@@ -22,9 +21,9 @@ import type {
   MailboxOAuthProviderStatusView,
   OnboardingStatusView,
   SubscriptionUsageView,
-  TeamRoleView,
 } from '@/src/types/api';
 import type { OnboardingDashboardStatus } from '@/src/lib/onboarding-status';
+import type { SubscriptionUsageSnapshot } from '@/src/types/domain';
 import type { AgentSendMode, ClassificationStrictness, CreatorFocusMode, CreatorProfileBasics } from '@/src/stores/session-store';
 
 export {
@@ -189,15 +188,6 @@ export async function fetchGoogleMailboxOAuthStatus(): Promise<MailboxOAuthProvi
   } catch {
     return null;
   }
-}
-
-export async function fetchTeamRoles(): Promise<TeamRoleCard[]> {
-  if (!shouldUseBackendApi()) {
-    const { fetchMockTeamRoles } = await import('@/src/api/mock-account');
-    return fetchMockTeamRoles();
-  }
-  const items = await apiRequest<TeamRoleView[]>('/api/v1/account/team-roles');
-  return items.map(mapTeamRole);
 }
 
 export async function fetchSubscriptionUsage(): Promise<SubscriptionUsageSnapshot> {

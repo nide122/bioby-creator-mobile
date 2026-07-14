@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -18,6 +18,7 @@ import { confirmAction } from '@/src/lib/confirm-action';
 export default function SettingsWorkspaceScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const tenants = useMyTenants();
@@ -101,6 +102,18 @@ export default function SettingsWorkspaceScreen() {
       eyebrow={t('tabs.account')}
       title={t('workspaceSettingsScreen.title')}
       lead={t('workspaceSettingsScreen.description')}>
+      <SectionCard
+        title={t('workspaceSettingsScreen.createTitle')}
+        subtitle={t('workspaceSettingsScreen.createSubtitle')}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/settings/workspace-create' as Href)}
+          style={[styles.createButton, { backgroundColor: theme.primary }]}>
+          <Text style={[styles.createButtonLabel, { color: theme.primaryForeground }]}>
+            {t('workspaceSettingsScreen.createAction')}
+          </Text>
+        </Pressable>
+      </SectionCard>
       <SectionCard title={t('workspaceSettingsScreen.listTitle')} subtitle={t('workspaceSettingsScreen.listSubtitle')}>
         {list.length === 0 ? (
           <Text style={[styles.empty, { color: theme.mutedForeground }]}>{t('workspaceSettingsScreen.empty')}</Text>
@@ -204,4 +217,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   acceptLabel: { fontSize: fontSize.caption, fontWeight: '700' },
+  createButton: {
+    minHeight: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  createButtonLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },
 });

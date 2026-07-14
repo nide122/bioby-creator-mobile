@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
-import { fetchMyTenants, switchTenant, type TenantMembership } from '@/src/api/tenants-api';
+import { createTenant, fetchMyTenants, switchTenant, type TenantMembership } from '@/src/api/tenants-api';
 import { replaceTenantOnboardingFromOverview } from '@/src/hooks/use-account-overview';
 import { fetchAccountOverview } from '@/src/api/account-api';
 import { useSessionStore } from '@/src/stores/session-store';
@@ -46,6 +46,25 @@ export function useSwitchTenant() {
       applyAuthSession(session);
       const overview = await fetchAccountOverview();
       // Single write avoids a transient incomplete state that triggers the onboarding redirect.
+      replaceTenantOnboardingFromOverview(overview);
+      return session;
+    },
+    onSuccess: async () => {
+      await invalidateTenantScopedQueries(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ['tenants', 'mine'] });
+    },
+  });
+}
+
+export function useCreateTenant() {
+  const queryClient = useQueryClient();
+  const applyAuthSession = useSessionStore((s) => s.applyAuthSession);
+
+  return useMutation({
+    mutationFn: async (displayName: string) => {
+      const session = await createTenant(displayName);
+      applyAuthSession(session);
+      const overview = await fetchAccountOverview();
       replaceTenantOnboardingFromOverview(overview);
       return session;
     },

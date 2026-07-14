@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
-import { useSubscriptionUsage, useTeamRoles } from '@/src/hooks/use-account-settings';
+import { useSubscriptionUsage, useTeamMembers } from '@/src/hooks/use-account-settings';
 import { useAccountOverview } from '@/src/hooks/use-account-overview';
 import { useMyTenants } from '@/src/hooks/use-tenants';
 import {
@@ -17,7 +17,7 @@ export function useAccountRowSummaries() {
   const overview = useAccountOverview();
   const tenants = useMyTenants();
   const subscription = useSubscriptionUsage();
-  const team = useTeamRoles();
+  const members = useTeamMembers();
 
   const profileDetail = (() => {
     const { platformProfiles } = migrateLegacyProfileBasics(profile);
@@ -28,10 +28,10 @@ export function useAccountRowSummaries() {
   })();
 
   const planDetail = subscription.isError ? undefined : subscription.data?.planName;
-  const teamRoles = Array.isArray(team.data) ? team.data : [];
+  const activeMembers = (members.data ?? []).filter((member) => member.status === 'ACTIVE');
   const teamDetail =
-    !team.isError && teamRoles.length > 0
-      ? t('account.summaries.teamRoles', { count: teamRoles.length })
+    !members.isError && activeMembers.length > 0
+      ? t('account.summaries.teamMembers', { count: activeMembers.length })
       : undefined;
 
   const pendingInviteCount =

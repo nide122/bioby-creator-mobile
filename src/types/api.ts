@@ -30,12 +30,12 @@ export type DealPacketWireView = components['schemas']['DealPacketView'];
 export type DealFulfillmentStatusWireView = components['schemas']['DealFulfillmentStatusView'];
 
 export type AccountOverviewView = components['schemas']['AccountOverviewView'];
+export type AccountDeletionRequestView = components['schemas']['AccountDeletionRequestView'];
 export type CreatorProfileView = components['schemas']['CreatorProfileView'];
 export type CreatorVerificationView = components['schemas']['CreatorVerificationView'];
 export type OnboardingStatusView = components['schemas']['OnboardingStatusView'];
 export type OnboardingStepStatusView = components['schemas']['OnboardingStepStatusView'];
 export type SubscriptionUsageView = components['schemas']['SubscriptionUsageView'];
-export type TeamRoleView = components['schemas']['TeamRoleView'];
 export type MailboxConnectionView = components['schemas']['MailboxConnectionView'];
 export type MailboxOverviewView = components['schemas']['MailboxOverviewView'];
 export type MailboxOAuthProviderStatusView = components['schemas']['MailboxOAuthProviderStatusView'];

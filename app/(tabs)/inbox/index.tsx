@@ -48,7 +48,6 @@ import {
   InboxPriorityFilterRow,
 } from '@/components/inbox/InboxHubCards';
 import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
-import { CreatorVerificationBanner } from '@/components/inbox/CreatorVerificationBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { useTranslation } from 'react-i18next';
@@ -1784,12 +1783,12 @@ export default function InboxScreen() {
     p2: inboxPriorityCounts?.p2 ?? priorityBandCounts.needs_negotiation ?? 0,
     archived: archivedBandCount,
   };
+  const priorityThreads = filterThreadsByPriorityChip(searchableThreads, priorityFilter);
   const mailboxEmail =
     syncStatus.data?.connection?.emailAddress ??
     mailbox.data?.emailAddress ??
     sessionMailboxEmail ??
     accountEmail;
-  const priorityThreads = filterThreadsByPriorityChip(searchableThreads, priorityFilter);
 
   const openThread = (item: InboxThread) => router.push(`/inbox/${item.id}` as Href);
 
@@ -1812,6 +1811,8 @@ export default function InboxScreen() {
         email={mailboxEmail}
         verificationStatus={creatorVerificationStatus}
         onPress={() => router.push('/onboarding/email?source=account' as Href)}
+        onSync={onRefresh}
+        syncing={refreshing || inbox.isRefetching}
       />
       <InboxAddDealCard />
       <InboxNeedsActionToggle value={viewMode} onChange={handleViewModeChange} />

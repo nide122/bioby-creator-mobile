@@ -1,7 +1,7 @@
 import { apiRequest } from '@/src/api/api-client';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import type { AuthSession } from '@/src/api/auth-types';
-import type { InvitableTeamRole, TeamMember } from '@/src/types/domain';
+import type { TeamMember } from '@/src/types/domain';
 import { setAuthTokens } from '@/src/auth/token-storage';
 
 export type TenantMembership = {
@@ -17,6 +17,15 @@ export type TenantMembership = {
 export async function fetchMyTenants(): Promise<TenantMembership[]> {
   if (!shouldUseBackendApi()) return [];
   return apiRequest<TenantMembership[]>('/api/v1/tenants/mine');
+}
+
+export async function createTenant(displayName: string): Promise<AuthSession> {
+  const session = await apiRequest<AuthSession>('/api/v1/tenants', {
+    method: 'POST',
+    body: { displayName: displayName.trim() },
+  });
+  await setAuthTokens(session.accessToken, session.refreshToken);
+  return session;
 }
 
 export async function switchTenant(tenantPublicId: string): Promise<AuthSession> {
@@ -35,28 +44,14 @@ export async function fetchTeamMembers(): Promise<TeamMember[]> {
   return apiRequest<TeamMember[]>('/api/v1/tenants/members');
 }
 
-export async function inviteTeamMember(input: { email: string; role: InvitableTeamRole }): Promise<TeamMember> {
+export async function inviteTeamMember(input: { email: string }): Promise<TeamMember> {
   if (!shouldUseBackendApi()) {
     const { inviteMockTeamMember } = await import('@/src/api/mock-account');
     return inviteMockTeamMember(input);
   }
   return apiRequest<TeamMember>('/api/v1/tenants/members/invite', {
     method: 'POST',
-    body: { email: input.email, role: input.role },
-  });
-}
-
-export async function changeTeamMemberRole(input: {
-  memberId: number;
-  role: InvitableTeamRole;
-}): Promise<TeamMember> {
-  if (!shouldUseBackendApi()) {
-    const { changeMockTeamMemberRole } = await import('@/src/api/mock-account');
-    return changeMockTeamMemberRole(input);
-  }
-  return apiRequest<TeamMember>(`/api/v1/tenants/members/${input.memberId}/role`, {
-    method: 'PATCH',
-    body: { role: input.role },
+    body: { email: input.email },
   });
 }
 
@@ -79,7 +74,11 @@ export async function acceptTenantInviteByToken(token: string): Promise<TeamMemb
 }
 
 export async function revokeTeamInvite(memberId: number): Promise<void> {
-  return removeTeamMember(memberId);
+  if (!shouldUseBackendApi()) {
+    const { removeMockTeamMember } = await import('@/src/api/mock-account');
+    return removeMockTeamMember(memberId);
+  }
+  await apiRequest<void>(`/api/v1/tenants/members/email-invites/${memberId}`, { method: 'DELETE' });
 }
 
 export async function removeTeamMember(memberId: number): Promise<void> {

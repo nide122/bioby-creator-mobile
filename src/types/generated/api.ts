@@ -212,22 +212,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/account/team-roles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["teamRoles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/forgot-password": {
         parameters: {
             query?: never;
@@ -427,7 +411,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_9"];
+        get: operations["list_10"];
         put?: never;
         post?: never;
         delete?: never;
@@ -443,7 +427,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_6"];
+        get: operations["get_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -459,7 +443,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_5"];
+        get: operations["get_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -491,7 +475,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -507,7 +491,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_4"];
+        get: operations["get_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -715,7 +699,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -747,9 +731,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
-        post: operations["create_1"];
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -763,7 +747,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_3"];
+        get: operations["get_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1035,7 +1019,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put: operations["save_1"];
         post?: never;
         delete?: never;
@@ -1339,7 +1323,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1355,7 +1339,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_2"];
+        get: operations["get_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1499,7 +1483,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_1"];
+        get: operations["get_2"];
         put: operations["save"];
         post?: never;
         delete: operations["delete_1"];
@@ -1549,7 +1533,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["generate"];
+        post: operations["generate_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1627,7 +1611,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1675,7 +1659,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["proposalDraft"];
+        get: operations["get_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1693,7 +1677,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["confirmProposalDraft"];
+        post: operations["confirm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1709,7 +1693,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["generateProposalDraft"];
+        post: operations["generate_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createProposal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1723,8 +1723,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["proposal"];
-        put?: never;
+        get: operations["proposal_1"];
+        put: operations["saveProposal"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1757,7 +1757,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["convertProposalToDeal"];
+        post: operations["convertToDeal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1771,7 +1771,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["proposalLinkedDeal"];
+        get: operations["linkedDeal"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1789,7 +1789,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["generateProposalRevision"];
+        post: operations["generate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1803,9 +1803,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["listProposalShares"];
+        get: operations["list_3"];
         put?: never;
-        post: operations["createProposalShare"];
+        post: operations["create_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1822,7 +1822,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["revokeProposalShare"];
+        delete: operations["revoke_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1851,7 +1851,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["publicProposal"];
+        get: operations["proposal"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1870,7 +1870,7 @@ export interface paths {
         get?: never;
         put: operations["register"];
         post?: never;
-        delete: operations["revoke_1"];
+        delete: operations["revoke"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1917,7 +1917,7 @@ export interface paths {
         };
         get: operations["list_1"];
         put?: never;
-        post: operations["create"];
+        post: operations["create_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1950,6 +1950,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["render"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2004,22 +2020,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/tenants/members/{memberId}/role": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["changeRole"];
-        trace?: never;
-    };
     "/api/v1/tenants/members/accept": {
         parameters: {
             query?: never;
@@ -2047,6 +2047,22 @@ export interface paths {
         put?: never;
         post: operations["acceptByToken"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/members/email-invites/{inviteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeEmailInvite"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2267,9 +2283,6 @@ export interface components {
             /** Format: int32 */
             version?: number;
         };
-        ChangeMemberRoleRequest: {
-            role: string;
-        };
         ClassificationRequest: {
             emailCategory: string;
             leadStage: string;
@@ -2279,10 +2292,7 @@ export interface components {
             email: string;
         };
         ConfirmProposalDraftRequest: {
-            /** @description Full creator-edited Proposal document. The server persists this only after confirmation. */
-            proposalDocument: {
-                [key: string]: unknown;
-            };
+            proposalDocument?: components["schemas"]["JsonNode"];
         };
         ContractSummaryFromAttachmentRequest: {
             attachmentId: string;
@@ -2323,6 +2333,9 @@ export interface components {
         CreateProposalShareRequest: {
             /** Format: date-time */
             expiresAt?: string;
+        };
+        CreateTenantRequest: {
+            displayName: string;
         };
         CreatorPlatformProfilePayload: {
             avatarUrl?: string;
@@ -2613,7 +2626,7 @@ export interface components {
             brandHint?: string;
             locale?: string;
             opportunityId?: string;
-            packageId: string;
+            packageId?: string;
         };
         GenerateProposalRevisionRequest: {
             locale?: string;
@@ -2629,8 +2642,7 @@ export interface components {
             purpose?: string;
             rateCardPackageId?: string;
             replyTemplateId?: string;
-            /** @enum {string} */
-            tone?: "friendly" | "professional" | "firm";
+            tone?: string;
         };
         InboxSummaryView: {
             /** Format: int32 */
@@ -2644,7 +2656,6 @@ export interface components {
         };
         InviteMemberRequest: {
             email: string;
-            role: string;
         };
         JsonNode: Record<string, never>;
         LatestApprovedScriptView: {
@@ -3209,53 +3220,51 @@ export interface components {
             displayName?: string;
             nicheTags?: string[];
         };
+        ProposalCreateRequest: {
+            brandHint?: string;
+            locale?: string;
+            opportunityId?: string;
+            packageId?: string;
+            previewOnly?: boolean;
+        };
         ProposalDraftConfirmationView: {
-            draft: components["schemas"]["ProposalDraftView"];
-            /** @description The saved Proposal document. */
-            proposal: {
-                [key: string]: unknown;
-            };
+            draft?: components["schemas"]["ProposalDraftView"];
+            proposal?: components["schemas"]["JsonNode"];
         };
         ProposalDraftView: {
-            /** @enum {string} */
-            approvalState: "PENDING" | "APPROVED";
-            /** @enum {string} */
-            generationSource?: "llm" | "rules";
-            id: string;
-            /** @enum {string} */
-            kind: "proposal";
+            approvalState?: string;
+            generationSource?: string;
+            id?: string;
+            kind?: string;
             opportunityId?: string;
-            proposalDocument: {
-                [key: string]: unknown;
-            };
-            /** @enum {boolean} */
-            requiresApproval: true;
+            proposalDocument?: components["schemas"]["JsonNode"];
+            requiresApproval?: boolean;
         };
         ProposalShareView: {
             /** Format: date-time */
             createdAt?: string;
-            enabled: boolean;
+            enabled?: boolean;
             /** Format: date-time */
             expiresAt?: string;
             /** Format: int64 */
-            id: number;
-            proposalId: string;
+            id?: number;
+            proposalId?: string;
             /** Format: int32 */
-            proposalVersion: number;
-            /** @description Present for an active recoverable share link. */
+            proposalVersion?: number;
             publicPath?: string;
             /** Format: date-time */
             revokedAt?: string;
         };
+        ProposalUpsertRequest: {
+            document?: components["schemas"]["JsonNode"];
+        };
         PublicProposalView: {
             /** Format: date-time */
             expiresAt?: string;
-            proposal: {
-                [key: string]: unknown;
-            };
-            proposalId: string;
+            proposal?: components["schemas"]["JsonNode"];
+            proposalId?: string;
             /** Format: int32 */
-            version: number;
+            version?: number;
         };
         PushDeviceView: {
             enabled?: boolean;
@@ -3305,6 +3314,7 @@ export interface components {
             displayName?: string;
             email: string;
             password: string;
+            preferredLocale?: string;
         };
         RegisterResponse: {
             email?: string;
@@ -3444,13 +3454,6 @@ export interface components {
             inviteKind?: string;
             role?: string;
             status?: string;
-        };
-        TeamRoleView: {
-            allowed?: string[];
-            denied?: string[];
-            id?: string;
-            summary?: string;
-            title?: string;
         };
         TenantMembershipView: {
             active?: boolean;
@@ -3705,7 +3708,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": string;
+                    "application/json": string[];
                 };
             };
         };
@@ -3854,26 +3857,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SubscriptionUsageView"];
-                };
-            };
-        };
-    };
-    teamRoles: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TeamRoleView"][];
                 };
             };
         };
@@ -4160,7 +4143,7 @@ export interface operations {
             };
         };
     };
-    list_9: {
+    list_10: {
         parameters: {
             query?: never;
             header?: never;
@@ -4180,7 +4163,7 @@ export interface operations {
             };
         };
     };
-    get_6: {
+    get_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -4202,7 +4185,7 @@ export interface operations {
             };
         };
     };
-    get_5: {
+    get_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -4246,7 +4229,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -4266,7 +4249,7 @@ export interface operations {
             };
         };
     };
-    get_4: {
+    get_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -4560,7 +4543,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -4606,7 +4589,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query?: {
                 opportunityId?: number;
@@ -4628,7 +4611,7 @@ export interface operations {
             };
         };
     };
-    create_1: {
+    create_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -4652,7 +4635,7 @@ export interface operations {
             };
         };
     };
-    get_3: {
+    get_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -5059,7 +5042,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -5519,7 +5502,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: {
                 actionTier?: string;
@@ -5548,7 +5531,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -5752,7 +5735,7 @@ export interface operations {
             };
         };
     };
-    get_1: {
+    get_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -5875,7 +5858,7 @@ export interface operations {
             };
         };
     };
-    generate: {
+    generate_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -5934,13 +5917,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The latest saved Proposal associated with this opportunity. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JsonNode"];
+                    "*/*": components["schemas"]["JsonNode"];
                 };
             };
         };
@@ -6000,7 +5983,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -6069,7 +6052,7 @@ export interface operations {
             };
         };
     };
-    proposalDraft: {
+    get_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6080,18 +6063,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Proposal draft for creator review. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalDraftView"];
+                    "*/*": components["schemas"]["ProposalDraftView"];
                 };
             };
         };
     };
-    confirmProposalDraft: {
+    confirm: {
         parameters: {
             query?: never;
             header?: never;
@@ -6106,18 +6089,18 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Proposal saved after creator confirmation. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalDraftConfirmationView"];
+                    "*/*": components["schemas"]["ProposalDraftConfirmationView"];
                 };
             };
         };
     };
-    generateProposalDraft: {
+    generate_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6130,18 +6113,42 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Proposal draft generated for creator review; no Proposal is persisted. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalDraftView"];
+                    "*/*": components["schemas"]["ProposalDraftView"];
                 };
             };
         };
     };
-    proposal: {
+    createProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["JsonNode"];
+                };
+            };
+        };
+    };
+    proposal_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6151,6 +6158,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["JsonNode"];
+                };
+            };
+        };
+    };
+    saveProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalUpsertRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -6174,18 +6207,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Proposal versions from newest to oldest. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JsonNode"][];
+                    "*/*": components["schemas"]["JsonNode"][];
                 };
             };
         };
     };
-    convertProposalToDeal: {
+    convertToDeal: {
         parameters: {
             query?: never;
             header?: never;
@@ -6196,18 +6229,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Existing or newly created Deal linked to this Proposal version. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DealListItemView"];
+                    "*/*": components["schemas"]["DealListItemView"];
                 };
             };
         };
     };
-    proposalLinkedDeal: {
+    linkedDeal: {
         parameters: {
             query?: never;
             header?: never;
@@ -6218,25 +6251,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deal created from this Proposal version. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DealListItemView"];
+                    "*/*": components["schemas"]["DealListItemView"];
                 };
-            };
-            /** @description Proposal has not been converted to a Deal. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
-    generateProposalRevision: {
+    generate: {
         parameters: {
             query?: never;
             header?: never;
@@ -6251,18 +6277,18 @@ export interface operations {
             };
         };
         responses: {
-            /** @description A review-only Proposal revision draft. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalDraftView"];
+                    "*/*": components["schemas"]["ProposalDraftView"];
                 };
             };
         };
     };
-    listProposalShares: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -6273,18 +6299,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Proposal share records, newest first. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalShareView"][];
+                    "*/*": components["schemas"]["ProposalShareView"][];
                 };
             };
         };
     };
-    createProposalShare: {
+    create_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -6299,18 +6325,18 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Share created. publicPath is returned for the active link. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalShareView"];
+                    "*/*": components["schemas"]["ProposalShareView"];
                 };
             };
         };
     };
-    revokeProposalShare: {
+    revoke_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6322,13 +6348,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Revoked Proposal share. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalShareView"];
+                    "*/*": components["schemas"]["ProposalShareView"];
                 };
             };
         };
@@ -6355,7 +6381,7 @@ export interface operations {
             };
         };
     };
-    publicProposal: {
+    proposal: {
         parameters: {
             query?: never;
             header?: never;
@@ -6366,13 +6392,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Public, version-locked Proposal document. */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicProposalView"];
+                    "*/*": components["schemas"]["PublicProposalView"];
                 };
             };
         };
@@ -6401,7 +6427,7 @@ export interface operations {
             };
         };
     };
-    revoke_1: {
+    revoke: {
         parameters: {
             query?: never;
             header?: never;
@@ -6507,7 +6533,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6625,6 +6651,30 @@ export interface operations {
             };
         };
     };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTenantRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AuthResponse"];
+                };
+            };
+        };
+    };
     switchTenant: {
         parameters: {
             query?: never;
@@ -6687,32 +6737,6 @@ export interface operations {
             };
         };
     };
-    changeRole: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                memberId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChangeMemberRoleRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TeamMemberView"];
-                };
-            };
-        };
-    };
     accept: {
         parameters: {
             query?: never;
@@ -6758,6 +6782,26 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["TeamMemberView"];
                 };
+            };
+        };
+    };
+    revokeEmailInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inviteId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

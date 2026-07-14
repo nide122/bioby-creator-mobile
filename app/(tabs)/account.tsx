@@ -115,7 +115,6 @@ export default function AccountScreen() {
     await Promise.all([
       invalidateTenantScopedQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['tenants', 'mine'] }),
-      queryClient.invalidateQueries({ queryKey: ['account', 'team-roles'] }),
       queryClient.invalidateQueries({ queryKey: ['growth'] }),
     ]);
   }, [queryClient]);
