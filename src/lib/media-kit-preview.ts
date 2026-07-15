@@ -4,16 +4,13 @@ import { battleReportOutcome } from '@/src/lib/battle-report-media-kit';
 import { buildMediaKitContactUrl, slugifyDisplayName } from '@/src/lib/media-kit-contact-url';
 import { migrateLegacyProfileBasics } from '@/src/lib/creator-profile-aggregate';
 import { resolveMediaKitPreviewPlatforms } from '@/src/lib/platform-matrix-sync';
-import { formatI18nKey } from '@/src/lib/media-kit-formats';
 import type { CreatorProfileBasics } from '@/src/stores/session-store';
 import { resolveMediaKitPublicProofs } from '@/src/lib/public-proof';
 import type {
   BattleReportSummary,
-  ContentFormatKey,
   MediaKitCaseCard,
   MediaKitDocument,
   MediaKitPreview,
-  PlatformRateEntry,
   PublicProofItem,
   RateCardPackage,
 } from '@/src/types/domain';
@@ -73,38 +70,6 @@ function fromPrice(price: string | undefined, t?: TFunction): string {
   const quoteOnRequest = t?.('mediaKitShare.quoteOnRequest');
   const isZh = quoteOnRequest === '面议';
   return isZh ? `${normalized}起` : `from ${normalized}`;
-}
-
-function formatLabel(formatKey: ContentFormatKey, t?: TFunction): string {
-  return t?.(formatI18nKey(formatKey)) ?? formatKey;
-}
-
-function platformFormatService(platform: string, formatKey: ContentFormatKey, t?: TFunction): string {
-  const platformName = platform.trim() || 'Platform';
-  return `${platformName} · ${formatLabel(formatKey, t)}`;
-}
-
-function rateSummariesFromPlatformRates(rows: PlatformRateEntry[], t?: TFunction): MediaKitPreview['rateSummaries'] {
-  const byPlatform = new Map<string, PlatformRateEntry>();
-  for (const row of rows) {
-    if (!row.platform.trim()) continue;
-    if (!byPlatform.has(row.platform)) byPlatform.set(row.platform, row);
-  }
-  return [...byPlatform.values()].slice(0, 4).map((row) => ({
-    id: row.id || row.platform,
-    title: row.platform,
-    startingPrice: fromPrice(row.priceLabel, t),
-    description: formatLabel(row.formatKey, t),
-  }));
-}
-
-function servicesTableFromPlatformRates(rows: PlatformRateEntry[], t?: TFunction): MediaKitPreview['servicesTable'] {
-  return rows
-    .filter((row) => row.platform.trim() && row.formatKey)
-    .map((row) => ({
-      service: platformFormatService(row.platform, row.formatKey, t),
-      fee: row.priceLabel.trim() || (t?.('mediaKitShare.quoteOnRequest') ?? QUOTE_ON_REQUEST_EN),
-    }));
 }
 
 function rateSummariesFromPackages(packages: RateCardPackage[], t?: TFunction): MediaKitPreview['rateSummaries'] {
@@ -181,27 +146,15 @@ export function buildMediaKitPreview(input: {
     inviteCta: document.inviteCta ?? '',
   };
 
-  if (document.platformRates?.length) {
-    preview.rateSummaries = rateSummariesFromPlatformRates(document.platformRates, t);
-    preview.servicesTable = servicesTableFromPlatformRates(document.platformRates, t);
-  } else if (document.syncRateCards) {
-    preview.rateSummaries = rateSummariesFromPackages(rateCardPackages, t);
-    preview.servicesTable = servicesTableFromPackages(rateCardPackages, t);
-  } else {
-    preview.rateSummaries = document.rateSummaries?.map((row) => ({
-      ...row,
-      startingPrice: fromPrice(row.startingPrice, t),
-    }));
-    preview.servicesTable = document.servicesTable;
-  }
+  const publicPackages = document.publicPackageIds === undefined
+    ? rateCardPackages
+    : rateCardPackages.filter((pkg) => document.publicPackageIds?.includes(pkg.id));
+  preview.rateSummaries = rateSummariesFromPackages(publicPackages, t);
+  preview.servicesTable = servicesTableFromPackages(publicPackages, t);
 
   return preview;
 }
 
 export function mediaKitRatesSyncedFromPackages(document: MediaKitDocument | undefined): boolean {
-  if (!document?.syncRateCards) return false;
-  const hasPlatformRates = (document.platformRates ?? []).some(
-    (row) => row.platform.trim() && row.priceLabel.trim()
-  );
-  return !hasPlatformRates;
+  return document !== undefined;
 }

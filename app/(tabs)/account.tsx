@@ -36,7 +36,6 @@ import { useAccountOverview } from '@/src/hooks/use-account-overview';
 import { useOnboardingDashboardStatus } from '@/src/hooks/use-onboarding-dashboard-status';
 import { useAccountRowSummaries } from '@/src/hooks/use-account-row-summaries';
 import { useAssetsHubSummaries } from '@/src/hooks/use-assets-hub-summaries';
-import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { usePendingTenantInvites } from '@/src/hooks/use-tenants';
 import { useTabRefresh } from '@/src/hooks/use-tab-refresh';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
@@ -99,7 +98,6 @@ export default function AccountScreen() {
   }, [accountEmail, profile, t]);
   const { profileDetail, planDetail, teamDetail, workspaceDetail, dataDetail } = useAccountRowSummaries();
   const pitchHub = useAssetsHubSummaries();
-  const { openProposal } = useOpenProposal();
   const pendingInvites = usePendingTenantInvites();
   const canUseOps = shouldUseBackendApi() && membershipRole === 'OWNER';
 
@@ -303,14 +301,6 @@ export default function AccountScreen() {
           subtitle={t('assetsScreen.rows.rateCard.subtitle')}
           detail={pitchHub.rateCardDetail}
           onPress={() => router.push('/pricing' as Href)}
-        />
-        <HubListRow
-          testID="account-row-proposal"
-          icon="document-text-outline"
-          title={t('assetsScreen.rows.proposal.title')}
-          subtitle={t('assetsScreen.rows.proposal.subtitle')}
-          detail={pitchHub.proposalDetail}
-          onPress={() => void openProposal()}
         />
         <HubListRow
           testID="account-row-reply-templates"

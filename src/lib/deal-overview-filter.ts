@@ -9,15 +9,16 @@ export type DealOverviewFilter =
   | 'pending_review'
   | 'settled';
 
-/** Primary chip row on the deals tab (excludes settled). */
+/** Primary chip row on the deals tab. */
 export const DEAL_OVERVIEW_CHIP_ORDER: DealOverviewFilter[] = [
   'all_active',
   'in_progress',
   'awaiting_payment',
   'pending_review',
+  'settled',
 ];
 
-const ALL_OVERVIEW_FILTERS: DealOverviewFilter[] = [...DEAL_OVERVIEW_CHIP_ORDER, 'settled'];
+const ALL_OVERVIEW_FILTERS: DealOverviewFilter[] = DEAL_OVERVIEW_CHIP_ORDER;
 
 const IN_PROGRESS_PHASES: EscrowLifecyclePhase[] = [
   'escrowed',

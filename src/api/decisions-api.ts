@@ -48,18 +48,21 @@ function mapCard(dto: DecisionCardView): DecisionCard {
 export async function fetchTodayDecisions(): Promise<{
   cards: DecisionCard[];
   totalEstimatedMinutes: number;
+  hiddenOpportunityCount: number;
 }> {
   if (!shouldUseBackendApi()) {
     const cards = await fetchMockDecisions();
     return {
       cards,
       totalEstimatedMinutes: cards.reduce((sum, card) => sum + (card.estimatedMinutes ?? 0), 0),
+      hiddenOpportunityCount: 0,
     };
   }
   const res = await apiRequest<TodayDecisionsResponse>('/api/v1/decisions/today');
   return {
     cards: (res.items ?? []).map(mapCard),
     totalEstimatedMinutes: res.totalEstimatedMinutes ?? 0,
+    hiddenOpportunityCount: res.hiddenOpportunityCount ?? 0,
   };
 }
 

@@ -30,6 +30,7 @@ import type {
   MediaKitSectionId,
   DealSummary,
   ProposalPreview,
+  ProposalRevisionsResult,
   RateCardPackage,
 } from '@/src/types/domain';
 import type { ProposalCreateInput } from '@/src/lib/proposal-from-package';
@@ -118,13 +119,19 @@ export async function fetchProposalForOpportunity(opportunityId: string): Promis
   }
 }
 
-export async function fetchProposalRevisions(proposalId: string): Promise<ProposalPreview[]> {
+export async function fetchProposalRevisions(proposalId: string): Promise<ProposalRevisionsResult> {
   if (!shouldUseBackendApi()) {
     const current = await fetchMockProposalPreview(proposalId);
-    return [current];
+    return { restoreBlocked: false, revisions: [current] };
   }
-  const items = await apiRequest<unknown[]>(`/api/v1/proposals/${encodeURIComponent(proposalId)}/revisions`);
-  return items.map(mapProposalPreview);
+  const dto = await apiRequest<{ restoreBlocked?: boolean; revisions?: unknown[] }>(
+    `/api/v1/proposals/${encodeURIComponent(proposalId)}/revisions`,
+  );
+  const revisions = Array.isArray(dto?.revisions) ? dto.revisions.map(mapProposalPreview) : [];
+  return {
+    restoreBlocked: dto?.restoreBlocked === true,
+    revisions,
+  };
 }
 
 export async function fetchProposalDeal(proposalId: string): Promise<DealSummary | null> {
@@ -171,6 +178,41 @@ export async function generateProposalDraft(input: ProposalCreateInput): Promise
   return mapProposalDraft(dto);
 }
 
+export async function restoreProposalRevision(proposalId: string): Promise<ProposalDraft> {
+  if (!shouldUseBackendApi()) {
+    const source = await fetchMockProposalPreview(proposalId);
+    const currentVersion = source.version ?? 1;
+    const proposalIdNew = `proposal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const proposal: ProposalPreview = {
+      ...structuredClone(source),
+      id: proposalIdNew,
+      preview: true,
+      saved: false,
+      generationSource: 'restore',
+      revisionKind: 'restore',
+      version: undefined,
+      current: undefined,
+      baseProposalId: source.baseProposalId ?? source.id,
+      rootProposalId: source.rootProposalId ?? source.id,
+      sourceProposalId: source.id,
+      sourceVersion: currentVersion,
+      restoredFromVersion: currentVersion,
+      proposedVersion: currentVersion + 1,
+    };
+    return {
+      id: `local-restore-${proposal.id}`,
+      approvalState: 'PENDING',
+      generationSource: proposal.generationSource,
+      proposal: { ...proposal, draftId: `local-restore-${proposal.id}` },
+    };
+  }
+  const dto = await apiRequest<unknown>(`/api/v1/proposals/${encodeURIComponent(proposalId)}/revisions/restore`, {
+    method: 'POST',
+    body: {},
+  });
+  return mapProposalDraft(dto);
+}
+
 export async function generateProposalRevision(proposalId: string, locale?: string): Promise<ProposalDraft> {
   if (!shouldUseBackendApi()) {
     const base = await fetchMockProposalPreview(proposalId);
@@ -184,6 +226,7 @@ export async function generateProposalRevision(proposalId: string, locale?: stri
     proposal.baseProposalId = proposalId;
     proposal.rootProposalId = base.rootProposalId ?? proposalId;
     proposal.proposedVersion = (base.version ?? 1) + 1;
+    proposal.revisionKind = 'generate';
     return {
       id: `local-revision-${proposal.id}`,
       approvalState: 'PENDING',

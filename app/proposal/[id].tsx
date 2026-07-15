@@ -42,6 +42,7 @@ import {
   useConvertProposalToDeal,
   useCreateProposalShare,
   useGenerateProposalRevision,
+  useRestoreProposalRevision,
   useProposalDraft,
   useProposalDeal,
   useProposalPreview,
@@ -91,6 +92,7 @@ export default function ProposalDetailScreen() {
   const confirmProposalDraft = useConfirmProposalDraft();
   const convertProposalToDeal = useConvertProposalToDeal();
   const generateProposalRevision = useGenerateProposalRevision();
+  const restoreProposalRevision = useRestoreProposalRevision();
   const revisionsQuery = useProposalRevisions(draftId ? undefined : safeId);
   const proposalSharesQuery = useProposalShares(draftId ? undefined : safeId);
   const createProposalShare = useCreateProposalShare();
@@ -167,7 +169,9 @@ export default function ProposalDetailScreen() {
   if (!activeProposal) return null;
 
   const creatorName = profile?.displayName ?? activeProposal.creatorDisplayName;
-  const currentRevision = revisionsQuery.data?.find((revision) => revision.current);
+  const revisionHistory = revisionsQuery.data?.revisions;
+  const restoreBlocked = revisionsQuery.data?.restoreBlocked === true;
+  const currentRevision = revisionHistory?.find((revision) => revision.current);
   const shareSummary = `${activeProposal.title}\nCreator: ${creatorName}\nBrand: ${activeProposal.brandHint}\n${activeProposal.executiveSummary}`;
   const latestActiveShare = createdShare
     ?? proposalSharesQuery.data?.find((share) => share.enabled && !share.revokedAt && !!share.publicUrl)
@@ -291,10 +295,31 @@ export default function ProposalDetailScreen() {
       if (draftId) {
         router.replace(`/proposal/${saved.id}` as Href);
       }
-      void alertAction(t('proposalDetailScreen.saveSuccessTitle'), t('proposalDetailScreen.saveSuccessDesc'));
+      const restoredFromVersion = activeProposal.restoredFromVersion ?? activeProposal.sourceVersion;
+      if (activeProposal.revisionKind === 'restore' && restoredFromVersion) {
+        void alertAction(
+          t('proposalDetailScreen.restoreSaveSuccessTitle'),
+          t('proposalDetailScreen.restoreSaveSuccessDesc', {
+            version: saved.version ?? activeProposal.proposedVersion ?? 1,
+            sourceVersion: restoredFromVersion,
+          }) + '\n\n' + t('proposalDetailScreen.restoreReshareDesc'),
+        );
+      } else {
+        void alertAction(t('proposalDetailScreen.saveSuccessTitle'), t('proposalDetailScreen.saveSuccessDesc'));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('proposalDetailScreen.saveFailedDesc');
       void alertAction(t('proposalDetailScreen.saveFailedTitle'), message);
+    }
+  };
+
+  const onRestoreFromVersion = async () => {
+    try {
+      const nextDraft = await restoreProposalRevision.mutateAsync(activeProposal.id);
+      router.push(`/proposal/${nextDraft.proposal.id}?draftId=${nextDraft.id}` as Href);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('proposalDetailScreen.emptyDataFallback');
+      void alertAction(t('proposalDetailScreen.restoreFailedTitle'), message);
     }
   };
 
@@ -336,9 +361,25 @@ export default function ProposalDetailScreen() {
   };
 
   const generationLabel =
-    activeProposal.generationSource === 'llm'
-      ? t('proposalDetailScreen.badgeAiDraft')
-      : t('proposalDetailScreen.badgeRulesDraft');
+    activeProposal.revisionKind === 'restore'
+      ? t('proposalDetailScreen.badgeRestoreDraft', {
+          version: activeProposal.restoredFromVersion ?? activeProposal.sourceVersion ?? 1,
+        })
+      : activeProposal.generationSource === 'llm'
+        ? t('proposalDetailScreen.badgeAiDraft')
+        : activeProposal.generationSource === 'restore'
+          ? t('proposalDetailScreen.badgeRestoreDraft', {
+              version: activeProposal.restoredFromVersion ?? activeProposal.sourceVersion ?? 1,
+            })
+          : t('proposalDetailScreen.badgeRulesDraft');
+
+  const restoreDraftHint =
+    activeProposal.revisionKind === 'restore' || activeProposal.generationSource === 'restore'
+      ? t('proposalDetailScreen.restoreDraftHint', {
+          sourceVersion: activeProposal.restoredFromVersion ?? activeProposal.sourceVersion ?? 1,
+          nextVersion: activeProposal.proposedVersion ?? (activeProposal.version ?? 1) + 1,
+        })
+      : null;
 
   return (
     <HubScreen
@@ -353,6 +394,10 @@ export default function ProposalDetailScreen() {
           <Badge tone="warning" label={t('proposalDetailScreen.badgeDraft')} />
           <Badge tone="mint" label={generationLabel} />
         </View>
+      ) : null}
+
+      {isDraft && restoreDraftHint ? (
+        <Text style={[styles.meta, { color: theme.mutedForeground }]}>{restoreDraftHint}</Text>
       ) : null}
 
       {!isDraft && activeProposal.current === false ? (
@@ -382,6 +427,23 @@ export default function ProposalDetailScreen() {
               </Text>
             </View>
           ) : null}
+          {restoreBlocked ? (
+            <Text style={[styles.meta, { color: theme.mutedForeground }]}>
+              {t('proposalDetailScreen.restoreBlockedDeal')}
+            </Text>
+          ) : (
+            <HubListRow
+              icon="copy-outline"
+              title={t('proposalDetailScreen.createFromVersion', {
+                version: activeProposal.version ?? 1,
+              })}
+              subtitle={t('proposalDetailScreen.createFromVersionSubtitle', {
+                version: activeProposal.version ?? 1,
+              })}
+              onPress={() => void onRestoreFromVersion()}
+              detail={restoreProposalRevision.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
+            />
+          )}
         </SectionCard>
       ) : null}
 
@@ -592,9 +654,9 @@ export default function ProposalDetailScreen() {
         <Badge tone="mint" label={t('proposalDetailScreen.badgeAwaitingBrand')} />
       ) : null}
 
-      {!isDraft && activeProposal.current !== false && revisionsQuery.data && revisionsQuery.data.length > 1 ? (
+      {!isDraft && activeProposal.current !== false && revisionHistory && revisionHistory.length > 1 ? (
         <SettingsGroup title={t('proposalDetailScreen.versionHistoryTitle')}>
-          {revisionsQuery.data.map((revision) => (
+          {revisionHistory.map((revision) => (
             <HubListRow
               key={revision.id}
               icon="git-branch-outline"
@@ -617,7 +679,7 @@ export default function ProposalDetailScreen() {
             detail={saveProposal.isPending || confirmProposalDraft.isPending ? t('proposalDetailScreen.savingA11y') : undefined}
           />
         ) : null}
-        {!isDraft && activeProposal.current !== false && !proposalDealQuery.data ? (
+        {!isDraft && activeProposal.current !== false && !proposalDealQuery.data && !restoreBlocked ? (
           <HubListRow
             icon="refresh-outline"
             title={t('proposalDetailScreen.ctaUpdateProposal')}

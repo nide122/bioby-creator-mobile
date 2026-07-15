@@ -582,10 +582,14 @@ function DoneState({
   aiActionLog,
   deferred,
   onReprocessDeferred,
+  hiddenOpportunityCount,
+  creatorFocusMode,
 }: {
   aiActionLog: AiActionLogEntry[];
   deferred: DecisionCard[];
   onReprocessDeferred: () => void;
+  hiddenOpportunityCount: number;
+  creatorFocusMode: 'quiet' | 'work';
 }) {
   const { t, i18n } = useTranslation();
   const timeTag = calendarLocaleTagForLanguage(i18n.language);
@@ -611,6 +615,11 @@ function DoneState({
           <Ionicons name="checkmark-circle" size={32} color={theme.primary} />
         </View>
         <Text style={[styles.doneTitle, { color: theme.foreground }]}>{t('today.doneTitle')}</Text>
+        <Text style={[styles.doneSub, { color: theme.mutedForeground }]}>
+          {creatorFocusMode === 'quiet' && hiddenOpportunityCount > 0
+            ? t('today.doneSubHidden', { count: hiddenOpportunityCount })
+            : t('today.doneSubDefault')}
+        </Text>
       </View>
 
       {/* 推迟的事项 */}
@@ -697,6 +706,7 @@ export default function DecisionQueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const profile = useSessionStore((s) => s.profileBasics);
+  const creatorFocusMode = useSessionStore((s) => s.creatorFocusMode);
   const queryClient = useQueryClient();
   const queue = useDecisionQueue();
   const aiActionLog = useAiActionLog();
@@ -779,6 +789,11 @@ export default function DecisionQueueScreen() {
         </HubMetrics>
       ) : null}
       {!displayDone ? <UndoDecisionBanner entry={queue.lastEntry} onUndo={queue.undoLast} /> : null}
+      {!displayDone && creatorFocusMode === 'quiet' && queue.hiddenOpportunityCount > 0 ? (
+        <Text style={[styles.focusHiddenSummary, { color: theme.mutedForeground }]}>
+          {t('today.focusHiddenSummary', { count: queue.hiddenOpportunityCount })}
+        </Text>
+      ) : null}
     </>
   );
 
@@ -795,6 +810,8 @@ export default function DecisionQueueScreen() {
           aiActionLog={aiActionLog}
           deferred={queue.deferred}
           onReprocessDeferred={handleReprocessDeferred}
+          hiddenOpportunityCount={queue.hiddenOpportunityCount}
+          creatorFocusMode={creatorFocusMode}
         />
       ) : displayCurrent ? (
         <View style={styles.cardSection}>
@@ -876,6 +893,7 @@ const styles = StyleSheet.create({
   categoryIcon: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 'auto' },
   totalMinutesSummary: { fontSize: fontSize.bodySmall, fontWeight: '600' },
+  focusHiddenSummary: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   identityBlock: { gap: spacing.xs },
   cardTitle: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.35, lineHeight: lineHeight.lead },
   cardStatusSubtitle: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },

@@ -60,7 +60,7 @@ describe('media-kit-completion', () => {
     expect(formatMediaKitHubDetail(completion, t)).toBe('1 cases · link ready · pricing synced');
   });
 
-  it('does not append pricing sync when platform rates take precedence', () => {
+  it('keeps pricing synced even when legacy platform rates remain stored', () => {
     const completion = assessMediaKitCompletion(
       {
         ...READY_DOC,
@@ -69,8 +69,8 @@ describe('media-kit-completion', () => {
       },
       'Mia Skin Notes'
     );
-    expect(completion.pricingSyncedVisible).toBe(false);
-    expect(formatMediaKitHubDetail(completion, t)).toBe('1 cases · link ready');
+    expect(completion.pricingSyncedVisible).toBe(true);
+    expect(formatMediaKitHubDetail(completion, t)).toBe('1 cases · link ready · pricing synced');
   });
 
   it('formats missing-field detail with optional pricing sync suffix', () => {

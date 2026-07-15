@@ -203,6 +203,9 @@ export async function connectMailboxGoogleOAuth(input: {
   accessToken: string;
   refreshToken?: string | null;
   clientId?: string;
+  analyticsFlowId?: string;
+  analyticsSource?: string;
+  analyticsPlatform?: string;
 }): Promise<MailboxConnectionResponse | null> {
   if (!shouldUseBackendApi()) return null;
   return apiRequest<MailboxConnectionView>('/api/v1/mailbox/connect/oauth/google', {
@@ -211,6 +214,9 @@ export async function connectMailboxGoogleOAuth(input: {
       accessToken: input.accessToken,
       refreshToken: input.refreshToken ?? undefined,
       clientId: input.clientId,
+      analyticsFlowId: input.analyticsFlowId,
+      analyticsSource: input.analyticsSource,
+      analyticsPlatform: input.analyticsPlatform,
     },
   });
 }
@@ -221,6 +227,9 @@ export async function connectMailboxGoogleOAuthCode(input: {
   redirectUri: string;
   codeVerifier: string;
   clientId?: string;
+  analyticsFlowId?: string;
+  analyticsSource?: string;
+  analyticsPlatform?: string;
 }): Promise<MailboxConnectionResponse | null> {
   if (!shouldUseBackendApi()) return null;
   return apiRequest<MailboxConnectionView>('/api/v1/mailbox/connect/oauth/google', {
@@ -230,6 +239,9 @@ export async function connectMailboxGoogleOAuthCode(input: {
       redirectUri: normalizeOAuthRedirectUri(input.redirectUri),
       codeVerifier: input.codeVerifier,
       clientId: input.clientId,
+      analyticsFlowId: input.analyticsFlowId,
+      analyticsSource: input.analyticsSource,
+      analyticsPlatform: input.analyticsPlatform,
     },
   });
 }

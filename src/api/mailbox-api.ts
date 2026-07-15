@@ -42,12 +42,22 @@ export type MailboxSyncJob = {
 };
 
 export async function enqueueMailboxSync(
-  options?: { lookback?: MailboxSyncLookback },
+  options?: {
+    lookback?: MailboxSyncLookback;
+    analytics?: { flowId: string; source: string; platform: string };
+  },
 ): Promise<MailboxSyncEnqueueResult | null> {
   if (!shouldUseBackendApi()) return null;
   const response = await apiRequest<MailboxSyncEnqueueResult | MailSyncResult>('/api/v1/mailbox/sync', {
     method: 'POST',
-    body: options?.lookback ? { lookback: options.lookback } : undefined,
+    body: options?.lookback || options?.analytics
+      ? {
+          lookback: options?.lookback,
+          analyticsFlowId: options?.analytics?.flowId,
+          analyticsSource: options?.analytics?.source,
+          analyticsPlatform: options?.analytics?.platform,
+        }
+      : undefined,
   });
   if (response && 'jobId' in response && !('processed' in response)) {
     return response;

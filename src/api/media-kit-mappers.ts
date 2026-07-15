@@ -252,6 +252,9 @@ export function mapMediaKitDocument(dto: unknown): MediaKitDocument {
     inviteCta: asString(root.inviteCta),
     platformRates: mapPlatformRates(root.platformRates),
     syncRateCards: root.syncRateCards == null ? false : Boolean(root.syncRateCards),
+    publicPackageIds: Array.isArray(root.publicPackageIds)
+      ? root.publicPackageIds.map((id) => String(id)).filter(Boolean)
+      : undefined,
     syncBattleReports: root.syncBattleReports == null ? true : Boolean(root.syncBattleReports),
     enabledPublicProofIds: Array.isArray(root.enabledPublicProofIds)
       ? root.enabledPublicProofIds.map((id) => String(id)).filter(Boolean)
@@ -346,5 +349,11 @@ export function mapProposalPreview(dto: unknown): ProposalPreview {
     baseProposalId: asString(root.baseProposalId) ?? undefined,
     rootProposalId: asString(root.rootProposalId) ?? undefined,
     proposedVersion: typeof root.proposedVersion === 'number' ? root.proposedVersion : undefined,
+    sourceProposalId: asString(root.sourceProposalId) ?? undefined,
+    sourceVersion: typeof root.sourceVersion === 'number' ? root.sourceVersion : undefined,
+    restoredFromVersion: typeof root.restoredFromVersion === 'number' ? root.restoredFromVersion : undefined,
+    revisionKind: root.revisionKind === 'restore' || root.revisionKind === 'generate'
+      ? root.revisionKind
+      : undefined,
   };
 }

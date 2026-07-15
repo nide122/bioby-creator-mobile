@@ -35,7 +35,6 @@ export default function AssetsScreen() {
   const refreshAssets = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['growth'] }),
-      queryClient.invalidateQueries({ queryKey: ['battle-reports'] }),
       queryClient.invalidateQueries({ queryKey: ['drafts'] }),
       queryClient.invalidateQueries({ queryKey: ['trust'] }),
       queryClient.invalidateQueries({ queryKey: ['disputes'] }),
@@ -51,11 +50,6 @@ export default function AssetsScreen() {
           value={`${hub.onTimeRate}%`}
           label={t('assetsScreen.metrics.onTime')}
           hint={t('assetsScreen.metrics.onTimeHint')}
-        />
-        <HubMetric
-          value={hub.isLoading ? '—' : String(hub.shareableCount)}
-          label={t('assetsScreen.metrics.shareable')}
-          hint={t('assetsScreen.metrics.shareableHint')}
         />
         <HubMetric
           value={hub.isLoading ? '—' : String(hub.pendingDrafts)}
@@ -131,14 +125,6 @@ export default function AssetsScreen() {
       </SettingsGroup>
 
       <SettingsGroup title={t('assetsScreen.sections.playbook')}>
-        <AssetRow
-          testID="assets-row-battle-reports"
-          icon="trophy-outline"
-          title={t('assetsScreen.rows.battleReports.title')}
-          subtitle={t('assetsScreen.rows.battleReports.subtitle')}
-          detail={hub.battleReportsDetail}
-          onPress={() => router.push('/battle-reports' as Href)}
-        />
         <AssetRow
           testID="assets-row-drafts"
           icon="create-outline"

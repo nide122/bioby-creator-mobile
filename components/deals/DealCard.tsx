@@ -19,6 +19,12 @@ type Props = {
   deal: DealSummary;
   selected?: boolean;
   onPreviewPress?: () => void;
+  /** Settled deals: view or generate battle report from the card footer. */
+  battleReportAction?: {
+    label: string;
+    loading?: boolean;
+    onPress: () => void;
+  };
 } & Pick<PressableProps, 'onPress'>;
 
 function escrowTone(phase: EscrowLifecyclePhase): 'primary' | 'mint' | 'warning' | 'danger' | 'neutral' {
@@ -43,6 +49,7 @@ export function DealCard({
   selected,
   onPress,
   onPreviewPress,
+  battleReportAction,
 }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -105,6 +112,27 @@ export function DealCard({
           {nextStep}
         </Text>
       </View>
+
+      {battleReportAction ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={(event) => {
+            event.stopPropagation();
+            battleReportAction.onPress();
+          }}
+          disabled={battleReportAction.loading}
+          style={({ pressed }) => [
+            styles.battleReportRow,
+            { borderColor: theme.primary, backgroundColor: `${theme.primary}12` },
+            pressed && styles.previewButtonPressed,
+            battleReportAction.loading && styles.battleReportDisabled,
+          ]}>
+          <Ionicons name="ribbon-outline" size={16} color={theme.primary} />
+          <Text style={[styles.battleReportLabel, { color: theme.primary }]}>
+            {battleReportAction.label}
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.footer}>
         {onPreviewPress ? (
@@ -199,6 +227,23 @@ const styles = StyleSheet.create({
   previewLabel: {
     fontSize: fontSize.caption,
     fontWeight: '700',
+  },
+  battleReportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    minHeight: layout.touchMin * 0.75,
+    paddingHorizontal: spacing.md,
+  },
+  battleReportLabel: {
+    fontSize: fontSize.bodySmall,
+    fontWeight: '700',
+  },
+  battleReportDisabled: {
+    opacity: 0.6,
   },
   openHint: {
     flexDirection: 'row',

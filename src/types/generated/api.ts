@@ -1076,6 +1076,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mailbox/oauth/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recordOAuthEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mailbox/oauth/google/status": {
         parameters: {
             query?: never;
@@ -1790,6 +1806,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["generate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/revisions/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreProposalRevision"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2718,8 +2750,22 @@ export interface components {
             read?: boolean;
             success?: boolean;
         };
+        MailboxOAuthAnalyticsEventRequest: {
+            /** Format: int32 */
+            durationMs?: number;
+            eventType: components["schemas"]["MailboxOAuthAnalyticsEventType"];
+            failureCode?: string;
+            flowId?: string;
+            platform?: string;
+            source?: string;
+        };
+        /** @enum {string} */
+        MailboxOAuthAnalyticsEventType: "GMAIL_CONNECT_VIEWED" | "GMAIL_OAUTH_STARTED" | "GMAIL_OAUTH_CALLBACK_RECEIVED" | "GMAIL_OAUTH_CANCELLED" | "GMAIL_OAUTH_FAILED" | "GMAIL_CONNECT_SUCCEEDED" | "GMAIL_CONNECT_FAILED" | "GMAIL_CONNECT_SKIPPED";
         MailboxOAuthConnectRequest: {
             accessToken?: string;
+            analyticsFlowId?: string;
+            analyticsPlatform?: string;
+            analyticsSource?: string;
             clientId?: string;
             code?: string;
             codeVerifier?: string;
@@ -2822,6 +2868,9 @@ export interface components {
             upToDate?: boolean;
         };
         MailboxSyncRequest: {
+            analyticsFlowId?: string;
+            analyticsPlatform?: string;
+            analyticsSource?: string;
             lookback?: string;
         };
         MailboxSyncStatusView: {
@@ -3240,6 +3289,10 @@ export interface components {
             proposalDocument?: components["schemas"]["JsonNode"];
             requiresApproval?: boolean;
         };
+        ProposalRevisionsView: {
+            restoreBlocked?: boolean;
+            revisions?: components["schemas"]["JsonNode"][];
+        };
         ProposalShareView: {
             /** Format: date-time */
             createdAt?: string;
@@ -3482,6 +3535,11 @@ export interface components {
             type?: string;
         };
         TodayDecisionsResponse: {
+            /**
+             * Format: int32
+             * @description Opportunity cards tucked away by quiet focus mode (0 in work mode).
+             */
+            hiddenOpportunityCount?: number;
             items?: components["schemas"]["DecisionCardView"][];
             /** Format: int32 */
             totalEstimatedMinutes?: number;
@@ -5163,6 +5221,28 @@ export interface operations {
             };
         };
     };
+    recordOAuthEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailboxOAuthAnalyticsEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Event recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     googleOAuthStatus: {
         parameters: {
             query?: never;
@@ -6213,7 +6293,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["JsonNode"][];
+                    "*/*": components["schemas"]["ProposalRevisionsView"];
                 };
             };
         };
@@ -6263,6 +6343,32 @@ export interface operations {
         };
     };
     generate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GenerateProposalRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProposalDraftView"];
+                };
+            };
+        };
+    };
+    restoreProposalRevision: {
         parameters: {
             query?: never;
             header?: never;

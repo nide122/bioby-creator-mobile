@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
-import { GoogleOAuthButton } from '@/components/oauth/GoogleOAuthButton';
+import { GoogleOAuthButton, type GoogleOAuthLifecycleEvent } from '@/components/oauth/GoogleOAuthButton';
 import { MicrosoftOAuthButton } from '@/components/oauth/MicrosoftOAuthButton';
 import { OAuthUnconfiguredButton } from '@/components/oauth/OAuthUnconfiguredButton';
 import { Badge, getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
@@ -16,6 +16,12 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { fetchGoogleMailboxOAuthStatus, markInboxSetupSkipped } from '@/src/api/account-api';
+import {
+  createMailboxOAuthFlowId,
+  mailboxOAuthPlatform,
+  normalizeGmailOAuthFailureCode,
+  trackGmailOAuthEvent,
+} from '@/src/api/mailbox-oauth-analytics-api';
 import {
   syncMailboxGoogleOAuthCodeToBackend,
   syncMailboxOAuthToBackend,
@@ -97,6 +103,26 @@ export default function EmailOnboardingScreen() {
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [manualSetupExpanded, setManualSetupExpanded] = useState(false);
+  const gmailFlowIdRef = useRef<string | null>(null);
+  const gmailFlowStartedAtRef = useRef<number | null>(null);
+  const gmailAnalyticsSource = fromAccount
+    ? 'account'
+    : source === 'inbox-repair'
+      ? 'inbox_repair'
+      : source === 'draft-send'
+        ? 'draft_send'
+        : 'onboarding';
+  const apiMode = shouldUseBackendApi();
+
+  useEffect(() => {
+    if (!authReady || !apiMode) return;
+    const flowId = createMailboxOAuthFlowId();
+    void trackGmailOAuthEvent({
+      eventType: 'GMAIL_CONNECT_VIEWED',
+      flowId,
+      source: gmailAnalyticsSource,
+    }).catch(() => undefined);
+  }, [apiMode, authReady, gmailAnalyticsSource]);
 
   useEffect(() => {
     if (mailboxConnection?.email) {
@@ -151,7 +177,6 @@ export default function EmailOnboardingScreen() {
     setSmtpPort(next.smtpPort);
   };
 
-  const apiMode = shouldUseBackendApi();
   const googleMailboxOAuthStatus = useQuery({
     queryKey: ['mailbox-oauth', 'google', 'status'],
     queryFn: fetchGoogleMailboxOAuthStatus,
@@ -188,14 +213,19 @@ export default function EmailOnboardingScreen() {
     accessToken: string;
     refreshToken?: string | null;
     clientId?: string;
-  }) => {
+  }): Promise<boolean> => {
     setSyncState('syncing');
     setSyncMessage(null);
-    const result = await syncMailboxOAuthToBackend({ provider: 'google', ...tokens });
+    const result = await syncMailboxOAuthToBackend({
+      provider: 'google',
+      ...tokens,
+      analytics: gmailAnalyticsContext(),
+    });
     if (!result.ok) {
       await showSyncError('onboardingSync.mailboxTitle', result);
-      return;
+      return false;
     }
+    return true;
   };
 
   const onGmailOAuthCode = async (payload: {
@@ -206,13 +236,45 @@ export default function EmailOnboardingScreen() {
   }) => {
     setSyncState('syncing');
     setSyncMessage(null);
-    const result = await syncMailboxGoogleOAuthCodeToBackend(payload);
+    const result = await syncMailboxGoogleOAuthCodeToBackend({
+      ...payload,
+      analytics: gmailAnalyticsContext(),
+    });
     if (!result.ok) {
       await showSyncError('onboardingSync.mailboxTitle', result);
       return;
     }
     completeEmailWizard(result.data.emailAddress ?? mailbox.trim());
     goNext();
+  };
+
+  const gmailAnalyticsContext = () => ({
+    flowId: gmailFlowIdRef.current ?? createMailboxOAuthFlowId(),
+    source: gmailAnalyticsSource,
+    platform: mailboxOAuthPlatform(),
+  });
+
+  const onGmailOAuthLifecycle = (event: GoogleOAuthLifecycleEvent) => {
+    if (event.type === 'started') {
+      gmailFlowIdRef.current = event.flowId;
+      gmailFlowStartedAtRef.current = Date.now();
+    }
+    const eventType = event.type === 'started'
+      ? 'GMAIL_OAUTH_STARTED'
+      : event.type === 'callback_received'
+        ? 'GMAIL_OAUTH_CALLBACK_RECEIVED'
+        : event.type === 'cancelled'
+          ? 'GMAIL_OAUTH_CANCELLED'
+          : 'GMAIL_OAUTH_FAILED';
+    void trackGmailOAuthEvent({
+      eventType,
+      flowId: event.flowId,
+      source: gmailAnalyticsSource,
+      failureCode: event.failureCode ? normalizeGmailOAuthFailureCode(event.failureCode) : undefined,
+      durationMs: event.type === 'started' || gmailFlowStartedAtRef.current == null
+        ? undefined
+        : Math.max(0, Date.now() - gmailFlowStartedAtRef.current),
+    }).catch(() => undefined);
   };
 
   const onMicrosoftMailboxTokens = async (accessToken: string, refreshToken?: string | null) => {
@@ -273,6 +335,11 @@ export default function EmailOnboardingScreen() {
       return;
     }
     skipEmailWizard();
+    void trackGmailOAuthEvent({
+      eventType: 'GMAIL_CONNECT_SKIPPED',
+      flowId: createMailboxOAuthFlowId(),
+      source: gmailAnalyticsSource,
+    }).catch(() => undefined);
     void markInboxSetupSkipped({
       agentSendMode: agentSendMode ?? undefined,
       creatorFocusMode,
@@ -350,6 +417,7 @@ export default function EmailOnboardingScreen() {
             variant="gmail"
             onGmailOAuthTokens={apiMode ? onGmailOAuthTokens : undefined}
             onGoogleAuthCode={apiMode ? onGmailOAuthCode : undefined}
+            onOAuthLifecycle={onGmailOAuthLifecycle}
             onSuccess={onOAuthConnected}
             onError={(msg) => void alertAction(t('onboardingEmailScreen.gmailConnectFailTitle'), msg)}
           />

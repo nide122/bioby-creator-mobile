@@ -4,6 +4,7 @@ import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import {
   fetchBattleReportById,
   fetchBattleReports,
+  generateBattleReport,
   updateBattleReportShareable,
 } from '@/src/api/battle-reports-api';
 import { invalidateTenantScopedQueries, useTenantQueryKey, useTenantScopedQueryEnabled } from '@/src/lib/tenant-query';
@@ -40,6 +41,21 @@ export function useUpdateBattleReportShareable(reportId: string | undefined) {
       updateBattleReportShareable(reportId as string, shareableToMediaKit),
     onSuccess: async (updated) => {
       queryClient.setQueryData(detailKey, updated);
+      await queryClient.invalidateQueries({ queryKey: listKey });
+      await invalidateTenantScopedQueries(queryClient);
+    },
+  });
+}
+
+export function useGenerateBattleReport() {
+  const queryClient = useQueryClient();
+  const apiMode = shouldUseBackendApi();
+  const listKey = useTenantQueryKey('battle-reports', 'list', { api: apiMode });
+  return useMutation({
+    mutationFn: generateBattleReport,
+    onSuccess: async (created) => {
+      const detailKey = useTenantQueryKey('battle-reports', 'detail', created.id, { api: apiMode });
+      queryClient.setQueryData(detailKey, created);
       await queryClient.invalidateQueries({ queryKey: listKey });
       await invalidateTenantScopedQueries(queryClient);
     },

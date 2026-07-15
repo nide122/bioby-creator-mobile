@@ -8,6 +8,7 @@ import {
 } from '@/src/api/account-api';
 import { ApiError } from '@/src/api/api-client';
 import { enqueueMailboxSync, type MailboxSyncEnqueueResult } from '@/src/api/mailbox-api';
+import type { MailboxOAuthAnalyticsContext } from '@/src/api/mailbox-oauth-analytics-api';
 import type { CreatorProfileBasics, AgentSendMode } from '@/src/stores/session-store';
 
 import { normalizeOAuthRedirectUri } from '@/src/auth/google-oauth';
@@ -29,8 +30,10 @@ function syncError(err: unknown, fallback: string): SyncResult<never> {
   return { ok: false, error: err instanceof Error ? err.message : fallback };
 }
 
-async function enqueueFirstConnectMailboxSync(): Promise<MailboxInitialSyncEnqueue> {
-  return enqueueMailboxSync({ lookback: FIRST_CONNECT_SYNC_LOOKBACK });
+async function enqueueFirstConnectMailboxSync(
+  analytics?: MailboxOAuthAnalyticsContext,
+): Promise<MailboxInitialSyncEnqueue> {
+  return enqueueMailboxSync({ lookback: FIRST_CONNECT_SYNC_LOOKBACK, analytics });
 }
 
 export async function syncProfileToBackend(profile: CreatorProfileBasics): Promise<SyncResult> {
@@ -56,6 +59,7 @@ export async function syncMailboxOAuthToBackend(input: {
   accessToken: string;
   refreshToken?: string | null;
   clientId?: string;
+  analytics?: MailboxOAuthAnalyticsContext;
 }): Promise<SyncResult<MailboxInitialSyncEnqueue>> {
   try {
     if (input.provider === 'google') {
@@ -63,6 +67,9 @@ export async function syncMailboxOAuthToBackend(input: {
         accessToken: input.accessToken,
         refreshToken: input.refreshToken,
         clientId: input.clientId,
+        analyticsFlowId: input.analytics?.flowId,
+        analyticsSource: input.analytics?.source,
+        analyticsPlatform: input.analytics?.platform,
       });
     } else {
       await connectMailboxMicrosoftOAuth({
@@ -70,7 +77,7 @@ export async function syncMailboxOAuthToBackend(input: {
         refreshToken: input.refreshToken,
       });
     }
-    const enqueueResult = await enqueueFirstConnectMailboxSync();
+    const enqueueResult = await enqueueFirstConnectMailboxSync(input.analytics);
     return { ok: true, data: enqueueResult };
   } catch (err) {
     return syncError(err, 'Mailbox OAuth sync failed');
@@ -82,6 +89,7 @@ export async function syncMailboxGoogleOAuthCodeToBackend(input: {
   redirectUri: string;
   codeVerifier: string;
   clientId?: string;
+  analytics?: MailboxOAuthAnalyticsContext;
 }): Promise<
   SyncResult<{ emailAddress?: string | null; enqueueResult: MailboxInitialSyncEnqueue }>
 > {
@@ -99,8 +107,11 @@ export async function syncMailboxGoogleOAuthCodeToBackend(input: {
     const connection = await connectMailboxGoogleOAuthCode({
       ...input,
       redirectUri: normalizedRedirectUri,
+      analyticsFlowId: input.analytics?.flowId,
+      analyticsSource: input.analytics?.source,
+      analyticsPlatform: input.analytics?.platform,
     });
-    const enqueueResult = await enqueueFirstConnectMailboxSync();
+    const enqueueResult = await enqueueFirstConnectMailboxSync(input.analytics);
     return { ok: true, data: { emailAddress: connection?.emailAddress, enqueueResult } };
   } catch (err) {
     return syncError(err, 'Gmail mailbox OAuth code sync failed');

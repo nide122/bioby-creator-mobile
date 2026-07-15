@@ -1,9 +1,11 @@
 import type { BattleReportSummary } from '@/src/types/domain';
+import { dealIdFromBattleReportAlias, isBattleReportDealAliasId } from '@/src/lib/battle-report-deal';
 import { mockDelay } from '@/src/lib/mock-delay';
 
 const REPORTS: Record<string, BattleReportSummary> = {
   'report-spring-skincare': {
     id: 'report-spring-skincare',
+    dealId: 'mock-deal-nordstrom',
     title: 'Spring skincare launch · Deal recap',
     metrics: [
       '+18% rate lift',
@@ -22,26 +24,55 @@ const REPORTS: Record<string, BattleReportSummary> = {
   },
 };
 
-export const MOCK_BATTLE_REPORTS: BattleReportSummary[] = Object.values(REPORTS).map((report) => ({
-  ...report,
-  metrics: [...report.metrics],
-}));
+function cloneReport(report: BattleReportSummary): BattleReportSummary {
+  return { ...report, metrics: [...report.metrics] };
+}
+
+function findReportByDealId(dealId: string): BattleReportSummary | undefined {
+  return Object.values(REPORTS).find((report) => report.dealId === dealId);
+}
+
+/** Snapshot for mock growth seed data. */
+export const MOCK_BATTLE_REPORTS: BattleReportSummary[] = Object.values(REPORTS).map(cloneReport);
 
 export async function fetchMockBattleReports(): Promise<BattleReportSummary[]> {
   await mockDelay(130);
-  return MOCK_BATTLE_REPORTS.map((report) => ({
-    ...report,
-    metrics: [...report.metrics],
-  }));
+  return Object.values(REPORTS).map(cloneReport);
 }
 
 export async function fetchMockBattleReportById(id: string): Promise<BattleReportSummary> {
   await mockDelay(120);
+  if (isBattleReportDealAliasId(id)) {
+    const linked = findReportByDealId(dealIdFromBattleReportAlias(id));
+    if (linked) return cloneReport(linked);
+    throw new Error(`battle_report_not_found:${id}`);
+  }
   const row = REPORTS[id];
   if (!row) {
     throw new Error(`battle_report_not_found:${id}`);
   }
-  return { ...row, metrics: [...row.metrics] };
+  return cloneReport(row);
+}
+
+export async function generateMockBattleReport(input: {
+  dealId: string;
+  title: string;
+}): Promise<BattleReportSummary> {
+  await mockDelay(150);
+  const existing = findReportByDealId(input.dealId);
+  if (existing) return cloneReport(existing);
+
+  const id = `report-${input.dealId}`;
+  const report: BattleReportSummary = {
+    id,
+    dealId: input.dealId,
+    title: `${input.title} · Deal recap`,
+    metrics: ['Settlement complete', 'Deliverables verified'],
+    lesson: 'Review scope, usage rights, and review windows before the next quote.',
+    shareableToMediaKit: false,
+  };
+  REPORTS[id] = report;
+  return cloneReport(report);
 }
 
 export async function updateMockBattleReportShareable(
@@ -54,5 +85,5 @@ export async function updateMockBattleReportShareable(
     throw new Error(`battle_report_not_found:${id}`);
   }
   row.shareableToMediaKit = shareableToMediaKit;
-  return { ...row, metrics: [...row.metrics] };
+  return cloneReport(row);
 }

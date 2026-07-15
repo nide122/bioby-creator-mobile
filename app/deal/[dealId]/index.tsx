@@ -42,6 +42,11 @@ import { useDealWorkspaceFocusRefresh, useDealWorkspaceRefresh } from '@/src/hoo
 import { useDealDetail } from '@/src/hooks/use-deals';
 import { useDealPacket } from '@/src/hooks/use-deal-packet';
 import { useDealTermsAndContract } from '@/src/hooks/use-deal-terms-and-contract';
+import { useBattleReports, useGenerateBattleReport } from '@/src/hooks/use-battle-reports';
+import {
+  battleReportDetailHref,
+  findBattleReportForDeal,
+} from '@/src/lib/battle-report-deal';
 
 function escrowTone(phase: EscrowLifecyclePhase): BadgeTone {
   switch (phase) {
@@ -100,9 +105,12 @@ export default function DealOverviewScreen() {
   const query = useDealDetail(safeId);
   const packetQuery = useDealPacket(safeId);
   const termsContract = useDealTermsAndContract(query.data);
+  const battleReports = useBattleReports();
+  const generateBattleReport = useGenerateBattleReport();
   const { refreshing, onRefresh } = useDealWorkspaceRefresh(safeId);
   useDealWorkspaceFocusRefresh(safeId);
   const [actionPending, setActionPending] = useState(false);
+  const [generatingBattleReport, setGeneratingBattleReport] = useState(false);
 
   const showRecommendedActions =
     shouldUseBackendApi() &&
@@ -227,6 +235,7 @@ export default function DealOverviewScreen() {
 
   const deal = query.data;
   const dealCopy = localizeDealSummaryCopy(deal, t);
+  const linkedBattleReport = findBattleReportForDeal(deal.id, battleReports.data);
   const fulfillmentStatus = resolveFulfillmentStatus(
     deal,
     packetQuery.data?.packet,
@@ -443,11 +452,30 @@ export default function DealOverviewScreen() {
           title={t('dealDetailScreen.quickLinks')}
           links={[
             {
-              label: t('dealDetailScreen.battleReportCta'),
+              label: linkedBattleReport
+                ? t('dealsScreen.viewBattleReport')
+                : t('dealsScreen.generateBattleReport'),
               hint: t('dealDetailScreen.battleReportHint'),
-              href: `/battle-reports/deal-${deal.id}` as Href,
               icon: 'ribbon-outline',
               detailAccent: true,
+              onPress: () => {
+                if (linkedBattleReport) {
+                  router.push(battleReportDetailHref(linkedBattleReport.id));
+                  return;
+                }
+                if (generatingBattleReport) return;
+                setGeneratingBattleReport(true);
+                void generateBattleReport
+                  .mutateAsync({ dealId: deal.id, title: deal.title })
+                  .then((created) => router.push(battleReportDetailHref(created.id)))
+                  .catch(() => {
+                    void alertAction(
+                      t('dealsScreen.generateBattleReportFailTitle'),
+                      t('dealsScreen.generateBattleReportFailDesc')
+                    );
+                  })
+                  .finally(() => setGeneratingBattleReport(false));
+              },
             },
           ]}
         />

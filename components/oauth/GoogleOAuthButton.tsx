@@ -37,8 +37,20 @@ type Props = {
     accessToken: string;
     refreshToken?: string | null;
     clientId?: string;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
+  onOAuthLifecycle?: (event: GoogleOAuthLifecycleEvent) => void;
 };
+
+export type GoogleOAuthLifecycleEvent = {
+  type: 'started' | 'callback_received' | 'cancelled' | 'failed';
+  flowId: string;
+  failureCode?: string;
+};
+
+function createFlowId(): string {
+  const random = Math.random().toString(36).slice(2, 12);
+  return `${Date.now().toString(36)}-${random}`;
+}
 
 const LOGIN_SCOPES = ['openid', 'profile', 'email'];
 const MAILBOX_SCOPES = [...GOOGLE_MAILBOX_SCOPES];
@@ -74,6 +86,7 @@ function GoogleOAuthButtonImpl({
   onGoogleIdToken,
   onGoogleAuthCode,
   onGmailOAuthTokens,
+  onOAuthLifecycle,
 }: Props) {
   const { i18n, t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -114,23 +127,37 @@ function GoogleOAuthButtonImpl({
 
   const handlePress = useCallback(async () => {
     if (!request || busy) return;
+    const flowId = createFlowId();
+    onOAuthLifecycle?.({ type: 'started', flowId });
     setBusy(true);
     try {
       const result = await promptAsync();
       if (result.type !== 'success') {
-        onError(result.type === 'error' ? result.error?.message ?? 'google_auth_error' : `google_${result.type}`);
+        const failureCode = result.type === 'error'
+          ? result.error?.message ?? 'google_auth_error'
+          : `google_${result.type}`;
+        onOAuthLifecycle?.({
+          type: result.type === 'error' ? 'failed' : 'cancelled',
+          flowId,
+          failureCode,
+        });
+        onError(failureCode);
         return;
       }
+
+      onOAuthLifecycle?.({ type: 'callback_received', flowId });
 
       const clientId = getGoogleRuntimeClientId();
 
       if (variant === 'gmail' && Platform.OS === 'web' && result.params.code) {
         if (!onGoogleAuthCode) {
+          onOAuthLifecycle?.({ type: 'failed', flowId, failureCode: 'google_missing_auth_code_handler' });
           onError('google_missing_auth_code_handler');
           return;
         }
         const codeVerifier = request.codeVerifier;
         if (!codeVerifier) {
+          onOAuthLifecycle?.({ type: 'failed', flowId, failureCode: 'google_missing_code_verifier' });
           onError('google_missing_code_verifier');
           return;
         }
@@ -147,10 +174,12 @@ function GoogleOAuthButtonImpl({
         const accessToken = result.authentication?.accessToken ?? result.params.access_token;
         const refreshToken = result.authentication?.refreshToken ?? result.params.refresh_token;
         if (!accessToken) {
+          onOAuthLifecycle?.({ type: 'failed', flowId, failureCode: 'google_missing_access_token' });
           onError('google_missing_access_token');
           return;
         }
-        await onGmailOAuthTokens({ accessToken, refreshToken, clientId });
+        const connected = await onGmailOAuthTokens({ accessToken, refreshToken, clientId });
+        if (!connected) return;
         const email = await fetchGooglePrimaryEmail(accessToken);
         onSuccess(email);
         return;
@@ -158,11 +187,13 @@ function GoogleOAuthButtonImpl({
 
       if (variant === 'login' && Platform.OS === 'web' && result.params.code) {
         if (!onGoogleAuthCode) {
+          onOAuthLifecycle?.({ type: 'failed', flowId, failureCode: 'google_missing_auth_code_handler' });
           onError('google_missing_auth_code_handler');
           return;
         }
         const codeVerifier = request.codeVerifier;
         if (!codeVerifier) {
+          onOAuthLifecycle?.({ type: 'failed', flowId, failureCode: 'google_missing_code_verifier' });
           onError('google_missing_code_verifier');
           return;
         }
@@ -188,13 +219,16 @@ function GoogleOAuthButtonImpl({
 
       const accessToken = result.authentication?.accessToken ?? result.params.access_token;
       if (!accessToken) {
+        onOAuthLifecycle?.({ type: 'failed', flowId, failureCode: 'google_missing_access_token' });
         onError('google_missing_access_token');
         return;
       }
       const email = await fetchGooglePrimaryEmail(accessToken);
       onSuccess(email);
     } catch (e) {
-      onError(e instanceof Error ? e.message : 'google_unknown_error');
+      const failureCode = e instanceof Error ? e.message : 'google_unknown_error';
+      onOAuthLifecycle?.({ type: 'failed', flowId, failureCode });
+      onError(failureCode);
     } finally {
       setBusy(false);
     }
@@ -204,6 +238,7 @@ function GoogleOAuthButtonImpl({
     onGmailOAuthTokens,
     onGoogleAuthCode,
     onGoogleIdToken,
+    onOAuthLifecycle,
     onSuccess,
     promptAsync,
     redirectUri,

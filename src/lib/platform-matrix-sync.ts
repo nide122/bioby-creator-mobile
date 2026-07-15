@@ -135,8 +135,6 @@ function mergeProfileRowWithExisting(
 ): MediaKitPlatformRow {
   return {
     ...fromProfile,
-    monthlyViews: existing?.monthlyViews?.trim() ? existing.monthlyViews : fromProfile.monthlyViews,
-    nicheNote: existing?.nicheNote?.trim() ? existing.nicheNote : fromProfile.nicheNote,
     visibleInPreview: existing?.visibleInPreview ?? true,
     profileSource: fromProfile.profileSource,
   };

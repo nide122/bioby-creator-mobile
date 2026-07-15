@@ -3,6 +3,7 @@ import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import {
   fetchMockBattleReportById,
   fetchMockBattleReports,
+  generateMockBattleReport,
   updateMockBattleReportShareable,
 } from '@/src/api/mock-battle-reports';
 import type { BattleReportView } from '@/src/types/api';
@@ -11,6 +12,7 @@ import type { BattleReportSummary } from '@/src/types/domain';
 function mapReport(view: BattleReportView): BattleReportSummary {
   return {
     id: view.id ?? '',
+    dealId: (view as BattleReportView & { dealId?: string }).dealId,
     title: view.title ?? '',
     metrics: view.metrics ?? [],
     lesson: view.lesson ?? '',
@@ -44,6 +46,20 @@ export async function updateBattleReportShareable(
   const item = await apiRequest<BattleReportView>(`/api/v1/battle-reports/${id}`, {
     method: 'PATCH',
     body: { shareableToMediaKit },
+  });
+  return mapReport(item);
+}
+
+export async function generateBattleReport(input: {
+  dealId: string;
+  title: string;
+}): Promise<BattleReportSummary> {
+  if (!shouldUseBackendApi()) {
+    return generateMockBattleReport(input);
+  }
+  const item = await apiRequest<BattleReportView>('/api/v1/battle-reports', {
+    method: 'POST',
+    body: input,
   });
   return mapReport(item);
 }

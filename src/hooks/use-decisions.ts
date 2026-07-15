@@ -135,5 +135,6 @@ export function useDecisionQueue() {
     aiHandledToday,
     totalEstimatedMinutes: query.data?.totalEstimatedMinutes,
     pendingEstimatedMinutes,
+    hiddenOpportunityCount: query.data?.hiddenOpportunityCount ?? 0,
   };
 }

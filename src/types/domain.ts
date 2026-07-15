@@ -493,6 +493,16 @@ export type ProposalPreview = {
   baseProposalId?: string;
   rootProposalId?: string;
   proposedVersion?: number;
+  /** Historical version that seeded a restore draft. */
+  sourceProposalId?: string;
+  sourceVersion?: number;
+  restoredFromVersion?: number;
+  revisionKind?: 'restore' | 'generate';
+};
+
+export type ProposalRevisionsResult = {
+  restoreBlocked: boolean;
+  revisions: ProposalPreview[];
 };
 
 export type MediaKitPlatformRow = {
@@ -589,6 +599,8 @@ export type MediaKitDocument = {
   inviteCta?: string;
   platformRates?: PlatformRateEntry[];
   syncRateCards?: boolean;
+  /** Rate Card package ids selected for public Media Kit display. Missing means all packages. */
+  publicPackageIds?: string[];
   syncBattleReports?: boolean;
   /** PublicProofItem ids opted in for Media Kit display */
   enabledPublicProofIds?: string[];
@@ -663,6 +675,8 @@ export type SubscriptionUsageSnapshot = {
 /** 复盘战报摘要（mock） */
 export type BattleReportSummary = {
   id: string;
+  /** 来源合作单 ID */
+  dealId?: string;
   title: string;
   metrics: string[];
   lesson: string;

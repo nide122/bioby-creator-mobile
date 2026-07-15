@@ -14,6 +14,7 @@ import {
   createProposal,
   generateProposalDraft,
   generateProposalRevision,
+  restoreProposalRevision,
   confirmProposalDraft,
   convertProposalToDeal,
   saveProposal,
@@ -182,6 +183,17 @@ export function useGenerateProposalDraft() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: ProposalCreateInput) => generateProposalDraft(input),
+    onSuccess: (draft) => {
+      queryClient.setQueryData(proposalDraftQueryKey(draft.id), draft);
+      queryClient.setQueryData(proposalPreviewQueryKey(draft.proposal.id), draft.proposal);
+    },
+  });
+}
+
+export function useRestoreProposalRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (proposalId: string) => restoreProposalRevision(proposalId),
     onSuccess: (draft) => {
       queryClient.setQueryData(proposalDraftQueryKey(draft.id), draft);
       queryClient.setQueryData(proposalPreviewQueryKey(draft.proposal.id), draft.proposal);

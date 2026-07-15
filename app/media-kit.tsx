@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
-  HubLinkGroup,
   HubListRow,
   HubScreen,
   QueryRetryCard,
@@ -26,7 +25,6 @@ import {
   shareMediaKitPdf,
 } from '@/src/lib/media-kit-share';
 import { useMediaKitDocument, useMediaKitPreview } from '@/src/hooks/use-growth';
-import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 
 export default function MediaKitScreen() {
   const { t } = useTranslation();
@@ -35,7 +33,6 @@ export default function MediaKitScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const [sharingPdf, setSharingPdf] = useState(false);
-  const { openProposal } = useOpenProposal();
 
   const kit = useMediaKitPreview();
   const documentQuery = useMediaKitDocument();
@@ -156,27 +153,6 @@ export default function MediaKitScreen() {
           onPress={() => router.push('/trust-passport' as Href)}
         />
       </SettingsGroup>
-
-      <HubLinkGroup
-        title={t('mediaKitScreen.relatedTitle')}
-        links={[
-          {
-            label: t('mediaKitScreen.ctaViewPricing'),
-            href: '/pricing',
-            icon: 'pricetag-outline',
-          },
-          {
-            label: t('mediaKitScreen.ctaCreateProposal'),
-            icon: 'document-text-outline',
-            onPress: () => void openProposal(),
-          },
-          {
-            label: t('mediaKitScreen.ctaBattleReports'),
-            href: '/battle-reports',
-            icon: 'trophy-outline',
-          },
-        ]}
-      />
     </HubScreen>
   );
 }

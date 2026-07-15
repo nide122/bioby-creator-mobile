@@ -14,7 +14,7 @@ export type MediaKitCompletion = {
   missingField?: MediaKitMissingField;
   caseCount: number;
   linkCopyable: boolean;
-  /** True when package pricing is actually shown (sync on and no platform rates). */
+  /** True when Media Kit pricing is sourced from Rate Card packages. */
   pricingSyncedVisible: boolean;
 };
 

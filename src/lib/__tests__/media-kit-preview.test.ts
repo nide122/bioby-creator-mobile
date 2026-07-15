@@ -152,35 +152,46 @@ describe('media-kit-preview', () => {
     expect(merged[0].resultSummary).toBe('+18% rate lift');
   });
 
-  it('detects pricing package sync when platform rates are empty', () => {
+  it('always treats Rate Card as the Media Kit pricing source', () => {
     expect(
       mediaKitRatesSyncedFromPackages({
         syncRateCards: true,
         platformRates: [],
       })
     ).toBe(true);
-    expect(
-      mediaKitRatesSyncedFromPackages({
-        syncRateCards: true,
-        platformRates: [{ id: 'r1', platform: 'TikTok', formatKey: 'short_video', priceLabel: '$1k' }],
-      })
-    ).toBe(false);
+    expect(mediaKitRatesSyncedFromPackages({ platformRates: [
+      { id: 'r1', platform: 'TikTok', formatKey: 'short_video', priceLabel: '$1k' },
+    ] })).toBe(true);
   });
 
-  it('formats Chinese starting prices as amount followed by 起', () => {
+  it('uses only selected Rate Card packages and ignores legacy platform rates', () => {
     const t = ((key: string) => (key === 'mediaKitShare.quoteOnRequest' ? '面议' : key)) as never;
     const preview = buildMediaKitPreview({
       document: {
         contactEmail: 'partnerships@example.com',
         inviteCta: 'Email with brief and budget.',
+        publicPackageIds: ['launch'],
         platformRates: [
-          { id: 'r1', platform: 'Instagram', formatKey: 'reel', priceLabel: '$2,500' },
+          { id: 'legacy', platform: 'Instagram', formatKey: 'short_video', priceLabel: '$999' },
         ],
       },
+      rateCardPackages: [
+        {
+          id: 'launch', name: 'Launch package', tagline: 'Two videos', priceLabel: '$2,500',
+          deliverables: [], revisionRounds: '', usageRights: '', prepayLabel: '', addOnHint: '', highlights: [],
+        },
+        {
+          id: 'hidden', name: 'Hidden package', tagline: '', priceLabel: '$4,000',
+          deliverables: [], revisionRounds: '', usageRights: '', prepayLabel: '', addOnHint: '', highlights: [],
+        },
+      ],
       t,
     });
 
+    expect(preview.rateSummaries).toHaveLength(1);
+    expect(preview.rateSummaries?.[0].title).toBe('Launch package');
     expect(preview.rateSummaries?.[0].startingPrice).toBe('$2,500起');
+    expect(preview.servicesTable?.[0].service).toBe('Launch package');
   });
 
   it('normalizes legacy Chinese prefix prices from backend', () => {
@@ -188,16 +199,17 @@ describe('media-kit-preview', () => {
     expect(normalizeStartingPrice('$2,500起')).toBe('$2,500起');
   });
 
-  it('reformats stored rate summaries that already include legacy prefix', () => {
+  it('reformats legacy prefix prices coming from Rate Card packages', () => {
     const t = ((key: string) => (key === 'mediaKitShare.quoteOnRequest' ? '面议' : key)) as never;
     const preview = buildMediaKitPreview({
       document: {
         contactEmail: 'partnerships@example.com',
         inviteCta: 'Email with brief and budget.',
-        rateSummaries: [
-          { id: 'r1', title: 'Reel', startingPrice: '起 $2,500', description: 'Includes usage' },
-        ],
       },
+      rateCardPackages: [{
+        id: 'r1', name: 'Reel', tagline: 'Includes usage', priceLabel: '起 $2,500',
+        deliverables: [], revisionRounds: '', usageRights: '', prepayLabel: '', addOnHint: '', highlights: [],
+      }],
       t,
     });
 

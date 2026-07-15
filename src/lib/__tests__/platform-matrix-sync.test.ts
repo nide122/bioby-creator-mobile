@@ -123,7 +123,7 @@ describe('platform-matrix-sync', () => {
       name: 'TikTok',
       handle: 'home.finds',
       followersRange: '210K followers',
-      nicheNote: 'Brand note',
+      nicheNote: '',
       visibleInPreview: false,
       profileSource: 'tiktok',
     });

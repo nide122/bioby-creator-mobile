@@ -20,6 +20,67 @@ export type InternalBetaSummary = {
   gmailIssues: number;
 };
 
+export type InternalGmailOAuthFailure = {
+  failureCode: string;
+  count: number;
+};
+
+export type InternalGmailOAuthAnalytics = {
+  periodDays: number;
+  viewed: number;
+  started: number;
+  callbackReceived: number;
+  succeeded: number;
+  connectFailed: number;
+  oauthFailed: number;
+  cancelled: number;
+  skipped: number;
+  averageConnectDurationMs: number;
+  failureReasons: InternalGmailOAuthFailure[];
+};
+
+export type InternalMailboxSyncFailure = {
+  failureCode: string;
+  count: number;
+};
+
+export type InternalMailboxSyncAnalytics = {
+  periodDays: number;
+  started: number;
+  succeeded: number;
+  empty: number;
+  failed: number;
+  inProgress: number;
+  totalProcessed: number;
+  totalNewMessages: number;
+  averageDurationMs: number;
+  averageConnectionToStartMs: number;
+  failureReasons: InternalMailboxSyncFailure[];
+};
+
+export type InternalCommercialProcessingFailure = {
+  stage: string;
+  failureCode: string;
+  count: number;
+};
+
+export type InternalCommercialProcessingAnalytics = {
+  periodDays: number;
+  detectionStarted: number;
+  commercialDetected: number;
+  nonCommercial: number;
+  detectionFailed: number;
+  detectionInProgress: number;
+  briefStarted: number;
+  briefSucceeded: number;
+  briefFailed: number;
+  briefInProgress: number;
+  classificationCorrections: number;
+  averageDetectionDurationMs: number;
+  averageBriefDurationMs: number;
+  failureReasons: InternalCommercialProcessingFailure[];
+};
+
 export type InternalBetaKol = {
   userId: string;
   displayName?: string | null;
@@ -42,11 +103,28 @@ export type InternalBetaKol = {
   replyDraftCount: number;
   sentReplyCount: number;
   latestReplyAt?: string | null;
+  gmailOAuthLastEventType?: string | null;
+  gmailOAuthLastEventAt?: string | null;
+  gmailOAuthLastFailureCode?: string | null;
+  gmailOAuthLastSource?: string | null;
+  gmailOAuthLastPlatform?: string | null;
+  firstSyncLastEventType?: string | null;
+  firstSyncLastEventAt?: string | null;
+  firstSyncLastFailureCode?: string | null;
+  firstSyncNewCount?: number | null;
+  commercialProcessingLastEventType?: string | null;
+  commercialProcessingLastEventAt?: string | null;
+  commercialProcessingLastStage?: string | null;
+  commercialProcessingLastFailureCode?: string | null;
+  commercialProcessingLastCategory?: string | null;
   currentStage: InternalBetaStage;
 };
 
 export type InternalBetaDashboard = {
   summary: InternalBetaSummary;
+  gmailOAuth: InternalGmailOAuthAnalytics;
+  mailboxSync: InternalMailboxSyncAnalytics;
+  commercialProcessing: InternalCommercialProcessingAnalytics;
   kols: InternalBetaKol[];
 };
 

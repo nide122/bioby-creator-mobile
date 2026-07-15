@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
-import { useBattleReports } from '@/src/hooks/use-battle-reports';
 import { useDrafts } from '@/src/hooks/use-drafts';
 import { useMediaKitDocument, useRateCardPackages } from '@/src/hooks/use-growth';
 import { useDisputes } from '@/src/hooks/use-money';
@@ -20,7 +19,6 @@ import { useSessionStore } from '@/src/stores/session-store';
 /** Row trailing labels and hero metrics for the Assets tab. */
 export function useAssetsHubSummaries() {
   const { t } = useTranslation();
-  const battleReports = useBattleReports();
   const drafts = useDrafts();
   const rateCard = useRateCardPackages();
   const disputes = useDisputes();
@@ -31,8 +29,6 @@ export function useAssetsHubSummaries() {
   const isDraftApproved = useDraftApprovalStore((s) => s.isDraftApproved);
 
   return useMemo(() => {
-    const shareableCount =
-      battleReports.data?.filter((report) => report.shareableToMediaKit).length ?? 0;
     const draftRows = drafts.data ?? [];
     const pendingDrafts = draftRows.filter((item) => {
       if (item.approvalState === 'approved') return false;
@@ -55,7 +51,6 @@ export function useAssetsHubSummaries() {
 
     return {
       isLoading:
-        battleReports.isPending ||
         drafts.isPending ||
         rateCard.isPending ||
         disputes.isPending ||
@@ -63,7 +58,6 @@ export function useAssetsHubSummaries() {
         replyTemplates.isLoading ||
         (shouldUseBackendApi() && trustMetrics.isPending),
       onTimeRate,
-      shareableCount,
       pendingDrafts,
       mediaKitDetail,
       mediaKitNeedsAttention: !mediaKitLoading && !mediaKitDocument.isError && mediaKitHubNeedsAttention(mediaKitCompletion),
@@ -78,10 +72,6 @@ export function useAssetsHubSummaries() {
         templateCount > 0
           ? t('assetsScreen.summaries.replyTemplatesCount', { count: templateCount })
           : t('assetsScreen.summaries.replyTemplatesEmpty'),
-      battleReportsDetail:
-        shareableCount > 0
-          ? t('assetsScreen.summaries.shareableCount', { count: shareableCount })
-          : t('assetsScreen.summaries.noShareable'),
       draftsDetail:
         pendingDrafts > 0
           ? t('assetsScreen.summaries.pendingDrafts', { count: pendingDrafts })
@@ -93,8 +83,6 @@ export function useAssetsHubSummaries() {
       disputesNeedsAttention: openDisputes > 0,
     };
   }, [
-    battleReports.data,
-    battleReports.isPending,
     disputes.data,
     disputes.isPending,
     drafts.data,
