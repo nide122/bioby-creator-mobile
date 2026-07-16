@@ -182,6 +182,7 @@ function UndoDecisionBanner({
 }
 
 function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
+  const { t } = useTranslation();
   const { inboxPriorityLabel } = useDomainLabels();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -192,7 +193,10 @@ function DecisionCardMetaRow({ card }: { card: DecisionCard }) {
   return (
     <View style={styles.categoryRow}>
       {displayPriority ? (
-        <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+        <Badge
+          tone={inboxPriorityBadgeTone(displayPriority)}
+          label={displayPriority === 'p0' ? t('today.priorityP0') : inboxPriorityLabel[displayPriority]}
+        />
       ) : null}
       {card.amountLabel ? (
         <Text style={[styles.amountLabel, { color: theme.primary }]}>{card.amountLabel}</Text>
@@ -529,7 +533,10 @@ function QueuePreviewCard({ items }: { items: DecisionCard[] }) {
               const displayPriority = resolveDecisionCardPriority(item);
               const priorityBadge =
                 displayPriority ? (
-                  <Badge tone={inboxPriorityBadgeTone(displayPriority)} label={inboxPriorityLabel[displayPriority]} />
+                  <Badge
+                    tone={inboxPriorityBadgeTone(displayPriority)}
+                    label={displayPriority === 'p0' ? t('today.priorityP0') : inboxPriorityLabel[displayPriority]}
+                  />
                 ) : null;
 
               return (

@@ -12,6 +12,8 @@ import {
   type OnboardingDashboardStatus,
   type OnboardingDashboardStepKey,
 } from '@/src/lib/onboarding-status';
+import { runOnboardingVerificationPress } from '@/src/lib/onboarding-verification-press';
+import { useSessionStore } from '@/src/stores/session-store';
 
 type Props = {
   status: OnboardingDashboardStatus;
@@ -22,6 +24,22 @@ export function OnboardingStatusCard({ status }: Props) {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const profile = useSessionStore((s) => s.profileBasics);
+  const mailboxConnection = useSessionStore((s) => s.mailboxConnection);
+  const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
+
+  const onStepPress = (key: OnboardingDashboardStepKey) => {
+    if (key === 'verification') {
+      void runOnboardingVerificationPress(router, t, {
+        profile,
+        mailboxConnected: Boolean(mailboxConnection),
+        creatorVerificationStatus,
+        mailboxEmail: mailboxConnection?.email,
+      });
+      return;
+    }
+    router.push(onboardingDashboardRouteForStep(key) as Href);
+  };
 
   if (status.allComplete) {
     return null;
@@ -88,7 +106,7 @@ export function OnboardingStatusCard({ status }: Props) {
             key={key}
             testID={`onboarding-step-${key}-pending`}
             accessibilityRole="button"
-            onPress={() => router.push(onboardingDashboardRouteForStep(key) as Href)}
+            onPress={() => onStepPress(key)}
             android_ripple={{ color: `${theme.primary}18`, borderless: false }}
             style={({ pressed }) => [pressed && styles.rowPressed]}>
             {index > 0 ? <View style={[styles.divider, { backgroundColor: theme.border }]} /> : null}

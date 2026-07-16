@@ -7,6 +7,8 @@ export type CrossScreenLink = {
   parentReturnTo?: string | null;
   /** Message back skips thread and goes straight to returnTo (brand timeline shortcut). */
   directReturn?: boolean;
+  /** Message was opened from the thread's original-message list. */
+  returnToMessages?: boolean;
 };
 
 export function brandReturnTarget(brandId: string): string {
@@ -55,6 +57,7 @@ function crossLinkParams(link: CrossScreenLink): Record<string, string> {
   if (link.returnTo) params.returnTo = link.returnTo;
   if (link.parentReturnTo) params.parentReturnTo = link.parentReturnTo;
   if (link.directReturn) params.directReturn = '1';
+  if (link.returnToMessages) params.returnToMessages = '1';
   return params;
 }
 
@@ -104,6 +107,9 @@ export function inboxMessageHref(
   }
   if (normalized?.directReturn) {
     href += '&directReturn=1';
+  }
+  if (normalized?.returnToMessages) {
+    href += '&returnToMessages=1';
   }
   return href as Href;
 }

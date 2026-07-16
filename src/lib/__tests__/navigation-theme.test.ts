@@ -1,8 +1,8 @@
 import {
   getStackBackFallbackHref,
   shouldPreferExplicitBrandBack,
-  shouldPreferExplicitInboxMessageBack,
   shouldPreferExplicitInboxThreadBack,
+  shouldPreferExplicitInboxThreadMessagesBack,
   shouldPreferExplicitOnboardingBack,
 } from '../navigation-theme';
 import { resolveReturnTarget } from '../open-brand-detail';
@@ -20,17 +20,6 @@ describe('shouldPreferExplicitOnboardingBack', () => {
   });
 });
 
-describe('shouldPreferExplicitInboxMessageBack', () => {
-  it('is true for inbox message detail routes', () => {
-    expect(shouldPreferExplicitInboxMessageBack('/inbox/message/81')).toBe(true);
-  });
-
-  it('is false for thread detail and inbox list', () => {
-    expect(shouldPreferExplicitInboxMessageBack('/inbox/42')).toBe(false);
-    expect(shouldPreferExplicitInboxMessageBack('/inbox')).toBe(false);
-  });
-});
-
 describe('shouldPreferExplicitInboxThreadBack', () => {
   it('is true for thread detail routes', () => {
     expect(shouldPreferExplicitInboxThreadBack('/inbox/42')).toBe(true);
@@ -38,6 +27,17 @@ describe('shouldPreferExplicitInboxThreadBack', () => {
 
   it('is false for inbox list', () => {
     expect(shouldPreferExplicitInboxThreadBack('/inbox')).toBe(false);
+  });
+});
+
+describe('shouldPreferExplicitInboxThreadMessagesBack', () => {
+  it('is true for a thread original-message list', () => {
+    expect(shouldPreferExplicitInboxThreadMessagesBack('/inbox/42/messages')).toBe(true);
+  });
+
+  it('is false for a single message and thread detail', () => {
+    expect(shouldPreferExplicitInboxThreadMessagesBack('/inbox/message/81')).toBe(false);
+    expect(shouldPreferExplicitInboxThreadMessagesBack('/inbox/42')).toBe(false);
   });
 });
 
@@ -103,6 +103,22 @@ describe('getStackBackFallbackHref', () => {
       });
     });
 
+    it('inbox thread message list returns to its thread detail', () => {
+      expect(getStackBackFallbackHref('/inbox/42/messages')).toBe('/inbox/42');
+    });
+
+    it('inbox thread message list preserves upstream return context', () => {
+      expect(
+        getStackBackFallbackHref('/inbox/42/messages', {
+          returnTo: '/brand/5',
+          parentReturnTo: '/inbox',
+        }),
+      ).toEqual({
+        pathname: '/inbox/[threadId]',
+        params: { threadId: '42', returnTo: '/brand/5', parentReturnTo: '/inbox' },
+      });
+    });
+
     it('inbox message detail returns returnTo when directReturn is set', () => {
       expect(
         getStackBackFallbackHref('/inbox/message/81', {
@@ -126,6 +142,29 @@ describe('getStackBackFallbackHref', () => {
         }),
       ).toEqual({
         pathname: '/inbox/[threadId]',
+        params: { threadId: '53', returnTo: '/brand/5', parentReturnTo: '/inbox' },
+      });
+    });
+
+    it('inbox message detail returns to the original-message list when opened there', () => {
+      expect(
+        getStackBackFallbackHref('/inbox/message/81', {
+          threadId: '53',
+          returnToMessages: '1',
+        }),
+      ).toBe('/inbox/53/messages');
+    });
+
+    it('inbox message list return preserves upstream context', () => {
+      expect(
+        getStackBackFallbackHref('/inbox/message/81', {
+          threadId: '53',
+          returnTo: '/brand/5',
+          parentReturnTo: '/inbox',
+          returnToMessages: '1',
+        }),
+      ).toEqual({
+        pathname: '/inbox/[threadId]/messages',
         params: { threadId: '53', returnTo: '/brand/5', parentReturnTo: '/inbox' },
       });
     });

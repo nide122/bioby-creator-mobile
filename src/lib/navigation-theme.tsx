@@ -5,7 +5,12 @@ import type { TFunction } from 'i18next';
 import type { ComponentProps } from 'react';
 
 import type { ThemePalette } from '@/constants/tokens';
-import { navigateReturnTo, resolveReturnTarget, inboxThreadHref } from '@/src/lib/open-brand-detail';
+import {
+  navigateReturnTo,
+  resolveReturnTarget,
+  inboxThreadHref,
+  inboxThreadMessagesHref,
+} from '@/src/lib/open-brand-detail';
 
 type StackHeaderBackProps = ComponentProps<typeof HeaderBackButton> & {
   canGoBack?: boolean;
@@ -26,6 +31,7 @@ export function StackHeaderBack(props: StackHeaderBackProps) {
     returnTo?: string | string[];
     parentReturnTo?: string | string[];
     directReturn?: string | string[];
+    returnToMessages?: string | string[];
   }>();
   const { canGoBack, onPress, ...rest } = props;
 
@@ -49,8 +55,8 @@ export function StackHeaderBack(props: StackHeaderBackProps) {
       navigateBack(fallbackHref);
       return;
     }
-    if (fallbackHref && shouldPreferExplicitInboxMessageBack(pathname)) {
-      navigateBack(fallbackHref);
+    if (fallbackHref && shouldPreferExplicitInboxThreadMessagesBack(pathname)) {
+      router.replace(fallbackHref as Href);
       return;
     }
     if (fallbackHref && shouldPreferExplicitInboxThreadBack(pathname)) {
@@ -95,6 +101,7 @@ type StackBackSearchParams = {
   returnTo?: string | string[];
   parentReturnTo?: string | string[];
   directReturn?: string | string[];
+  returnToMessages?: string | string[];
 };
 
 function searchParamValue(value: string | string[] | undefined): string | undefined {
@@ -104,11 +111,12 @@ function searchParamValue(value: string | string[] | undefined): string | undefi
 }
 
 /**
- * Inbox message detail should return to the parent thread, not router.back() into the previous tab.
+ * The thread's original-message list must return to its thread detail. Relying on
+ * router.back() can pop the parent Tabs history and jump back to Today instead.
  */
-export function shouldPreferExplicitInboxMessageBack(pathname: string): boolean {
+export function shouldPreferExplicitInboxThreadMessagesBack(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean);
-  return parts[0] === 'inbox' && parts[1] === 'message' && parts.length === 3;
+  return parts[0] === 'inbox' && parts[1] !== 'message' && parts[2] === 'messages' && parts.length === 3;
 }
 
 /**
@@ -156,14 +164,28 @@ export function getStackBackFallbackHref(
   const returnTo = searchParamValue(searchParams?.returnTo);
   const parentReturnTo = searchParamValue(searchParams?.parentReturnTo);
 
+  if (parts[0] === 'inbox' && parts[1] && parts[1] !== 'message' && parts[2] === 'messages') {
+    if (returnTo || parentReturnTo) {
+      return inboxThreadHref(parts[1], { returnTo, parentReturnTo });
+    }
+    return `/inbox/${parts[1]}` as Href;
+  }
+
   if (parts[0] === 'inbox' && parts[1] === 'message' && parts[2]) {
     const threadId = searchParamValue(searchParams?.threadId);
     const directReturn = searchParamValue(searchParams?.directReturn) === '1';
+    const returnToMessages = searchParamValue(searchParams?.returnToMessages) === '1';
 
     if (returnTo && directReturn) {
       return resolveReturnTarget(returnTo, parentReturnTo);
     }
     if (threadId) {
+      if (returnToMessages) {
+        return inboxThreadMessagesHref(
+          threadId,
+          returnTo || parentReturnTo ? { returnTo, parentReturnTo } : null,
+        );
+      }
       if (returnTo || parentReturnTo) {
         return inboxThreadHref(threadId, { returnTo, parentReturnTo });
       }

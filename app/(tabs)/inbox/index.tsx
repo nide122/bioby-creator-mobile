@@ -48,6 +48,7 @@ import {
   InboxPriorityFilterRow,
 } from '@/components/inbox/InboxHubCards';
 import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
+import { CreatorVerificationBanner } from '@/components/inbox/CreatorVerificationBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { useTranslation } from 'react-i18next';
@@ -1841,7 +1842,10 @@ export default function InboxScreen() {
         onContentSizeChange={handleContentSizeChange}
         onBodyLayout={handleBodyLayout}>
         {!aiInboxEnabled ? (
-          <BasicMailboxInbox refreshing={refreshing} />
+          <>
+            <CreatorVerificationBanner status={creatorVerificationStatus} />
+            <BasicMailboxInbox refreshing={refreshing} />
+          </>
         ) : initialLoading ? (
           <InboxInlineLoading />
         ) : (

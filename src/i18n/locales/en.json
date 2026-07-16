@@ -103,17 +103,17 @@
     "minePayoutValue": "Net 30",
     "preview": {
       "a11y": "Product preview: inbox, AI summary, and today action cards",
-      "inboxTabP0": "P0 · Today",
+      "inboxTabP0": "P0 · Urgent email",
       "inboxTabP1": "P1 · High",
       "inboxTabP2": "P2 · Later",
       "inboxRow1Brand": "TrailPeak Gear",
       "inboxRow1Meta": "Collab request · Email",
       "inboxRow1Time": "14m ago",
-      "inboxRow1Badge": "P0 · DO TODAY",
+      "inboxRow1Badge": "P0 · URGENT EMAIL",
       "inboxRow2Brand": "Maison Lune",
       "inboxRow2Meta": "Collab request · Email",
       "inboxRow2Time": "4d ago",
-      "inboxRow2Badge": "P0 · DO TODAY",
+      "inboxRow2Badge": "P0 · URGENT EMAIL",
       "inboxRow3Brand": "CloudField Coffee",
       "inboxRow3Meta": "Collab request · Email",
       "inboxRow3Time": "6d ago",
@@ -325,6 +325,7 @@
     }
   },
   "today": {
+    "priorityP0": "P0 · Do today",
     "categories": {
       "payout": "Payout",
       "opportunity": "Opportunity",
@@ -948,7 +949,7 @@
       "archived": "Archived"
     },
     "inboxPriority": {
-      "p0": "P0 · Do today",
+      "p0": "P0 · Urgent email",
       "p1": "P1 · High value",
       "p2": "P2 · Review later",
       "p3": "P3 · Archived"
@@ -1765,7 +1766,7 @@
     "sentQuoteNextTitle": "Quote sent",
     "sentQuoteNextBody": "Lead stage is now quoted. Go back to the opportunity to confirm terms and create the deal.",
     "sentReplyNextTitle": "Reply sent",
-    "sentReplyNextBody": "When ready, return to the opportunity to generate and send the quote draft.",
+    "sentReplyNextBody": "Select OK to return to the email summary. When ready, you can generate and send the quote draft.",
     "mailboxDraftErrors": {
       "DRAFT_APPROVAL_REQUIRED": "Approve the draft before saving it to your mailbox.",
       "MAILBOX_DRAFT_SCOPE_REQUIRED": "Mailbox is missing draft write permissions. Reconnect Gmail.",
@@ -3437,6 +3438,22 @@
           "title": "Identity verification",
           "action": "Verify your identity"
         }
+      },
+      "verificationPreflight": {
+        "profileIncompleteTitle": "Link a platform homepage first",
+        "profileIncompleteMessage": "Identity verification needs at least one linked creator platform homepage so we can read your public contact email.",
+        "profileIncompleteConfirm": "Open creator profile",
+        "mailboxRequiredTitle": "Connect your deal inbox first",
+        "mailboxRequiredMessage": "Connect your collaboration inbox before starting identity verification.",
+        "mailboxRequiredConfirm": "Connect inbox",
+        "homepageMissingTitle": "No public email on homepage",
+        "homepageMissingMessage": "Add a public contact email on your platform homepage, then come back to verify.",
+        "homepageMissingMessageWithEmail": "Add your bound deal inbox email ({{email}}) as the public contact email on your platform homepage, then come back to verify.",
+        "homepageMissingConfirm": "Open creator profile",
+        "emailMismatchTitle": "Homepage email does not match",
+        "emailMismatchMessage": "Your homepage email ({{homepageEmail}}) does not match your bound inbox ({{boundEmail}}). Update your homepage contact email to {{boundEmail}}, then verify again.",
+        "emailMismatchMessageFallback": "Your homepage email does not match your bound inbox. Update your homepage contact email to match, then verify again.",
+        "emailMismatchConfirm": "Open creator profile"
       }
     }
   },

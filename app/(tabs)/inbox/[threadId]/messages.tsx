@@ -72,7 +72,7 @@ export default function InboxThreadMessagesScreen() {
 
   const openMessage = (message: InboxMessage) => {
     router.push(
-      inboxMessageHref(message.id, threadId, returnTo || parentReturnTo ? { returnTo, parentReturnTo } : null),
+      inboxMessageHref(message.id, threadId, { returnTo, parentReturnTo, returnToMessages: true }),
     );
   };
 

@@ -62,6 +62,37 @@ describe('buildPlainPriorityExplain', () => {
     expect(explain?.sections[2].lines[0]).toContain('匹配与风险');
   });
 
+  it('says above target even when priority is still P2', () => {
+    const explain = buildPlainPriorityExplain({
+      t,
+      inboxPriority: 'p2',
+      leadValueBand: 'needs_negotiation',
+      dealEconomics: {
+        quoteUsd: 2500,
+        expectedFloorUsd: 1500,
+        expectedTargetUsd: 2250,
+        economicMarginUsd: 1000,
+        unitCount: 1,
+        budgetCertainty: 'firm',
+        rateCardMatched: true,
+      },
+      breakdown: {
+        brandFit: 55,
+        budgetValue: 60,
+        timelineUrgency: 40,
+        relationshipValue: 45,
+        effort: 10,
+        risk: 20,
+      },
+    });
+
+    const value = explain?.sections[0].lines[0] ?? '';
+    expect(value).toContain('$2,500');
+    expect(value).toContain('$2,250');
+    expect(value).toContain('高于');
+    expect(value).not.toContain('之间');
+  });
+
   it('shows urgency section for P0', () => {
     const explain = buildPlainPriorityExplain({
       t,

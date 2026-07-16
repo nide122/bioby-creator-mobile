@@ -45,7 +45,7 @@ import { useMailboxConnection } from '@/src/hooks/use-mailbox-connection';
 import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
 import { useRateCardPackages } from '@/src/hooks/use-growth';
 import { buildReplyTemplateContext } from '@/src/lib/reply-template-context';
-import { inboxMessageHref } from '@/src/lib/open-brand-detail';
+import { inboxMessageHref, inboxThreadHref } from '@/src/lib/open-brand-detail';
 import { cooperationLeadLine, resolveOpportunityBrandLabel } from '@/src/lib/cooperation-display-name';
 import {
   mailboxDraftFlowReady,
@@ -335,15 +335,20 @@ export default function DraftDetailScreen() {
         setRemoteDraftError(message);
         void alertAction(t('draftDetail.nativeDraftSendErrorTitle'), message);
       } else if (result?.status === 'SENT') {
-        if (effectiveThreadId) {
-          void alertAction(t('draftDetail.sentReplyNextTitle'), t('draftDetail.sentReplyNextBody'));
-        }
         void invalidateTenantScopedQueries(queryClient);
         void syncMailbox({ lookback: 'INCREMENTAL' }).then(() => {
           void queryClient.invalidateQueries({ queryKey: ['inbox'] });
           void queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] });
           void invalidateDecisionQueueQueries(queryClient);
         });
+        await alertAction(t('draftDetail.sentReplyNextTitle'), t('draftDetail.sentReplyNextBody'));
+        if (effectiveThreadId) {
+          router.replace(inboxThreadHref(effectiveThreadId));
+        } else if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/drafts' as Href);
+        }
       }
     } catch (error) {
       const message = resolveMailboxDraftError(error, t);

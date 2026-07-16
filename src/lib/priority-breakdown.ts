@@ -109,8 +109,10 @@ function buildValueLine(input: {
     });
   }
 
-  if (inboxPriority === 'p1' && target) {
-    if (vsTarget != null && vsTarget > 0) {
+  // Quote at/above target is never "between floor and target" — including when still P2
+  // for non-price reasons (stale classify, urgency, etc.).
+  if (target && vsTarget != null && vsTarget >= 0) {
+    if (vsTarget > 0) {
       return t('inboxPriority.explain.value.aboveTarget', {
         quote,
         target,

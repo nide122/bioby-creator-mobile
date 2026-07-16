@@ -103,17 +103,17 @@
     "minePayoutValue": "Net 30",
     "preview": {
       "a11y": "产品预览：收件箱、AI 摘要与今日行动卡片",
-      "inboxTabP0": "P0 · 今日",
+      "inboxTabP0": "P0 · 紧急邮件",
       "inboxTabP1": "P1 · 高优",
       "inboxTabP2": "P2 · 稍后",
       "inboxRow1Brand": "TrailPeak Gear",
       "inboxRow1Meta": "合作询盘 · 邮件",
       "inboxRow1Time": "14 分钟前",
-      "inboxRow1Badge": "P0 · 今日必办",
+      "inboxRow1Badge": "P0 · 紧急邮件",
       "inboxRow2Brand": "Maison Lune",
       "inboxRow2Meta": "合作询盘 · 邮件",
       "inboxRow2Time": "4 天前",
-      "inboxRow2Badge": "P0 · 今日必办",
+      "inboxRow2Badge": "P0 · 紧急邮件",
       "inboxRow3Brand": "CloudField Coffee",
       "inboxRow3Meta": "合作询盘 · 邮件",
       "inboxRow3Time": "6 天前",
@@ -325,6 +325,7 @@
     }
   },
   "today": {
+    "priorityP0": "P0 · 今日必办",
     "categories": {
       "payout": "款项",
       "opportunity": "机会",
@@ -948,7 +949,7 @@
       "archived": "已归档"
     },
     "inboxPriority": {
-      "p0": "P0 · 今日必办",
+      "p0": "P0 · 紧急邮件",
       "p1": "P1 · 高价值",
       "p2": "P2 · 稍后看",
       "p3": "P3 · 已归档"
@@ -1765,7 +1766,7 @@
     "sentQuoteNextTitle": "报价已发送",
     "sentQuoteNextBody": "商机阶段已更新为「已报价」。返回商机详情可确认条款并创建 Deal。",
     "sentReplyNextTitle": "沟通邮件已发送",
-    "sentReplyNextBody": "如需正式报价，请返回商机生成并发送「报价草稿」。",
+    "sentReplyNextBody": "点击确定后返回邮件摘要。如需正式报价，可继续生成并发送「报价草稿」。",
     "mailboxDraftErrors": {
       "DRAFT_APPROVAL_REQUIRED": "请先审批草稿，再保存到邮箱。",
       "MAILBOX_DRAFT_SCOPE_REQUIRED": "邮箱缺少草稿写入权限，请重新连接 Gmail。",
@@ -3437,6 +3438,22 @@
           "title": "身份认证",
           "action": "完成身份验证"
         }
+      },
+      "verificationPreflight": {
+        "profileIncompleteTitle": "需要先绑定平台主页",
+        "profileIncompleteMessage": "身份认证需要至少绑定一个创作者平台主页链接，以便读取你的公开联系邮箱。",
+        "profileIncompleteConfirm": "去创作者资料",
+        "mailboxRequiredTitle": "需要先绑定合作邮箱",
+        "mailboxRequiredMessage": "请先连接合作收件箱，再进行身份认证。",
+        "mailboxRequiredConfirm": "去绑定邮箱",
+        "homepageMissingTitle": "主页未填写公开邮箱",
+        "homepageMissingMessage": "请在你的平台主页上填写公开联系邮箱，保存后再回来验证。",
+        "homepageMissingMessageWithEmail": "请在你的平台主页上填写与本应用绑定的合作邮箱（{{email}}），保存后再回来验证。",
+        "homepageMissingConfirm": "去创作者资料",
+        "emailMismatchTitle": "主页邮箱不一致",
+        "emailMismatchMessage": "主页公开邮箱（{{homepageEmail}}）与合作邮箱（{{boundEmail}}）不一致。请先在主页将联系邮箱改为 {{boundEmail}}，然后重新验证。",
+        "emailMismatchMessageFallback": "主页公开邮箱与合作邮箱不一致。请先在主页将联系邮箱改为与应用绑定的合作邮箱，然后重新验证。",
+        "emailMismatchConfirm": "去创作者资料"
       }
     }
   },
