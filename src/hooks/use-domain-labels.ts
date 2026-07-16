@@ -65,6 +65,7 @@ export function useDomainLabels() {
     (): Record<DraftKind, string> => ({
       ai_reply: t('labels.draftKind.ai_reply'),
       quote: t('labels.draftKind.quote'),
+      proposal: t('labels.draftKind.proposal'),
       follow_up: t('labels.draftKind.follow_up'),
       clarify_budget: t('labels.draftKind.clarify_budget'),
       counter_offer: t('labels.draftKind.counter_offer'),

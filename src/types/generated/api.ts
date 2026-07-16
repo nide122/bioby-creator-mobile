@@ -820,6 +820,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -2638,6 +2654,14 @@ export interface components {
             /** Format: int32 */
             size?: number;
         };
+        FeedbackSubmittedView: {
+            /** @enum {string} */
+            feedbackType?: "PROBLEM" | "SUGGESTION" | "CONFUSING" | "OTHER";
+            /** Format: uuid */
+            id?: string;
+            /** Format: date-time */
+            submittedAt?: string;
+        };
         ForgotPasswordRequest: {
             email: string;
         };
@@ -3453,6 +3477,16 @@ export interface components {
         SnoozeDecisionRequest: {
             /** Format: int32 */
             days?: number;
+        };
+        SubmitFeedbackRequest: {
+            appVersion?: string;
+            clientPlatform?: string;
+            contactAllowed?: boolean;
+            content: string;
+            errorCode?: string;
+            /** @enum {string} */
+            feedbackType: "PROBLEM" | "SUGGESTION" | "CONFUSING" | "OTHER";
+            sourcePage?: string;
         };
         SubmitVerificationRequest: {
             creatorNote: string;
@@ -4807,6 +4841,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["MailboxRemoteDraftView"];
+                };
+            };
+        };
+    };
+    submitFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FeedbackSubmittedView"];
                 };
             };
         };

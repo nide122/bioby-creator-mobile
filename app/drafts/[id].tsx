@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -40,6 +40,7 @@ import { syncMailbox } from '@/src/api/mailbox-api';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { alertAction } from '@/src/lib/app-dialog';
 import { useDraftDetail } from '@/src/hooks/use-drafts';
+import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { useMailboxConnection } from '@/src/hooks/use-mailbox-connection';
 import { useInboxThreadDetail } from '@/src/hooks/use-inbox-thread-detail';
 import { useRateCardPackages } from '@/src/hooks/use-growth';
@@ -53,6 +54,7 @@ import {
   resolveMailboxDraftError,
 } from '@/src/lib/mailbox-draft-i18n';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
+import { invalidateDecisionQueueQueries } from '@/src/lib/invalidate-deal-queries';
 import { ReplyDraftGeneratorSheet } from '@/components/drafts/ReplyDraftGeneratorSheet';
 import { ReplyTemplatePicker } from '@/src/components/reply-templates/ReplyTemplatePicker';
 import { renderReplyTemplateForSend } from '@/src/lib/reply-template-render';
@@ -74,6 +76,7 @@ export default function DraftDetailScreen() {
   const theme = palette[colorScheme];
 
   const query = useDraftDetail(draftId);
+  const { openProposalDraftById } = useOpenProposal();
   const effectiveThreadId = threadIdParam ?? query.data?.sourceThreadId;
   const threadQuery = useInboxThreadDetail(effectiveThreadId);
   const dateLocale = calendarLocaleTagForLanguage(i18n.language);
@@ -91,12 +94,23 @@ export default function DraftDetailScreen() {
   const [draftSyncFlash, setDraftSyncFlash] = useState<'saved' | 'updated' | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showAiGenerator, setShowAiGenerator] = useState(false);
+  const proposalRedirectStartedRef = useRef(false);
 
   useEffect(() => {
     if (query.data?.body) {
       setBody(query.data.body);
     }
   }, [query.data?.body]);
+
+  useEffect(() => {
+    if (!draftId || query.data?.kind !== 'proposal' || proposalRedirectStartedRef.current) return;
+    proposalRedirectStartedRef.current = true;
+    void alertAction(
+      t('draftDetail.proposalDraftRedirectTitle'),
+      t('draftDetail.proposalDraftRedirectBody'),
+    );
+    void openProposalDraftById(draftId);
+  }, [draftId, openProposalDraftById, query.data?.kind, t]);
 
   useEffect(() => {
     setDraftSyncFlash(null);
@@ -220,6 +234,7 @@ export default function DraftDetailScreen() {
   }
 
   const detail = query.data;
+  const isProposalDraft = detail.kind === 'proposal';
   const linkedDealId = shouldUseBackendApi() ? detail.linkedDealId : 'mock-deal-alpha';
   const threadDetail = threadQuery.data;
   const latestInboundMessage = threadDetail?.messages?.length
@@ -327,7 +342,7 @@ export default function DraftDetailScreen() {
         void syncMailbox({ lookback: 'INCREMENTAL' }).then(() => {
           void queryClient.invalidateQueries({ queryKey: ['inbox'] });
           void queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] });
-          void queryClient.invalidateQueries({ queryKey: ['decisions'] });
+          void invalidateDecisionQueueQueries(queryClient);
         });
       }
     } catch (error) {
@@ -344,9 +359,17 @@ export default function DraftDetailScreen() {
   };
 
   const canSyncRemoteDraft =
-    shouldUseBackendApi() && mailboxDraftReady && !remoteDraftLoading && !remoteDraftSending;
+    !isProposalDraft &&
+    shouldUseBackendApi() &&
+    mailboxDraftReady &&
+    !remoteDraftLoading &&
+    !remoteDraftSending;
   const canSendRemoteDraft =
-    shouldUseBackendApi() && mailboxSendReady && !remoteDraftLoading && !remoteDraftSending;
+    !isProposalDraft &&
+    shouldUseBackendApi() &&
+    mailboxSendReady &&
+    !remoteDraftLoading &&
+    !remoteDraftSending;
   const nativeDraftSyncCta = remoteDraftLoading
     ? null
     : draftSyncFlash === 'updated'
@@ -439,7 +462,7 @@ export default function DraftDetailScreen() {
             ) : null}
           </View>
 
-          {shouldUseBackendApi() ? (
+          {shouldUseBackendApi() && !isProposalDraft ? (
             <View style={styles.mailboxActionRow}>
               <Pressable
                 accessibilityRole="button"

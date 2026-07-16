@@ -45,6 +45,7 @@
     "replyTemplateEdit": "编辑模板",
     "profileSettings": "创作者资料",
     "dataExport": "数据与导出",
+    "feedback": "反馈与建议",
     "creatorProfile": "创作者资料",
     "permissions": "权限",
     "inboxFilter": "收件箱筛选",
@@ -974,6 +975,7 @@
     "draftKind": {
       "ai_reply": "回复草稿",
       "quote": "报价草稿",
+      "proposal": "Proposal 草稿",
       "follow_up": "跟进草稿",
       "clarify_budget": "追问预算",
       "counter_offer": "还价草稿",
@@ -1709,6 +1711,7 @@
     "screenTitle": "回复邮件",
     "opportunityBriefTitle": "合作摘要",
     "opportunityBriefExpand": "点击展开完整摘要",
+    "opportunityBriefCollapse": "收起完整摘要",
     "titleQuote": "审报价",
     "titleReply": "审回复",
     "titleLowRisk": "跟进稿",
@@ -1772,8 +1775,11 @@
       "MAILBOX_NOT_CONNECTED": "尚未连接邮箱，请先完成邮箱绑定。",
       "REMOTE_DRAFT_ID_MISSING": "请先保存到邮箱，再发送正式邮件。",
       "REMOTE_DRAFT_NOT_FOUND": "尚未保存到邮箱草稿箱，请先同步草稿。",
-      "REMOTE_DRAFT_STALE": "Gmail 里对应的草稿已不存在（可能已被删除）。已尝试重新创建，若仍失败请再点一次「保存到邮箱」。"
+      "REMOTE_DRAFT_STALE": "Gmail 里对应的草稿已不存在（可能已被删除）。已尝试重新创建，若仍失败请再点一次「保存到邮箱」。",
+      "PROPOSAL_DRAFT_NOT_SENDABLE": "这是 Proposal 草稿，不能直接保存到邮箱。请前往 Proposal 页面确认并通过分享链接发送。"
     },
+    "proposalDraftRedirectTitle": "这是 Proposal 草稿",
+    "proposalDraftRedirectBody": "Proposal 需确认后通过分享链接发送，不能写入 Gmail/Outlook 草稿箱。正在跳转到 Proposal 页面…",
     "bodySectionTitle": "回复邮件",
     "bodyPlaceholder": "在此编辑…",
     "latestInboundTitle": "对方最新来信",
@@ -3306,6 +3312,27 @@
     "rateCardConfiguredSecondary": "可在「增长 → 报价单」随时修改套餐。",
     "enterToday": "进入 Today"
   },
+  "feedbackScreen": {
+    "lead": "你的反馈会直接帮助我们改进内测体验。请不要填写邮件正文、密码、Token 或附件内容。",
+    "typeTitle": "反馈类型",
+    "types": {
+      "PROBLEM": "问题",
+      "SUGGESTION": "建议",
+      "CONFUSING": "看不懂",
+      "OTHER": "其他"
+    },
+    "contentTitle": "请描述一下",
+    "contentHint": "至少 10 个字，尽量说明你刚才做了什么、期望发生什么。",
+    "placeholder": "例如：连接 Gmail 后页面一直显示加载中……",
+    "characterCount": "{{count}} / {{max}}",
+    "contactAllowed": "可以通过我的注册邮箱联系我进一步了解",
+    "privacy": "系统会自动记录当前用户、工作区、页面、客户端平台和 App 版本，不会自动收集邮件正文、密码、OAuth Token 或附件。",
+    "submit": "提交反馈",
+    "successTitle": "反馈已收到",
+    "successMessage": "感谢你的反馈，我们可能会通过注册邮箱联系你。",
+    "errorTitle": "提交失败",
+    "errorMessage": "请检查网络后重试。"
+  },
   "account": {
     "profileFallback": "完善资料",
     "openA11y": "打开账户",
@@ -3353,13 +3380,15 @@
     "pendingInviteBannerTitle": "{{count}} 个工作区邀请",
     "pendingInviteBannerLead": "点此查看并接受。",
     "prefsHeading": "偏好",
+    "helpHeading": "帮助与反馈",
     "legalHeading": "法律信息",
     "summaries": {
       "teamMembers": "{{count}} 名成员",
       "dataHub": "导出中心",
       "workspaceSwitch": "API 租户",
       "mediaKitPublic": "面向品牌公开",
-      "pendingInvites": "{{count}} 个待接受邀请"
+      "pendingInvites": "{{count}} 个待接受邀请",
+      "feedback": "告诉我们哪里不好用"
     },
     "rows": {
       "profileTitle": "创作者资料",
@@ -3373,7 +3402,8 @@
       "replyTemplatesEmpty": "创建可复用片段",
       "dataTitle": "数据与导出",
       "replayTitle": "重新引导",
-      "languageTitle": "语言"
+      "languageTitle": "语言",
+      "feedbackTitle": "反馈与建议"
     },
     "languages": {
       "system": "跟随系统",

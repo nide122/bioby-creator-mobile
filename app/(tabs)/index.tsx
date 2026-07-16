@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import {
   Animated,
@@ -61,6 +62,7 @@ import { runDecisionActionEffect } from '@/src/lib/decision-action-effects';
 import {
   invalidateDealClosureArtifacts,
   invalidateDealWorkspaceQueries,
+  refetchDecisionQueueQueries,
 } from '@/src/lib/invalidate-deal-queries';
 import { getActiveTenantPublicId, tenantQueryKey } from '@/src/lib/tenant-query';
 import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
@@ -712,11 +714,17 @@ export default function DecisionQueueScreen() {
   const aiActionLog = useAiActionLog();
   const refreshToday = useCallback(async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+      refetchDecisionQueueQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
     ]);
   }, [queryClient]);
   const { refreshing, onRefresh } = useTabRefresh(refreshToday);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetchDecisionQueueQueries(queryClient);
+    }, [queryClient]),
+  );
 
   function handleResolve(card: DecisionCard, actionLabel: string, href?: string) {
     queue.resolve(card, actionLabel);

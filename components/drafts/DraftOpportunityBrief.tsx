@@ -82,24 +82,17 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
 
   return (
     <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.card }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        onPress={() => setExpanded((value) => !value)}
-        style={styles.headerPressable}>
-        <View style={styles.headerRow}>
-          <View style={[styles.iconBox, { backgroundColor: theme.primary + '18' }]}>
-            <Ionicons name="sparkles" size={14} color={theme.primary} />
-          </View>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>{t('draftDetail.opportunityBriefTitle')}</Text>
-          {detail.budgetDisplay ? (
-            <View style={[styles.budgetBadge, { borderColor: theme.primary + '50', backgroundColor: theme.primary + '10' }]}>
-              <Text style={[styles.budgetText, { color: theme.primary }]}>{detail.budgetDisplay}</Text>
-            </View>
-          ) : null}
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.mutedForeground} />
+      <View style={styles.headerRow}>
+        <View style={[styles.iconBox, { backgroundColor: theme.primary + '18' }]}>
+          <Ionicons name="sparkles" size={14} color={theme.primary} />
         </View>
-      </Pressable>
+        <Text style={[styles.eyebrow, { color: theme.primary }]}>{t('draftDetail.opportunityBriefTitle')}</Text>
+        {detail.budgetDisplay ? (
+          <View style={[styles.budgetBadge, { borderColor: theme.primary + '50', backgroundColor: theme.primary + '10' }]}>
+            <Text style={[styles.budgetText, { color: theme.primary }]}>{detail.budgetDisplay}</Text>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.badgeRow}>
         <Badge tone="neutral" label={inboxCategoryLabel[detail.category]} />
@@ -123,18 +116,25 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
         </Text>
       )}
 
-      {!expanded && keyHighlights.length > 0 ? (
-        <View style={{ gap: spacing.xs }}>
-          {keyHighlights.slice(0, 2).map((item) => (
-            <Text key={item} style={[styles.fieldValue, { color: theme.foregroundSubtitle }]} numberOfLines={1}>
-              · {item}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-
       {!expanded ? (
-        <Text style={[styles.expandHint, { color: theme.mutedForeground }]}>{t('draftDetail.opportunityBriefExpand')}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('draftDetail.opportunityBriefExpand')}
+          onPress={() => setExpanded(true)}
+          style={({ pressed }) => [styles.expandPressable, pressed && { opacity: 0.75 }]}>
+          {keyHighlights.length > 0 ? (
+            <View style={{ gap: spacing.xs }}>
+              {keyHighlights.slice(0, 2).map((item) => (
+                <Text key={item} style={[styles.fieldValue, { color: theme.foregroundSubtitle }]} numberOfLines={1}>
+                  · {item}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          <Text style={[styles.expandHint, { color: theme.mutedForeground }]}>
+            {t('draftDetail.opportunityBriefExpand')}
+          </Text>
+        </Pressable>
       ) : (
         <>
           <BriefListSection title={t('inboxThreadDetail.deliverablesTitle')} items={deliverables} />
@@ -162,6 +162,16 @@ export function DraftOpportunityBrief({ detail, loading }: DraftOpportunityBrief
               })}
             </Text>
           ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('draftDetail.opportunityBriefCollapse')}
+            onPress={() => setExpanded(false)}
+            style={({ pressed }) => [styles.expandPressable, pressed && { opacity: 0.75 }]}>
+            <Text style={[styles.expandHint, { color: theme.mutedForeground }]}>
+              {t('draftDetail.opportunityBriefCollapse')}
+            </Text>
+          </Pressable>
         </>
       )}
     </View>
@@ -175,7 +185,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
-  headerPressable: { alignSelf: 'stretch' },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   iconBox: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   eyebrow: {
@@ -194,5 +203,6 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: fontSize.eyebrow, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
   fieldValue: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
   missingHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  expandPressable: { gap: spacing.xs, alignSelf: 'stretch' },
   expandHint: { fontSize: fontSize.caption, fontWeight: '600' },
 });

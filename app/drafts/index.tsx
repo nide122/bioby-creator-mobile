@@ -24,7 +24,7 @@ export default function DraftsIndexScreen() {
   const { t } = useTranslation();
   const { draftKindLabel } = useDomainLabels();
   const router = useRouter();
-  const { openProposal } = useOpenProposal();
+  const { openProposal, openProposalDraftById } = useOpenProposal();
   const queryClient = useQueryClient();
   const drafts = useDrafts();
   const isDraftApproved = useDraftApprovalStore((s) => s.isDraftApproved);
@@ -100,15 +100,19 @@ export default function DraftsIndexScreen() {
                 subtitle={[draftKindLabel[item.kind], item.title].filter(Boolean).join(' · ')}
                 detail={detail}
                 detailAccent={pending}
-                onPress={() =>
+                onPress={() => {
+                  if (item.kind === 'proposal') {
+                    void openProposalDraftById(item.id);
+                    return;
+                  }
                   router.push({
                     pathname: '/drafts/[id]',
                     params: {
                       id: item.id,
                       ...(item.sourceThreadId ? { threadId: item.sourceThreadId } : {}),
                     },
-                  })
-                }
+                  });
+                }}
               />
             );
           })}

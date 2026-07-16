@@ -50,6 +50,7 @@ import { useContractSummaryEditor } from '@/src/hooks/use-contract-summary-edito
 import { pickContractPdf } from '@/src/lib/pick-contract-pdf';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
 import { getActiveTenantPublicId, invalidateTenantScopedQueries, tenantQueryKey, useTenantQueryKey } from '@/src/lib/tenant-query';
+import { invalidateDecisionQueueQueries } from '@/src/lib/invalidate-deal-queries';
 import { useSessionStore } from '@/src/stores/session-store';
 import {
   translateRiskLabelText,
@@ -352,7 +353,7 @@ export default function InboxThreadDetailScreen() {
       const draft = await createDraftForOpportunity(detail.id, 'ai_reply');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['drafts'] }),
-        queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+        invalidateDecisionQueueQueries(queryClient),
         queryClient.invalidateQueries({ queryKey: detailQueryKey }),
       ]);
       router.push(`/drafts/${draft.id}?threadId=${encodeURIComponent(threadId)}` as Href);
@@ -583,7 +584,7 @@ export default function InboxThreadDetailScreen() {
                   await Promise.all([
                     invalidateTenantScopedQueries(queryClient),
                     queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
-                    queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+                    invalidateDecisionQueueQueries(queryClient),
                   ]);
                   router.back();
                 });
@@ -769,7 +770,7 @@ export default function InboxThreadDetailScreen() {
                     void Promise.all([
                       invalidateTenantScopedQueries(queryClient),
                       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
-                      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+                      invalidateDecisionQueueQueries(queryClient),
                       queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
                     ]);
                   });
@@ -783,7 +784,7 @@ export default function InboxThreadDetailScreen() {
                     void Promise.all([
                       invalidateTenantScopedQueries(queryClient),
                       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
-                      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+                      invalidateDecisionQueueQueries(queryClient),
                       queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
                     ]);
                   });

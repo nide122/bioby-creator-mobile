@@ -12,8 +12,13 @@ export function invalidateDealClosureArtifacts(queryClient: QueryClient) {
 /** Invalidate Today decision queue after fulfillment phase changes. */
 export function invalidateDecisionQueueQueries(queryClient: QueryClient) {
   const tenantId = getActiveTenantPublicId();
-  void queryClient.invalidateQueries({ queryKey: tenantQueryKey(tenantId, 'decisions') });
-  void queryClient.invalidateQueries({ queryKey: ['decisions'] });
+  return queryClient.invalidateQueries({ queryKey: tenantQueryKey(tenantId, 'decisions') });
+}
+
+/** Refetch the active tenant's Today queue and force the backend to rebuild it. */
+export function refetchDecisionQueueQueries(queryClient: QueryClient) {
+  const tenantId = getActiveTenantPublicId();
+  return queryClient.refetchQueries({ queryKey: tenantQueryKey(tenantId, 'decisions') });
 }
 
 /** Invalidate deal list, detail, and packet after fulfillment mutations. */

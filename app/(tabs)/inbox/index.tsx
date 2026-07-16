@@ -75,6 +75,7 @@ import { resolveMailboxPushMissingReason, resolveMailboxRepairError } from '@/sr
 import { formatInboxMessageStats, hasUnreadMessages } from '@/src/lib/inbox-message-stats';
 import { useDomainLabels } from '@/src/hooks/use-domain-labels';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
+import { invalidateDecisionQueueQueries } from '@/src/lib/invalidate-deal-queries';
 import {
   applyMailboxLastSyncToCache,
   refreshInboxQueries,
@@ -1588,7 +1589,7 @@ export default function InboxScreen() {
     await Promise.all([
       refreshInboxQueries(queryClient),
       invalidateTenantScopedQueries(queryClient),
-      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+      invalidateDecisionQueueQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'connection'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),
@@ -1605,7 +1606,7 @@ export default function InboxScreen() {
       invalidateTenantScopedQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'connection'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),
-      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+      invalidateDecisionQueueQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
     ]);
   }, [queryClient]);
@@ -1701,7 +1702,7 @@ export default function InboxScreen() {
       refreshInboxQueries(queryClient),
       invalidateTenantScopedQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
-      queryClient.invalidateQueries({ queryKey: ['decisions'] }),
+      invalidateDecisionQueueQueries(queryClient),
       queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'connection'] }),
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'sync-status'] }),

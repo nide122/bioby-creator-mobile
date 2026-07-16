@@ -45,6 +45,7 @@
     "replyTemplateEdit": "Edit template",
     "profileSettings": "Creator profile",
     "dataExport": "Data & export",
+    "feedback": "Feedback",
     "creatorProfile": "Creator Profile",
     "permissions": "Permissions",
     "inboxFilter": "Inbox filter",
@@ -974,6 +975,7 @@
     "draftKind": {
       "ai_reply": "Reply draft",
       "quote": "Quote draft",
+      "proposal": "Proposal draft",
       "follow_up": "Follow-up draft",
       "clarify_budget": "Clarify budget",
       "counter_offer": "Counter offer",
@@ -1709,6 +1711,7 @@
     "screenTitle": "Reply email",
     "opportunityBriefTitle": "Cooperation summary",
     "opportunityBriefExpand": "Tap to expand full summary",
+    "opportunityBriefCollapse": "Collapse full summary",
     "titleQuote": "Review quote",
     "titleReply": "Review reply",
     "titleLowRisk": "Follow-up",
@@ -1772,8 +1775,11 @@
       "MAILBOX_NOT_CONNECTED": "No mailbox connected yet.",
       "REMOTE_DRAFT_ID_MISSING": "Save to mailbox drafts before sending.",
       "REMOTE_DRAFT_NOT_FOUND": "Save this draft to your mailbox before sending.",
-      "REMOTE_DRAFT_STALE": "The Gmail draft no longer exists (it may have been deleted). We tried creating a new one—tap Save to mailbox again if it still fails."
+      "REMOTE_DRAFT_STALE": "The Gmail draft no longer exists (it may have been deleted). We tried creating a new one—tap Save to mailbox again if it still fails.",
+      "PROPOSAL_DRAFT_NOT_SENDABLE": "This is a proposal draft and cannot be saved to your mailbox. Open the proposal page to confirm and share it with the brand."
     },
+    "proposalDraftRedirectTitle": "Proposal draft",
+    "proposalDraftRedirectBody": "Proposals must be confirmed and shared via link—they cannot be written to Gmail or Outlook drafts. Opening the proposal page…",
     "bodySectionTitle": "Reply email",
     "bodyPlaceholder": "Edit here…",
     "latestInboundTitle": "Latest from them",
@@ -3306,6 +3312,27 @@
     "rateCardConfiguredSecondary": "Edit packages anytime under Growth → Rate card.",
     "enterToday": "Open Today"
   },
+  "feedbackScreen": {
+    "lead": "Your feedback directly helps improve the beta experience. Do not include email content, passwords, tokens, or attachment details.",
+    "typeTitle": "Feedback type",
+    "types": {
+      "PROBLEM": "Problem",
+      "SUGGESTION": "Suggestion",
+      "CONFUSING": "Confusing",
+      "OTHER": "Other"
+    },
+    "contentTitle": "Tell us what happened",
+    "contentHint": "Use at least 10 characters and include what you tried and what you expected.",
+    "placeholder": "For example: Gmail stayed on the loading screen after I connected it…",
+    "characterCount": "{{count}} / {{max}}",
+    "contactAllowed": "You may contact me at my registered email for follow-up",
+    "privacy": "We attach your user, workspace, page, client platform, and app version. Email content, passwords, OAuth tokens, and attachments are never collected automatically.",
+    "submit": "Submit feedback",
+    "successTitle": "Feedback received",
+    "successMessage": "Thanks for helping us improve. We may follow up by email.",
+    "errorTitle": "Couldn't submit feedback",
+    "errorMessage": "Check your connection and try again."
+  },
   "account": {
     "profileFallback": "Add profile",
     "openA11y": "Open account",
@@ -3353,13 +3380,15 @@
     "pendingInviteBannerTitle": "{{count}} workspace invite(s)",
     "pendingInviteBannerLead": "Tap to review and accept.",
     "prefsHeading": "Preferences",
+    "helpHeading": "Help & feedback",
     "legalHeading": "Legal",
     "summaries": {
       "teamMembers": "{{count}} members",
       "dataHub": "Export hub",
       "workspaceSwitch": "API tenants",
       "mediaKitPublic": "Public to brands",
-      "pendingInvites": "{{count}} pending invite(s)"
+      "pendingInvites": "{{count}} pending invite(s)",
+      "feedback": "Tell us what could work better"
     },
     "rows": {
       "profileTitle": "Creator profile",
@@ -3373,7 +3402,8 @@
       "replyTemplatesEmpty": "Create reusable snippets",
       "dataTitle": "Data & export",
       "replayTitle": "Run setup again",
-      "languageTitle": "Language"
+      "languageTitle": "Language",
+      "feedbackTitle": "Feedback & suggestions"
     },
     "languages": {
       "system": "System",

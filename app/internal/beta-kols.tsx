@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -138,8 +138,19 @@ export default function InternalBetaKolsScreen() {
       onRefresh={() => void dashboard.refetch()}
       toolbar={
         <View style={styles.toolbar}>
-          {access.data?.role === 'BETA_ADMIN' ? (
-            <View style={styles.adminActionRow}>
+          {access.data?.allowed ? (
+            <View style={styles.internalActionRow}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/internal/beta-feedback')}
+                style={({ pressed }) => [
+                  styles.internalSecondaryButton,
+                  { borderColor: theme.border, backgroundColor: theme.card },
+                  pressed && styles.buttonPressed,
+                ]}>
+                <Text style={[styles.adminButtonLabel, { color: theme.foreground }]}>用户反馈</Text>
+              </Pressable>
+              {access.data.role === 'BETA_ADMIN' ? (
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push('/internal/beta-admins')}
@@ -150,6 +161,7 @@ export default function InternalBetaKolsScreen() {
                 ]}>
                 <Text style={[styles.adminButtonLabel, { color: theme.primaryForeground }]}>管理员管理</Text>
               </Pressable>
+              ) : null}
             </View>
           ) : null}
           <HubMetrics>
@@ -162,6 +174,15 @@ export default function InternalBetaKolsScreen() {
             <HubMetric value={String(summary.withDrafts)} label="创建草稿" hint="至少 1 条" />
             <HubMetric value={String(summary.withReplies)} label="完成回复" hint="至少 1 条" />
           </HubMetrics>
+        </View>
+      }>
+      <GmailOAuthAnalyticsPanel analytics={dashboard.data.gmailOAuth} />
+      <MailboxSyncAnalyticsPanel analytics={dashboard.data.mailboxSync} />
+      <CommercialProcessingAnalyticsPanel analytics={dashboard.data.commercialProcessing} />
+      <SectionCard
+        title={`KOL 明细（${visibleRows.length}）`}
+        subtitle="Brand Deal 仅统计 Gmail 来源且分类为 commercial 的真实商机。">
+        <View style={styles.kolListControls}>
           <HubSearchField
             value={search}
             onChangeText={setSearch}
@@ -172,13 +193,6 @@ export default function InternalBetaKolsScreen() {
           />
           <FilterChipRow items={filterItems} value={stage} onChange={setStage} />
         </View>
-      }>
-      <GmailOAuthAnalyticsPanel analytics={dashboard.data.gmailOAuth} />
-      <MailboxSyncAnalyticsPanel analytics={dashboard.data.mailboxSync} />
-      <CommercialProcessingAnalyticsPanel analytics={dashboard.data.commercialProcessing} />
-      <SectionCard
-        title={`KOL 明细（${visibleRows.length}）`}
-        subtitle="Brand Deal 仅统计 Gmail 来源且分类为 commercial 的真实商机。">
         {visibleRows.length === 0 ? (
           <Text style={[styles.empty, { color: theme.mutedForeground }]}>没有符合当前条件的 KOL。</Text>
         ) : (
@@ -391,6 +405,8 @@ function GmailOAuthAnalyticsPanel({ analytics }: { analytics: InternalGmailOAuth
   );
 }
 
+type FactItem = { label: string; value: string };
+
 function KolRow({ kol }: { kol: InternalBetaKol }) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -399,6 +415,7 @@ function KolRow({ kol }: { kol: InternalBetaKol }) {
   const registeredAt = formatDate(kol.registeredAt);
   const lastSyncAt = formatDate(kol.gmailLastSyncAt);
   const lastOAuthAt = formatDate(kol.gmailOAuthLastEventAt);
+  const gmailLabel = kol.connectedGmail ?? kol.gmailStatus ?? '未连接';
 
   return (
     <View style={[styles.kolRow, { borderColor: theme.border, backgroundColor: theme.card }]}>
@@ -409,48 +426,130 @@ function KolRow({ kol }: { kol: InternalBetaKol }) {
         </View>
         <Badge tone={issue ? 'danger' : 'mint'} label={STAGE_LABELS[kol.currentStage]} />
       </View>
-      <View style={styles.factGrid}>
-        <Fact label="注册" value={registeredAt} />
-        <Fact label="Gmail" value={kol.connectedGmail ?? kol.gmailStatus ?? '未连接'} />
-        <Fact label="最近同步" value={lastSyncAt} />
-        <Fact label="首次同步" value={formatFirstSyncEvent(kol.firstSyncLastEventType)} />
-        {kol.firstSyncLastEventAt ? <Fact label="首次同步时间" value={formatDate(kol.firstSyncLastEventAt)} /> : null}
-        {kol.firstSyncNewCount != null ? <Fact label="首次新增邮件" value={String(kol.firstSyncNewCount)} /> : null}
-        {kol.firstSyncLastFailureCode ? (
-          <Fact label="首次同步失败" value={formatSyncFailureCode(kol.firstSyncLastFailureCode)} />
-        ) : null}
-        <Fact label="最近授权步骤" value={formatOAuthEvent(kol.gmailOAuthLastEventType)} />
-        <Fact label="授权时间" value={lastOAuthAt} />
-        <Fact
-          label="授权入口 / 平台"
-          value={kol.gmailOAuthLastEventType
-            ? formatOAuthContext(kol.gmailOAuthLastSource, kol.gmailOAuthLastPlatform)
-            : '—'}
-        />
-        <Fact
-          label="授权失败原因"
-          value={kol.gmailOAuthLastFailureCode
-            ? formatFailureCode(kol.gmailOAuthLastFailureCode)
-            : '—'}
-        />
-        <Fact label="同步邮件" value={String(kol.syncedInboxEmailCount)} />
-        <Fact label="Brand Deal" value={String(kol.brandDealCount)} />
-        <Fact label="最近商业处理" value={formatCommercialProcessingEvent(kol.commercialProcessingLastEventType)} />
-        {kol.commercialProcessingLastEventAt ? (
-          <Fact label="商业处理时间" value={formatDate(kol.commercialProcessingLastEventAt)} />
-        ) : null}
-        {kol.commercialProcessingLastStage ? (
-          <Fact label="处理卡点" value={formatProcessingStage(kol.commercialProcessingLastStage)} />
-        ) : null}
-        {kol.commercialProcessingLastCategory ? (
-          <Fact label="最近分类" value={formatProcessingCategory(kol.commercialProcessingLastCategory)} />
-        ) : null}
-        {kol.commercialProcessingLastFailureCode ? (
-          <Fact label="处理失败原因" value={formatProcessingFailureCode(kol.commercialProcessingLastFailureCode)} />
-        ) : null}
-        <Fact label="草稿" value={String(kol.replyDraftCount)} />
-        <Fact label="已回复" value={String(kol.sentReplyCount)} />
+      <View style={styles.kolSections}>
+        <KolFactSection title="账号与产出" theme={theme}>
+          <FactRow
+            facts={[
+              { label: '注册', value: registeredAt },
+              { label: 'Gmail', value: gmailLabel },
+              { label: '草稿', value: String(kol.replyDraftCount) },
+              { label: '已回复', value: String(kol.sentReplyCount) },
+            ]}
+          />
+        </KolFactSection>
+        <KolFactSection title="Gmail 授权" theme={theme}>
+          <FactRow
+            facts={[
+              { label: '最近授权步骤', value: formatOAuthEvent(kol.gmailOAuthLastEventType) },
+              { label: '授权时间', value: lastOAuthAt },
+              {
+                label: '授权入口 / 平台',
+                value: kol.gmailOAuthLastEventType
+                  ? formatOAuthContext(kol.gmailOAuthLastSource, kol.gmailOAuthLastPlatform)
+                  : '—',
+              },
+              {
+                label: '授权失败原因',
+                value: kol.gmailOAuthLastFailureCode
+                  ? formatFailureCode(kol.gmailOAuthLastFailureCode)
+                  : '—',
+              },
+            ]}
+          />
+        </KolFactSection>
+        <KolFactSection title="邮件同步" theme={theme}>
+          <FactRow
+            facts={[
+              { label: '最近同步', value: lastSyncAt },
+              { label: '首次同步', value: formatFirstSyncEvent(kol.firstSyncLastEventType) },
+              { label: '首次同步时间', value: formatDate(kol.firstSyncLastEventAt) },
+              {
+                label: '首次新增邮件',
+                value: kol.firstSyncNewCount != null ? String(kol.firstSyncNewCount) : '—',
+              },
+            ]}
+          />
+          <FactRow
+            facts={[
+              {
+                label: '首次同步失败',
+                value: kol.firstSyncLastFailureCode
+                  ? formatSyncFailureCode(kol.firstSyncLastFailureCode)
+                  : '—',
+              },
+              { label: '同步邮件', value: String(kol.syncedInboxEmailCount) },
+            ]}
+          />
+        </KolFactSection>
+        <KolFactSection title="商业处理" theme={theme}>
+          <FactRow
+            facts={[
+              { label: 'Brand Deal', value: String(kol.brandDealCount) },
+              {
+                label: '最近商业处理',
+                value: formatCommercialProcessingEvent(kol.commercialProcessingLastEventType),
+              },
+              { label: '商业处理时间', value: formatDate(kol.commercialProcessingLastEventAt) },
+              {
+                label: '最近分类',
+                value: kol.commercialProcessingLastCategory
+                  ? formatProcessingCategory(kol.commercialProcessingLastCategory)
+                  : '—',
+              },
+            ]}
+          />
+          <FactRow
+            facts={[
+              {
+                label: '处理卡点',
+                value: kol.commercialProcessingLastStage
+                  ? formatProcessingStage(kol.commercialProcessingLastStage)
+                  : '—',
+              },
+              {
+                label: '处理失败原因',
+                value: kol.commercialProcessingLastFailureCode
+                  ? formatProcessingFailureCode(kol.commercialProcessingLastFailureCode)
+                  : '—',
+              },
+            ]}
+          />
+        </KolFactSection>
       </View>
+    </View>
+  );
+}
+
+function KolFactSection({
+  title,
+  theme,
+  children,
+}: {
+  title: string;
+  theme: (typeof palette)['light'];
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.kolSection}>
+      <Text style={[styles.kolSectionTitle, { color: theme.foregroundEyebrow }]}>{title}</Text>
+      <View style={styles.kolSectionBody}>{children}</View>
+    </View>
+  );
+}
+
+function FactRow({ facts }: { facts: FactItem[] }) {
+  const cells: Array<FactItem | null> = [...facts];
+  while (cells.length < 4) {
+    cells.push(null);
+  }
+
+  return (
+    <View style={styles.factRow}>
+      {cells.slice(0, 4).map((fact, index) => (
+        <View key={`${fact?.label ?? 'empty'}-${index}`} style={styles.factCell}>
+          {fact ? <Fact label={fact.label} value={fact.value} /> : null}
+        </View>
+      ))}
     </View>
   );
 }
@@ -609,7 +708,15 @@ function formatDate(value?: string | null): string {
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   toolbar: { gap: spacing.md },
-  adminActionRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  kolListControls: { gap: spacing.md },
+  internalActionRow: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: spacing.sm },
+  internalSecondaryButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+  },
   adminButton: {
     minHeight: 40,
     justifyContent: 'center',
@@ -641,8 +748,13 @@ const styles = StyleSheet.create({
   kolIdentity: { flex: 1, minWidth: 0, gap: 2 },
   kolName: { fontSize: fontSize.body, fontWeight: '700' },
   kolEmail: { fontSize: fontSize.caption },
-  factGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  fact: { minWidth: 96, flexGrow: 1, flexBasis: 110, gap: 2 },
+  kolSections: { gap: spacing.sm },
+  kolSection: { gap: spacing.xs },
+  kolSectionTitle: { fontSize: fontSize.eyebrow, fontWeight: '700', letterSpacing: 0.4 },
+  kolSectionBody: { gap: spacing.xs },
+  factRow: { flexDirection: 'row', gap: spacing.sm },
+  factCell: { flex: 1, minWidth: 0 },
+  fact: { gap: 2 },
   factLabel: { fontSize: fontSize.eyebrow, fontWeight: '700' },
   factValue: { fontSize: fontSize.bodySmall, fontWeight: '600' },
 });

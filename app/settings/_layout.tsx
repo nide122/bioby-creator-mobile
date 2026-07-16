@@ -21,6 +21,7 @@ export default function SettingsStack() {
       <Stack.Screen name="reply-template-edit" options={{ title: t('stacks.replyTemplateEdit') }} />
       <Stack.Screen name="profile" options={{ title: t('stacks.profileSettings') }} />
       <Stack.Screen name="data-export" options={{ title: t('stacks.dataExport') }} />
+      <Stack.Screen name="feedback" options={{ title: t('stacks.feedback') }} />
     </Stack>
   );
 }

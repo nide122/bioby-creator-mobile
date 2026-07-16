@@ -7,6 +7,7 @@ export type DraftDetailDto = DraftDetailView;
 const DRAFT_KINDS: DraftKind[] = [
   'ai_reply',
   'quote',
+  'proposal',
   'follow_up',
   'clarify_budget',
   'counter_offer',

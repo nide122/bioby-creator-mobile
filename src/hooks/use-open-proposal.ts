@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type Href, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { fetchProposalDraft } from '@/src/api/growth-api';
 import { alertAction } from '@/src/lib/app-dialog';
 import { resolveDefaultProposalPackageId } from '@/src/lib/proposal-from-package';
 import { proposalDraftQueryKey, proposalPreviewQueryKey, useGenerateProposalDraft, useRateCardPackages } from '@/src/hooks/use-growth';
@@ -51,5 +52,28 @@ export function useOpenProposal() {
     [generateProposalDraft, i18n.language, openingProposal, queryClient, rateCards.data, router, t],
   );
 
-  return { openProposal, openingProposal: openingProposal || generateProposalDraft.isPending };
+  const openProposalDraftById = useCallback(
+    async (draftId: string) => {
+      if (openingProposal) return;
+      setOpeningProposal(true);
+      try {
+        const draft = await fetchProposalDraft(draftId);
+        queryClient.setQueryData(proposalDraftQueryKey(draft.id), draft);
+        queryClient.setQueryData(proposalPreviewQueryKey(draft.proposal.id), draft.proposal);
+        router.push(`/proposal/${draft.proposal.id}?draftId=${draft.id}` as Href);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t('proposalDetailScreen.emptyDataFallback');
+        void alertAction(t('proposalDetailScreen.loadFailedTitle'), message);
+      } finally {
+        setOpeningProposal(false);
+      }
+    },
+    [openingProposal, queryClient, router, t],
+  );
+
+  return {
+    openProposal,
+    openProposalDraftById,
+    openingProposal: openingProposal || generateProposalDraft.isPending,
+  };
 }

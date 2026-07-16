@@ -363,6 +363,7 @@ export type DealSummary = {
 export type DraftKind =
   | 'ai_reply'
   | 'quote'
+  | 'proposal'
   | 'follow_up'
   | 'clarify_budget'
   | 'counter_offer'

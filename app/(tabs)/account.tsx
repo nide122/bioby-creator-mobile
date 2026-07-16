@@ -350,6 +350,17 @@ export default function AccountScreen() {
         />
       </SettingsGroup>
 
+      {shouldUseBackendApi() ? (
+        <SettingsGroup title={t('account.helpHeading')} insetDividers={false}>
+          <NavRow
+            testID="account-feedback-row"
+            title={t('account.rows.feedbackTitle')}
+            detail={t('account.summaries.feedback')}
+            onPress={() => router.push('/settings/feedback' as Href)}
+          />
+        </SettingsGroup>
+      ) : null}
+
       <SettingsGroup title={t('account.legalHeading')} insetDividers={false}>
         <NavRow
           testID="account-legal-home-row"

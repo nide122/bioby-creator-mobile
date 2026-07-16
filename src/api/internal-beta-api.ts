@@ -148,6 +148,25 @@ export type InternalBetaAdmin = {
   revokedAt?: string | null;
 };
 
+export type InternalBetaFeedbackType = 'PROBLEM' | 'SUGGESTION' | 'CONFUSING' | 'OTHER';
+
+export type InternalBetaFeedback = {
+  id: string;
+  userId: string;
+  email: string;
+  displayName?: string | null;
+  workspaceId: string;
+  workspaceName: string;
+  feedbackType: InternalBetaFeedbackType;
+  content: string;
+  contactAllowed: boolean;
+  sourcePage?: string | null;
+  appVersion?: string | null;
+  clientPlatform?: string | null;
+  errorCode?: string | null;
+  submittedAt: string;
+};
+
 export async function fetchInternalBetaDashboard(): Promise<InternalBetaDashboard> {
   return apiRequest<InternalBetaDashboard>('/api/v1/internal/beta/kols');
 }
@@ -171,4 +190,8 @@ export async function setInternalBetaAdminActive(id: number, active: boolean): P
   return apiRequest<InternalBetaAdmin>(`/api/v1/internal/beta/admins/${id}/${active ? 'enable' : 'disable'}`, {
     method: 'PATCH',
   });
+}
+
+export async function fetchInternalBetaFeedback(): Promise<InternalBetaFeedback[]> {
+  return apiRequest<InternalBetaFeedback[]>('/api/v1/internal/beta/feedback');
 }

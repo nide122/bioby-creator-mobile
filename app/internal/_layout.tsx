@@ -14,6 +14,7 @@ export default function InternalStack() {
     <Stack screenOptions={stackHeaderOptions(theme, t)}>
       <Stack.Screen name="beta-kols" options={{ title: 'KOL Beta Console' }} />
       <Stack.Screen name="beta-admins" options={{ title: '管理员管理' }} />
+      <Stack.Screen name="beta-feedback" options={{ title: '用户反馈' }} />
     </Stack>
   );
 }
