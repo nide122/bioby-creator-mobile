@@ -385,7 +385,7 @@ export default function DraftDetailScreen() {
 
   return (
     <>
-      <HubScreen eyebrow={t('tabs.assets')} title={t('draftDetail.screenTitle')} lead={headerLead || undefined}>
+      <HubScreen title={t('draftDetail.screenTitle')} lead={headerLead || undefined}>
         {effectiveThreadId ? (
           <DraftOpportunityBrief detail={threadDetail} loading={threadQuery.isPending && !threadDetail} />
         ) : null}

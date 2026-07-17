@@ -12,7 +12,7 @@ import type { BattleReportSummary } from '@/src/types/domain';
 function mapReport(view: BattleReportView): BattleReportSummary {
   return {
     id: view.id ?? '',
-    dealId: (view as BattleReportView & { dealId?: string }).dealId,
+    dealId: view.dealId,
     title: view.title ?? '',
     metrics: view.metrics ?? [],
     lesson: view.lesson ?? '',

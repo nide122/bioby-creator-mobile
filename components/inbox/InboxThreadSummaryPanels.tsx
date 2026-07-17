@@ -147,116 +147,120 @@ export function ThreadAiSummaryCard({
     context: 'thread',
   });
 
-  return (
-    <View
-      style={[
-        styles.aiCard,
-        {
-          borderColor: theme.accentMintStrong + '55',
-          backgroundColor: theme.card,
-        },
+  const proposalEntry = proposal ? (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onOpenProposal}
+      style={({ pressed }) => [
+        styles.proposalRow,
+        { borderColor: theme.primary + '55', backgroundColor: theme.primary + '0D' },
+        pressed && { opacity: 0.8 },
       ]}>
-      <View style={styles.aiCardTop}>
-        <View style={styles.aiCardHeader}>
-          <View style={[styles.aiIconBox, { backgroundColor: theme.primary + '18' }]}>
-            <Ionicons name="sparkles" size={14} color={theme.primary} />
-          </View>
-          <Text style={[styles.aiEyebrow, { color: theme.primary }]}>
-            {t('inboxThreadDetail.aiSummaryEyebrow')}
-          </Text>
-        </View>
-        {confidencePercent != null ? (
-          <View style={[styles.confidenceBadge, { borderColor: theme.accentMintStrong + '88' }]}>
-            <Text style={[styles.confidenceText, { color: theme.accentMintStrong }]}>
-              {t('inboxThreadDetail.briefConfidence', { percent: confidencePercent })}
-            </Text>
-          </View>
-        ) : null}
+      <View style={[styles.proposalIcon, { backgroundColor: theme.primary + '18' }]}>
+        <Ionicons name="document-text-outline" size={18} color={theme.primary} />
       </View>
-
-      <Text style={[styles.cooperationTitle, { color: theme.foreground }]} numberOfLines={3}>
-        {title}
-      </Text>
-
-      {proposal ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={onOpenProposal}
-          style={({ pressed }) => [
-            styles.proposalRow,
-            { borderColor: theme.primary + '55', backgroundColor: theme.primary + '0D' },
-            pressed && { opacity: 0.8 },
-          ]}>
-          <View style={[styles.proposalIcon, { backgroundColor: theme.primary + '18' }]}>
-            <Ionicons name="document-text-outline" size={18} color={theme.primary} />
-          </View>
-          <View style={styles.proposalCopy}>
-            <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
-              {t('inboxThreadDetail.proposalSavedTitle')}
-            </Text>
-            <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
-              {proposal.title}
-            </Text>
-          </View>
-          <Text style={[styles.proposalLink, { color: theme.primary }]}>
-            {t('inboxThreadDetail.proposalViewCta')}
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color={theme.primary} />
-        </Pressable>
-      ) : onCreateProposal ? (
-        <Pressable
-          accessibilityRole="button"
-          disabled={proposalCreating}
-          onPress={onCreateProposal}
-          style={({ pressed }) => [
-            styles.proposalRow,
-            { borderColor: theme.primary + '55', backgroundColor: theme.primary + '0D' },
-            (proposalCreating || pressed) && { opacity: 0.72 },
-          ]}>
-          <View style={[styles.proposalIcon, { backgroundColor: theme.primary + '18' }]}>
-            {proposalCreating ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
-              <Ionicons name="document-text-outline" size={18} color={theme.primary} />
-            )}
-          </View>
-          <View style={styles.proposalCopy}>
-            <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
-              {t('inboxThreadDetail.proposalCreateTitle')}
-            </Text>
-            <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
-              {t('inboxThreadDetail.proposalCreateHint')}
-            </Text>
-          </View>
-          <Text style={[styles.proposalLink, { color: theme.primary }]}>
-            {t('inboxThreadDetail.proposalCreateCta')}
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color={theme.primary} />
-        </Pressable>
-      ) : null}
-
-      {showPending ? (
-        <View style={styles.pendingRow}>
-          <ActivityIndicator size="small" color={theme.primary} />
-          <Text style={[styles.pendingText, { color: theme.mutedForeground }]}>
-            {analysisPending
-              ? t('inboxThreadDetail.threadAnalysisPending')
-              : t('inboxThreadDetail.aiBriefExtracting')}
-          </Text>
-        </View>
-      ) : summaryText ? (
-        <Text style={[styles.summaryText, { color: theme.foregroundSubtitle }]}>{summaryText}</Text>
-      ) : (
-        <Text style={[styles.pendingText, { color: theme.mutedForeground }]}>
-          {t('inboxThreadDetail.aiBriefPending')}
+      <View style={styles.proposalCopy}>
+        <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
+          {t('inboxThreadDetail.proposalSavedTitle')}
         </Text>
-      )}
-
-      <View style={styles.factGrid}>
-        <SummaryFact label={t('inboxThreadDetail.summaryOfferLabel')} value={offer} />
-        <SummaryFact label={t('inboxThreadDetail.summaryDeliverablesLabel')} value={deliverables} />
-        <SummaryFact label={t('inboxThreadDetail.summaryDeadlineLabel')} value={deadline ?? '—'} />
+        <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
+          {proposal.title}
+        </Text>
       </View>
+      <Text style={[styles.proposalLink, { color: theme.primary }]}>
+        {t('inboxThreadDetail.proposalViewCta')}
+      </Text>
+      <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+    </Pressable>
+  ) : onCreateProposal ? (
+    <Pressable
+      accessibilityRole="button"
+      disabled={proposalCreating}
+      onPress={onCreateProposal}
+      style={({ pressed }) => [
+        styles.proposalRow,
+        { borderColor: theme.primary + '55', backgroundColor: theme.primary + '0D' },
+        (proposalCreating || pressed) && { opacity: 0.72 },
+      ]}>
+      <View style={[styles.proposalIcon, { backgroundColor: theme.primary + '18' }]}>
+        {proposalCreating ? (
+          <ActivityIndicator size="small" color={theme.primary} />
+        ) : (
+          <Ionicons name="document-text-outline" size={18} color={theme.primary} />
+        )}
+      </View>
+      <View style={styles.proposalCopy}>
+        <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
+          {t('inboxThreadDetail.proposalCreateTitle')}
+        </Text>
+        <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
+          {t('inboxThreadDetail.proposalCreateHint')}
+        </Text>
+      </View>
+      <Text style={[styles.proposalLink, { color: theme.primary }]}>
+        {t('inboxThreadDetail.proposalCreateCta')}
+      </Text>
+      <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+    </Pressable>
+  ) : null;
+
+  return (
+    <View style={styles.aiSummaryStack}>
+      <View
+        style={[
+          styles.aiCard,
+          {
+            borderColor: theme.accentMintStrong + '55',
+            backgroundColor: theme.card,
+          },
+        ]}>
+        <View style={styles.aiCardTop}>
+          <View style={styles.aiCardHeader}>
+            <View style={[styles.aiIconBox, { backgroundColor: theme.primary + '18' }]}>
+              <Ionicons name="sparkles" size={14} color={theme.primary} />
+            </View>
+            <Text style={[styles.aiEyebrow, { color: theme.primary }]}>
+              {t('inboxThreadDetail.aiSummaryEyebrow')}
+            </Text>
+          </View>
+          {confidencePercent != null ? (
+            <View style={[styles.confidenceBadge, { borderColor: theme.accentMintStrong + '88' }]}>
+              <Text style={[styles.confidenceText, { color: theme.accentMintStrong }]}>
+                {t('inboxThreadDetail.briefConfidence', { percent: confidencePercent })}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text style={[styles.cooperationTitle, { color: theme.foreground }]} numberOfLines={3}>
+          {title}
+        </Text>
+
+        {showPending ? (
+          <View style={styles.pendingRow}>
+            <ActivityIndicator size="small" color={theme.primary} />
+            <Text style={[styles.pendingText, { color: theme.mutedForeground }]}>
+              {analysisPending
+                ? t('inboxThreadDetail.threadAnalysisPending')
+                : t('inboxThreadDetail.aiBriefExtracting')}
+            </Text>
+          </View>
+        ) : summaryText ? (
+          <Text style={[styles.summaryText, { color: theme.foregroundSubtitle }]}>{summaryText}</Text>
+        ) : (
+          <Text style={[styles.pendingText, { color: theme.mutedForeground }]}>
+            {t('inboxThreadDetail.aiBriefPending')}
+          </Text>
+        )}
+
+        <View style={styles.factGrid}>
+          <SummaryFact label={t('inboxThreadDetail.summaryOfferLabel')} value={offer} />
+          <SummaryFact label={t('inboxThreadDetail.summaryDeliverablesLabel')} value={deliverables} />
+          <SummaryFact label={t('inboxThreadDetail.summaryDeadlineLabel')} value={deadline ?? '—'} />
+        </View>
+      </View>
+
+      {proposalEntry}
     </View>
   );
 }
@@ -335,6 +339,9 @@ const styles = StyleSheet.create({
   explainPressable: { alignSelf: 'flex-start' },
   explainLink: { fontSize: fontSize.bodySmall, fontWeight: '600' },
 
+  aiSummaryStack: {
+    gap: spacing.sm,
+  },
   aiCard: {
     borderWidth: 1,
     borderRadius: radii.lg,

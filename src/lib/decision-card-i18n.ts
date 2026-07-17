@@ -42,6 +42,7 @@ const ACTION_REASON_EXACT: Record<string, string> = {
   'Deadline within the next few days': 'deadline48h',
   'Claims or review window mentioned': 'claimsReview',
   'Budget mentioned in thread': 'budgetSignal',
+  'Budget mentioned in email': 'budgetSignal',
   'Offer is well above your rate-card floor': 'exceptionalBudget',
   'No rate-card floor configured — using absolute budget threshold': 'noRateCardFloor',
   'No budget signal yet — clarify before quoting': 'missingBudget',
@@ -53,6 +54,7 @@ const ACTION_REASON_EXACT: Record<string, string> = {
 
 const ACTION_LABEL_EXACT: Record<string, string> = {
   'Open thread': 'openThread',
+  'Open email': 'openThread',
   'Snooze': 'snooze',
   'Later': 'later',
   'Review draft': 'reviewDraft',

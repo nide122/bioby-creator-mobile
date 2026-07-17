@@ -100,7 +100,7 @@ export default function DisputesScreen() {
   return (
     <HubScreen
       testID="screen-disputes"
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('disputesScreen.eyebrow')}
       title={t('disputesScreen.title')}
       lead={t('disputesScreen.description', { count: rows.length })}
       toolbar={

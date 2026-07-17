@@ -96,6 +96,10 @@ describe('getStackBackFallbackHref', () => {
       expect(getStackBackFallbackHref('/inbox/42', { returnTo: '/brand/5' })).toBe('/brand/5');
     });
 
+    it('inbox thread detail returns today when returnTo is /', () => {
+      expect(getStackBackFallbackHref('/inbox/42', { returnTo: '/' })).toBe('/');
+    });
+
     it('inbox thread detail restores brand context with parentReturnTo', () => {
       expect(getStackBackFallbackHref('/inbox/42', { returnTo: '/brand/5', parentReturnTo: '/inbox' })).toEqual({
         pathname: '/brand/[brandId]',

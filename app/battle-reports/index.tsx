@@ -56,7 +56,7 @@ export default function BattleReportsIndexScreen() {
   return (
     <HubScreen
       testID="screen-battle-reports"
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('battleReportsScreen.eyebrow')}
       title={t('battleReportsScreen.title')}
       lead={t('battleReportsScreen.description')}
       toolbar={

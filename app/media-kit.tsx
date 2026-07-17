@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -7,13 +7,12 @@ import { useTranslation } from 'react-i18next';
 
 import {
   HubListRow,
-  HubScreen,
   QueryRetryCard,
   SettingsGroup,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
-import { palette } from '@/constants/tokens';
+import { fontSize, layout, lineHeight, palette, spacing } from '@/constants/tokens';
 import { alertAction } from '@/src/lib/app-dialog';
 import { copyTextToClipboard } from '@/src/lib/copy-to-clipboard';
 import { isContactUrlCopyable } from '@/src/lib/media-kit-contact-url';
@@ -103,60 +102,75 @@ export default function MediaKitScreen() {
   const canCopyContactUrl = isContactUrlCopyable(data.contactUrl);
 
   return (
-    <HubScreen eyebrow={t('tabs.assets')} title={t('mediaKitScreen.title')} lead={t('mediaKitScreen.description')}>
-      <SettingsGroup title={t('mediaKitScreen.nextStepsTitle')}>
-        <HubListRow
-          icon="create-outline"
-          title={t('mediaKitScreen.ctaEdit')}
-          subtitle={t('mediaKitScreen.ctaEditHint')}
-          onPress={() => router.push('/media-kit-edit' as Href)}
-        />
-        <HubListRow
-          icon="eye-outline"
-          title={t('mediaKitScreen.ctaPublicPreview')}
-          subtitle={t('mediaKitScreen.ctaPublicPreviewHint')}
-          onPress={() => router.push('/media-kit-public' as Href)}
-        />
-        {canCopyContactUrl ? (
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScrollView
+        testID="screen-media-kit"
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
+        <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('mediaKitScreen.description')}</Text>
+
+        <SettingsGroup>
           <HubListRow
-            icon="link-outline"
-            title={t('mediaKitScreen.copyLink')}
-            subtitle={t('mediaKitScreen.copyLinkHint')}
-            onPress={() => void copyContactUrl()}
+            icon="create-outline"
+            title={t('mediaKitScreen.ctaEdit')}
+            subtitle={t('mediaKitScreen.ctaEditHint')}
+            onPress={() => router.push('/media-kit-edit' as Href)}
           />
-        ) : (
           <HubListRow
-            icon="person-outline"
-            title={t('mediaKitScreen.contactUrlProfileCta')}
-            subtitle={t('mediaKitScreen.contactUrlProfileHint')}
-            onPress={() => router.push('/settings/profile' as Href)}
+            icon="eye-outline"
+            title={t('mediaKitScreen.ctaPublicPreview')}
+            subtitle={t('mediaKitScreen.ctaPublicPreviewHint')}
+            onPress={() => router.push('/media-kit-public' as Href)}
           />
-        )}
-        <HubListRow
-          icon="share-outline"
-          title={t('mediaKitScreen.ctaShareFullKit')}
-          subtitle={
-            sharingPdf ? t('mediaKitScreen.ctaShareFullKitGenerating') : t('mediaKitScreen.ctaShareFullKitHint')
-          }
-          onPress={() => void sharePublicProfile()}
-        />
-        <HubListRow
-          icon="mail-outline"
-          title={t('mediaKitScreen.ctaEmailSignature')}
-          subtitle={t('mediaKitScreen.ctaEmailSignatureHint')}
-          onPress={() => void copyFullText()}
-        />
-        <HubListRow
-          icon="shield-checkmark-outline"
-          title={t('mediaKitScreen.ctaFulfillmentAppendix')}
-          subtitle={t('mediaKitScreen.ctaFulfillmentAppendixHint')}
-          onPress={() => router.push('/trust-passport' as Href)}
-        />
-      </SettingsGroup>
-    </HubScreen>
+          {canCopyContactUrl ? (
+            <HubListRow
+              icon="link-outline"
+              title={t('mediaKitScreen.copyLink')}
+              subtitle={t('mediaKitScreen.copyLinkHint')}
+              onPress={() => void copyContactUrl()}
+            />
+          ) : (
+            <HubListRow
+              icon="person-outline"
+              title={t('mediaKitScreen.contactUrlProfileCta')}
+              subtitle={t('mediaKitScreen.contactUrlProfileHint')}
+              onPress={() => router.push('/settings/profile' as Href)}
+            />
+          )}
+          <HubListRow
+            icon="share-outline"
+            title={t('mediaKitScreen.ctaShareFullKit')}
+            subtitle={
+              sharingPdf ? t('mediaKitScreen.ctaShareFullKitGenerating') : t('mediaKitScreen.ctaShareFullKitHint')
+            }
+            onPress={() => void sharePublicProfile()}
+          />
+          <HubListRow
+            icon="mail-outline"
+            title={t('mediaKitScreen.ctaEmailSignature')}
+            subtitle={t('mediaKitScreen.ctaEmailSignatureHint')}
+            onPress={() => void copyFullText()}
+          />
+          <HubListRow
+            icon="shield-checkmark-outline"
+            title={t('mediaKitScreen.ctaFulfillmentAppendix')}
+            subtitle={t('mediaKitScreen.ctaFulfillmentAppendixHint')}
+            onPress={() => router.push('/trust-passport' as Href)}
+          />
+        </SettingsGroup>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scroll: {
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: layout.tabBarScrollInset,
+    gap: spacing.lg,
+  },
+  lead: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
 });

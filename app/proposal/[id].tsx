@@ -383,7 +383,7 @@ export default function ProposalDetailScreen() {
 
   return (
     <HubScreen
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('proposalDetailScreen.eyebrow')}
       title={isDraft ? t('proposalDetailScreen.draftTitle') : activeProposal.title}
       lead={t('proposalDetailScreen.heroEvidenceLine', {
         brand: activeProposal.brandHint,

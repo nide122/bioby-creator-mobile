@@ -73,7 +73,7 @@ export default function TrustPassportScreen() {
 
   return (
     <HubScreen
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('trustPassportScreen.eyebrow')}
       title={t('trustPassportScreen.title')}
       lead={t('trustPassportScreen.description')}>
       <HubCallout

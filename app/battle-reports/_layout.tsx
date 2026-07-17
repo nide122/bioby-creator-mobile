@@ -10,5 +10,10 @@ export default function BattleReportsLayout() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
-  return <Stack screenOptions={stackHeaderOptions(theme, t)} />;
+  return (
+    <Stack screenOptions={stackHeaderOptions(theme, t)}>
+      <Stack.Screen name="index" options={{ title: t('stacks.battleReportsIndex') }} />
+      <Stack.Screen name="[id]" options={{ title: t('stacks.battleReportDetail') }} />
+    </Stack>
+  );
 }

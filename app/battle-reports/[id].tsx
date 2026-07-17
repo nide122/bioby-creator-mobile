@@ -109,7 +109,7 @@ export default function BattleReportDetailScreen() {
 
   return (
     <HubScreen
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('battleReportDetailScreen.eyebrow')}
       title={report.title}
       lead={t('battleReportDetailScreen.heroEvidenceLine', { title: report.title })}
       toolbar={

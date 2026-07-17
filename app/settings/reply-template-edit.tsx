@@ -36,6 +36,7 @@ export default function ReplyTemplateEditScreen() {
   }, [existing]);
 
   const canSave = name.trim().length > 0 && body.trim().length > 0 && !isSaving;
+  const showBodyRequiredHint = name.trim().length > 0 && body.trim().length === 0 && !isSaving;
 
   const onSave = async () => {
     if (!canSave) return;
@@ -101,6 +102,12 @@ export default function ReplyTemplateEditScreen() {
           </View>
         </SectionCard>
 
+        {showBodyRequiredHint ? (
+          <Text style={[styles.saveHint, { color: theme.mutedForeground }]}>
+            {t('replyTemplateEditScreen.bodyRequiredHint')}
+          </Text>
+        ) : null}
+
         <Pressable
           accessibilityRole="button"
           disabled={!canSave}
@@ -151,11 +158,16 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.bodyRelaxed,
   },
+  saveHint: {
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.bodyRelaxed,
+    marginTop: spacing.lg,
+  },
   saveButton: {
     borderRadius: spacing.md,
     paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
   },
   saveLabel: {
     fontSize: fontSize.body,

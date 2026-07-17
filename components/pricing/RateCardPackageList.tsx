@@ -480,21 +480,15 @@ function RateCardPackageCard({
               disabled={openingProposal}
               onPress={() => onOpenProposal?.(pkg.id)}
               style={[
-                pkg.recommended ? styles.primary : styles.secondary,
-                pkg.recommended
-                  ? { backgroundColor: theme.primary }
-                  : { borderColor: theme.border, backgroundColor: theme.background },
+                styles.secondary,
+                { borderColor: theme.border, backgroundColor: theme.background },
                 openingProposal && { opacity: 0.7 },
               ]}>
               {openingProposal ? (
-                <ActivityIndicator color={pkg.recommended ? theme.primaryForeground : theme.primary} />
+                <ActivityIndicator color={theme.primary} />
               ) : (
-                <Text
-                  style={[
-                    pkg.recommended ? styles.primaryLabel : styles.secondaryLabel,
-                    { color: pkg.recommended ? theme.primaryForeground : theme.foreground },
-                  ]}>
-                  {pkg.recommended ? t('pricingScreen.ctaUseForProposal') : t('pricingScreen.ctaPreviewProposal')}
+                <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>
+                  {t('pricingScreen.ctaPreviewProposalStyleShort')}
                 </Text>
               )}
             </Pressable>
@@ -720,7 +714,7 @@ export function RateCardPackageList({ packages, scrollRoot }: Props) {
           <Text style={[hubStyles.title, { color: theme.foreground }]}>{scrollRoot.title}</Text>
         ) : null}
         {scrollRoot.lead ? (
-          <Text style={[hubStyles.lead, { color: theme.mutedForeground }]}>{scrollRoot.lead}</Text>
+          <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>{scrollRoot.lead}</Text>
         ) : null}
       </View>
       <View style={styles.section}>
@@ -796,6 +790,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   scrollRootHeader: { gap: layout.tabScreenSectionGap, marginBottom: spacing.sm },
   scrollRootFooter: { marginTop: layout.tabScreenSectionGap },
+  pageLead: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

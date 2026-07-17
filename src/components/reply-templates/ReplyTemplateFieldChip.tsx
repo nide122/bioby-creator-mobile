@@ -14,6 +14,10 @@ type ReplyTemplateFieldChipProps = {
   fieldKey: ReplyTemplateFieldKey;
   onPress?: () => void;
   compact?: boolean;
+  /** Appended when the same field appears more than once, e.g. " ·2". */
+  labelSuffix?: string;
+  /** Overrides the default remove accessibility label. */
+  removeA11yLabel?: string;
   /** Shows a small delete button in the top-right corner. */
   onRemove?: () => void;
 };
@@ -22,12 +26,14 @@ export function ReplyTemplateFieldChip({
   fieldKey,
   onPress,
   compact = false,
+  labelSuffix,
+  removeA11yLabel,
   onRemove,
 }: ReplyTemplateFieldChipProps) {
   const { t } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = replyTemplateFieldChipColors(fieldKey, colorScheme);
-  const label = replyTemplateFieldLabel(fieldKey, t);
+  const label = `${replyTemplateFieldLabel(fieldKey, t)}${labelSuffix ?? ''}`;
 
   const chipBody = (
     <View
@@ -48,7 +54,7 @@ export function ReplyTemplateFieldChip({
       {chipBody}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t('replyTemplateBodyEditor.removeTagA11y', { label })}
+        accessibilityLabel={removeA11yLabel ?? t('replyTemplateBodyEditor.removeTagA11y', { label })}
         onPress={onRemove}
         hitSlop={6}
         style={[styles.removeButton, { backgroundColor: colorScheme === 'dark' ? '#475569' : '#64748B' }]}>

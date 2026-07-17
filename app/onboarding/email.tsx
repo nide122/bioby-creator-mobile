@@ -6,16 +6,19 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, T
 
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import appI18n from '@/src/i18n';
 
 import { GoogleOAuthButton, type GoogleOAuthLifecycleEvent } from '@/components/oauth/GoogleOAuthButton';
 import { MicrosoftOAuthButton } from '@/components/oauth/MicrosoftOAuthButton';
 import { OAuthUnconfiguredButton } from '@/components/oauth/OAuthUnconfiguredButton';
+import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
 import { Badge, getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { fetchGoogleMailboxOAuthStatus, markInboxSetupSkipped } from '@/src/api/account-api';
+import { useAccountOverview } from '@/src/hooks/use-account-overview';
 import {
   createMailboxOAuthFlowId,
   mailboxOAuthPlatform,
@@ -92,6 +95,18 @@ export default function EmailOnboardingScreen() {
   const creatorFocusMode = useSessionStore((s) => s.creatorFocusMode);
   const accountEmail = useSessionStore((s) => s.accountEmail);
   const mailboxConnection = useSessionStore((s) => s.mailboxConnection);
+  const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
+  const emailSkipped = useSessionStore((s) => s.emailSkipped);
+  const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
+  const overview = useAccountOverview();
+  const overviewMailbox = overview.data?.mailbox;
+  const connectedMailbox =
+    overviewMailbox?.connected ||
+    (emailWizardFinished && !emailSkipped && Boolean(mailboxConnection));
+  const connectedInboxEmail =
+    overviewMailbox?.emailAddress ?? mailboxConnection?.email ?? accountEmail ?? '';
+  const showConnectedState = fromAccount && connectedMailbox;
+  const showOnboardingChrome = !fromAccount;
   const [preset, setPreset] = useState<MailboxPresetKey>('gmail');
   const [mailbox, setMailbox] = useState(accountEmail ?? mailboxConnection?.email ?? '');
   const [imapHost, setImapHost] = useState<string>(MAILBOX_PRESETS.gmail.imapHost);
@@ -103,6 +118,7 @@ export default function EmailOnboardingScreen() {
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [manualSetupExpanded, setManualSetupExpanded] = useState(false);
+  const [reconnectExpanded, setReconnectExpanded] = useState(false);
   const gmailFlowIdRef = useRef<string | null>(null);
   const gmailFlowStartedAtRef = useRef<number | null>(null);
   const gmailAnalyticsSource = fromAccount
@@ -155,6 +171,19 @@ export default function EmailOnboardingScreen() {
       /^\d{2,5}$/.test(smtpPort.trim())
     );
   }, [appPassword, imapHost, imapPort, mailbox, preset, smtpHost, smtpPort]);
+
+  const syncStatusSubtitle = useMemo(() => {
+    const lastSync = overviewMailbox?.lastSyncAtISO;
+    if (lastSync) {
+      return t('account.inboxLastSync', {
+        time: new Date(lastSync).toLocaleString(
+          appI18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US',
+          { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+        ),
+      });
+    }
+    return t('account.reconnectInbox');
+  }, [overviewMailbox?.lastSyncAtISO, t]);
 
   const goNext = () => {
     if (fromRepair && router.canGoBack()) {
@@ -347,6 +376,245 @@ export default function EmailOnboardingScreen() {
     goNext();
   };
 
+  const gmailConnectLabel = showConnectedState
+    ? t('onboardingEmailScreen.reconnectGmail')
+    : t('onboardingEmailScreen.connectGmail');
+  const outlookConnectLabel = showConnectedState
+    ? t('onboardingEmailScreen.reconnectOutlook')
+    : t('onboardingEmailScreen.connectOutlook');
+
+  const syncBanner =
+    syncState !== 'idle' ? (
+      <View
+        style={[
+          styles.syncBanner,
+          {
+            borderColor:
+              syncState === 'error'
+                ? '#EF4444'
+                : syncState === 'success'
+                  ? '#34D399'
+                  : theme.border,
+            backgroundColor:
+              syncState === 'error'
+                ? 'rgba(239,68,68,0.14)'
+                : syncState === 'success'
+                  ? 'rgba(52,211,153,0.14)'
+                  : theme.card,
+          },
+        ]}>
+        {syncState === 'syncing' ? <ActivityIndicator color={theme.primary} /> : null}
+        <Text style={[styles.syncBannerText, { color: theme.foreground }]}>
+          {syncMessage ?? t('onboardingSync.mailboxWorking')}
+        </Text>
+      </View>
+    ) : null;
+
+  const quickConnect = (
+    <View style={styles.quickConnect}>
+      {gmailOAuthConfigured ? (
+        <GoogleOAuthButton
+          label={gmailConnectLabel}
+          variant="gmail"
+          onGmailOAuthTokens={apiMode ? onGmailOAuthTokens : undefined}
+          onGoogleAuthCode={apiMode ? onGmailOAuthCode : undefined}
+          onOAuthLifecycle={onGmailOAuthLifecycle}
+          onSuccess={onOAuthConnected}
+          onError={(msg) => void alertAction(t('onboardingEmailScreen.gmailConnectFailTitle'), msg)}
+        />
+      ) : (
+        <OAuthUnconfiguredButton provider="google" label={gmailConnectLabel} />
+      )}
+      <MicrosoftOAuthButton
+        label={outlookConnectLabel}
+        variant="mailbox"
+        onMicrosoftAccessToken={apiMode ? onMicrosoftMailboxTokens : undefined}
+        onSuccess={onOAuthConnected}
+        onError={(msg) => void alertAction(t('onboardingEmailScreen.outlookConnectFailTitle'), msg)}
+      />
+    </View>
+  );
+
+  const manualSetupCard = (
+    <View style={[styles.manualSetupCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: manualSetupExpanded }}
+        accessibilityLabel={
+          manualSetupExpanded
+            ? t('onboardingEmailScreen.manualSetupCollapseA11y')
+            : t('onboardingEmailScreen.manualSetupExpandA11y')
+        }
+        onPress={() => setManualSetupExpanded((value) => !value)}
+        style={({ pressed }) => [styles.manualSetupHeader, pressed && { opacity: 0.85 }]}>
+        <View style={styles.manualSetupHeaderText}>
+          <Text style={[styles.manualSetupTitle, { color: theme.foreground }]}>
+            {t('onboardingEmailScreen.manualSetupTitle')}
+          </Text>
+          <Text style={[styles.manualSetupSubtitle, { color: theme.mutedForeground }]}>
+            {t('onboardingEmailScreen.manualSetupSubtitle')}
+          </Text>
+        </View>
+        <Ionicons
+          name={manualSetupExpanded ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color={theme.foregroundEyebrow}
+        />
+      </Pressable>
+
+      {manualSetupExpanded ? (
+        <View style={styles.manualSetupBody}>
+          <View style={styles.presetRow}>
+            {(Object.keys(MAILBOX_PRESETS) as MailboxPresetKey[]).map((key) => (
+              <Pressable
+                key={key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: preset === key }}
+                onPress={() => selectPreset(key)}
+                style={[
+                  styles.presetChip,
+                  {
+                    borderColor: preset === key ? theme.primary : theme.border,
+                    backgroundColor: preset === key ? theme.accentMintSoft : theme.card,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.presetLabel,
+                    { color: preset === key ? theme.primary : theme.foregroundSubtitle },
+                  ]}>
+                  {mailboxPresetLabel(key, t)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
+            {t('onboardingEmailScreen.labelMailbox')}
+          </Text>
+          <TextInput
+            value={mailbox}
+            onChangeText={setMailbox}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="brand@example.com"
+            {...getTextInputProps(theme)}
+            style={getTextInputStyle(theme)}
+          />
+
+          {preset === 'custom' ? (
+            <>
+              <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
+                {t('onboardingEmailScreen.labelImapServer')}
+              </Text>
+              <TextInput
+                value={imapHost}
+                onChangeText={setImapHost}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="imap.example.com"
+                {...getTextInputProps(theme)}
+                style={getTextInputStyle(theme)}
+              />
+              <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
+                {t('onboardingEmailScreen.labelImapPort')}
+              </Text>
+              <TextInput
+                value={imapPort}
+                onChangeText={setImapPort}
+                keyboardType="number-pad"
+                placeholder="993"
+                {...getTextInputProps(theme)}
+                style={getTextInputStyle(theme)}
+              />
+              <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
+                {t('onboardingEmailScreen.labelSmtpServer')}
+              </Text>
+              <TextInput
+                value={smtpHost}
+                onChangeText={setSmtpHost}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="smtp.example.com"
+                {...getTextInputProps(theme)}
+                style={getTextInputStyle(theme)}
+              />
+              <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
+                {t('onboardingEmailScreen.labelSmtpPort')}
+              </Text>
+              <TextInput
+                value={smtpPort}
+                onChangeText={setSmtpPort}
+                keyboardType="number-pad"
+                placeholder="587"
+                {...getTextInputProps(theme)}
+                style={getTextInputStyle(theme)}
+              />
+            </>
+          ) : null}
+
+          <View style={styles.twoColumn}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
+                {t('onboardingEmailScreen.labelSenderName')}
+              </Text>
+              <TextInput
+                value={senderName}
+                onChangeText={setSenderName}
+                placeholder="Your public name"
+                {...getTextInputProps(theme)}
+                style={getTextInputStyle(theme)}
+              />
+            </View>
+          </View>
+
+          <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
+            {manualPasswordLabel}
+          </Text>
+          <TextInput
+            value={appPassword}
+            onChangeText={setAppPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder={manualPasswordPlaceholder}
+            {...getTextInputProps(theme)}
+            style={getTextInputStyle(theme)}
+          />
+          {preset === 'qq' ? (
+            <Text style={[styles.oauthHint, { color: theme.mutedForeground }]}>
+              {t('onboardingEmailScreen.qqAuthHint')}
+            </Text>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={!canConnect || syncState === 'syncing'}
+            onPress={onConnected}
+            style={[
+              styles.primary,
+              {
+                backgroundColor: canConnect && syncState !== 'syncing' ? theme.primary : theme.secondary,
+                opacity: syncState === 'syncing' ? 0.75 : 1,
+                marginTop: spacing.sm,
+              },
+            ]}>
+            <Text
+              style={[
+                styles.primaryLabel,
+                { color: canConnect && syncState !== 'syncing' ? theme.primaryForeground : theme.foregroundEyebrow },
+              ]}>
+              {syncState === 'syncing'
+                ? t('onboardingEmailScreen.ctaConnectingInbox')
+                : t('onboardingEmailScreen.ctaConnectInbox')}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.background }}
@@ -356,270 +624,123 @@ export default function EmailOnboardingScreen() {
         <ActivityIndicator color={theme.primary} accessibilityLabel="Loading setup step" />
       ) : (
         <>
-      <Text style={[styles.kicker, { color: theme.foregroundEyebrow }]}>{t('onboardingEmailScreen.stepLabel')}</Text>
-      <Text style={[styles.title, { color: theme.foreground }]}>{t('onboardingEmailScreen.title')}</Text>
+          {showConnectedState ? (
+            <>
+              <Text style={[styles.title, { color: theme.foreground }]}>
+                {t('onboardingEmailScreen.connectedTitle')}
+              </Text>
 
-      <OnboardingProgress current="email" />
-
-      {skipOnboardingPrerequisites ? (
-        <Text style={[styles.note, { color: theme.foregroundEyebrow }]}>
-          {t('onboardingEmailScreen.noteFromAccount')}
-        </Text>
-      ) : null}
-
-      {syncState !== 'idle' ? (
-        <View
-          style={[
-            styles.syncBanner,
-            {
-              borderColor:
-                syncState === 'error'
-                  ? '#EF4444'
-                  : syncState === 'success'
-                    ? '#34D399'
-                    : theme.border,
-              backgroundColor:
-                syncState === 'error'
-                  ? 'rgba(239,68,68,0.14)'
-                  : syncState === 'success'
-                    ? 'rgba(52,211,153,0.14)'
-                    : theme.card,
-            },
-          ]}>
-          {syncState === 'syncing' ? <ActivityIndicator color={theme.primary} /> : null}
-          <Text style={[styles.syncBannerText, { color: theme.foreground }]}>
-            {syncMessage ?? t('onboardingSync.mailboxWorking')}
-          </Text>
-        </View>
-      ) : null}
-
-      <SectionCard title={t('onboardingEmailScreen.aiImportsTitle')} subtitle={t('onboardingEmailScreen.aiImportsSubtitle')} emphasis>
-        <View style={styles.scopeGrid}>
-          <View style={[styles.scopeCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-            <Badge tone="mint" label={t('onboardingEmailScreen.badgeSignal')} />
-            <Text style={[styles.scopeText, { color: theme.foreground }]}>
-              {t('onboardingEmailScreen.signalHint')}
-            </Text>
-          </View>
-          <View style={[styles.scopeCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-            <Badge tone="warning" label={t('onboardingEmailScreen.badgeControlHub')} />
-            <Text style={[styles.scopeText, { color: theme.foreground }]}>
-              {t('onboardingEmailScreen.controlHint')}
-            </Text>
-          </View>
-        </View>
-      </SectionCard>
-
-      <View style={styles.quickConnect}>
-        {gmailOAuthConfigured ? (
-          <GoogleOAuthButton
-            label={t('onboardingEmailScreen.connectGmail')}
-            variant="gmail"
-            onGmailOAuthTokens={apiMode ? onGmailOAuthTokens : undefined}
-            onGoogleAuthCode={apiMode ? onGmailOAuthCode : undefined}
-            onOAuthLifecycle={onGmailOAuthLifecycle}
-            onSuccess={onOAuthConnected}
-            onError={(msg) => void alertAction(t('onboardingEmailScreen.gmailConnectFailTitle'), msg)}
-          />
-        ) : (
-          <OAuthUnconfiguredButton provider="google" label={t('onboardingEmailScreen.connectGmail')} />
-        )}
-        <MicrosoftOAuthButton
-          label={t('onboardingEmailScreen.connectOutlook')}
-          variant="mailbox"
-          onMicrosoftAccessToken={apiMode ? onMicrosoftMailboxTokens : undefined}
-          onSuccess={onOAuthConnected}
-          onError={(msg) => void alertAction(t('onboardingEmailScreen.outlookConnectFailTitle'), msg)}
-        />
-      </View>
-
-      <View style={[styles.manualSetupCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: manualSetupExpanded }}
-          accessibilityLabel={
-            manualSetupExpanded
-              ? t('onboardingEmailScreen.manualSetupCollapseA11y')
-              : t('onboardingEmailScreen.manualSetupExpandA11y')
-          }
-          onPress={() => setManualSetupExpanded((value) => !value)}
-          style={({ pressed }) => [styles.manualSetupHeader, pressed && { opacity: 0.85 }]}>
-          <View style={styles.manualSetupHeaderText}>
-            <Text style={[styles.manualSetupTitle, { color: theme.foreground }]}>
-              {t('onboardingEmailScreen.manualSetupTitle')}
-            </Text>
-            <Text style={[styles.manualSetupSubtitle, { color: theme.mutedForeground }]}>
-              {t('onboardingEmailScreen.manualSetupSubtitle')}
-            </Text>
-          </View>
-          <Ionicons
-            name={manualSetupExpanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={theme.foregroundEyebrow}
-          />
-        </Pressable>
-
-        {manualSetupExpanded ? (
-          <View style={styles.manualSetupBody}>
-            <View style={styles.presetRow}>
-              {(Object.keys(MAILBOX_PRESETS) as MailboxPresetKey[]).map((key) => (
-                <Pressable
-                  key={key}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: preset === key }}
-                  onPress={() => selectPreset(key)}
-                  style={[
-                    styles.presetChip,
-                    {
-                      borderColor: preset === key ? theme.primary : theme.border,
-                      backgroundColor: preset === key ? theme.accentMintSoft : theme.card,
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.presetLabel,
-                      { color: preset === key ? theme.primary : theme.foregroundSubtitle },
-                    ]}>
-                    {mailboxPresetLabel(key, t)}
+              <View
+                testID="onboarding-email-connected"
+                style={[styles.connectedCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                <View style={[styles.connectedIcon, { backgroundColor: theme.muted }]}>
+                  <Ionicons name="mail-outline" size={20} color={theme.primary} />
+                </View>
+                <View style={styles.connectedBody}>
+                  <Text style={[styles.connectedEmail, { color: theme.foreground }]} numberOfLines={2}>
+                    {connectedInboxEmail}
                   </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
-              {t('onboardingEmailScreen.labelMailbox')}
-            </Text>
-            <TextInput
-              value={mailbox}
-              onChangeText={setMailbox}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="brand@example.com"
-              {...getTextInputProps(theme)}
-              style={getTextInputStyle(theme)}
-            />
-
-            {preset === 'custom' ? (
-              <>
-                <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
-                  {t('onboardingEmailScreen.labelImapServer')}
-                </Text>
-                <TextInput
-                  value={imapHost}
-                  onChangeText={setImapHost}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholder="imap.example.com"
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
-                  {t('onboardingEmailScreen.labelImapPort')}
-                </Text>
-                <TextInput
-                  value={imapPort}
-                  onChangeText={setImapPort}
-                  keyboardType="number-pad"
-                  placeholder="993"
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
-                  {t('onboardingEmailScreen.labelSmtpServer')}
-                </Text>
-                <TextInput
-                  value={smtpHost}
-                  onChangeText={setSmtpHost}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholder="smtp.example.com"
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-                <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
-                  {t('onboardingEmailScreen.labelSmtpPort')}
-                </Text>
-                <TextInput
-                  value={smtpPort}
-                  onChangeText={setSmtpPort}
-                  keyboardType="number-pad"
-                  placeholder="587"
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
-              </>
-            ) : null}
-
-            <View style={styles.twoColumn}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
-                  {t('onboardingEmailScreen.labelSenderName')}
-                </Text>
-                <TextInput
-                  value={senderName}
-                  onChangeText={setSenderName}
-                  placeholder="Your public name"
-                  {...getTextInputProps(theme)}
-                  style={getTextInputStyle(theme)}
-                />
+                  <Text style={[styles.connectedSync, { color: theme.mutedForeground }]} numberOfLines={2}>
+                    {syncStatusSubtitle}
+                  </Text>
+                  <Text style={[styles.connectedHint, { color: theme.mutedForeground }]}>
+                    {t('onboardingEmailScreen.connectedStatusSubtitle')}
+                  </Text>
+                  <CreatorVerificationBadge status={creatorVerificationStatus} compact />
+                </View>
               </View>
-            </View>
 
-            <Text style={[styles.label, { color: theme.foregroundSubtitle }]}>
-              {manualPasswordLabel}
-            </Text>
-            <TextInput
-              value={appPassword}
-              onChangeText={setAppPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder={manualPasswordPlaceholder}
-              {...getTextInputProps(theme)}
-              style={getTextInputStyle(theme)}
-            />
-            {preset === 'qq' ? (
-              <Text style={[styles.oauthHint, { color: theme.mutedForeground }]}>
-                {t('onboardingEmailScreen.qqAuthHint')}
+              {syncBanner}
+
+              <View style={[styles.manualSetupCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: reconnectExpanded }}
+                  accessibilityLabel={
+                    reconnectExpanded
+                      ? t('onboardingEmailScreen.reconnectCollapseA11y')
+                      : t('onboardingEmailScreen.reconnectExpandA11y')
+                  }
+                  onPress={() => setReconnectExpanded((value) => !value)}
+                  style={({ pressed }) => [styles.manualSetupHeader, pressed && { opacity: 0.85 }]}>
+                  <View style={styles.manualSetupHeaderText}>
+                    <Text style={[styles.manualSetupTitle, { color: theme.foreground }]}>
+                      {t('onboardingEmailScreen.reconnectHeading')}
+                    </Text>
+                    <Text style={[styles.manualSetupSubtitle, { color: theme.mutedForeground }]}>
+                      {t('onboardingEmailScreen.reconnectSubtitle')}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={reconnectExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={theme.foregroundEyebrow}
+                  />
+                </Pressable>
+
+                {reconnectExpanded ? (
+                  <View style={styles.reconnectBody}>
+                    {quickConnect}
+                    {manualSetupCard}
+                  </View>
+                ) : null}
+              </View>
+            </>
+          ) : (
+            <>
+              {showOnboardingChrome ? (
+                <Text style={[styles.kicker, { color: theme.foregroundEyebrow }]}>
+                  {t('onboardingEmailScreen.stepLabel')}
+                </Text>
+              ) : null}
+              <Text style={[styles.title, { color: theme.foreground }]}>
+                {t('onboardingEmailScreen.title')}
               </Text>
-            ) : null}
 
-            <Pressable
-              accessibilityRole="button"
-              disabled={!canConnect || syncState === 'syncing'}
-              onPress={onConnected}
-              style={[
-                styles.primary,
-                {
-                  backgroundColor: canConnect && syncState !== 'syncing' ? theme.primary : theme.secondary,
-                  opacity: syncState === 'syncing' ? 0.75 : 1,
-                  marginTop: spacing.sm,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.primaryLabel,
-                  { color: canConnect && syncState !== 'syncing' ? theme.primaryForeground : theme.foregroundEyebrow },
-                ]}>
-                {syncState === 'syncing'
-                  ? t('onboardingEmailScreen.ctaConnectingInbox')
-                  : t('onboardingEmailScreen.ctaConnectInbox')}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
+              {showOnboardingChrome ? <OnboardingProgress current="email" /> : null}
 
-      <Pressable
-        testID="onboarding-email-skip"
-        accessibilityRole="button"
-        onPress={onSkip}
-        style={[styles.secondary, { borderColor: theme.border }]}>
-        <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>
-          {t('onboardingEmailScreen.ctaSkip')}
-        </Text>
-      </Pressable>
+              {skipOnboardingPrerequisites ? (
+                <Text style={[styles.note, { color: theme.foregroundEyebrow }]}>
+                  {t('onboardingEmailScreen.noteFromAccount')}
+                </Text>
+              ) : null}
+
+              {syncBanner}
+
+              <SectionCard
+                title={t('onboardingEmailScreen.aiImportsTitle')}
+                subtitle={t('onboardingEmailScreen.aiImportsSubtitle')}
+                emphasis>
+                <View style={styles.scopeGrid}>
+                  <View style={[styles.scopeCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                    <Badge tone="mint" label={t('onboardingEmailScreen.badgeSignal')} />
+                    <Text style={[styles.scopeText, { color: theme.foreground }]}>
+                      {t('onboardingEmailScreen.signalHint')}
+                    </Text>
+                  </View>
+                  <View style={[styles.scopeCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                    <Badge tone="warning" label={t('onboardingEmailScreen.badgeControlHub')} />
+                    <Text style={[styles.scopeText, { color: theme.foreground }]}>
+                      {t('onboardingEmailScreen.controlHint')}
+                    </Text>
+                  </View>
+                </View>
+              </SectionCard>
+
+              {quickConnect}
+              {manualSetupCard}
+
+              <Pressable
+                testID="onboarding-email-skip"
+                accessibilityRole="button"
+                onPress={onSkip}
+                style={[styles.secondary, { borderColor: theme.border }]}>
+                <Text style={[styles.secondaryLabel, { color: theme.foreground }]}>
+                  {t('onboardingEmailScreen.ctaSkip')}
+                </Text>
+              </Pressable>
+            </>
+          )}
         </>
       )}
     </ScrollView>
@@ -639,6 +760,37 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: { fontSize: 40, fontWeight: '900', letterSpacing: -1.3, lineHeight: 44 },
+  connectedCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  connectedIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  connectedBody: { flex: 1, gap: spacing.xs },
+  connectedEmail: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+    lineHeight: lineHeight.body,
+  },
+  connectedSync: {
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.body,
+  },
+  connectedHint: {
+    fontSize: fontSize.caption,
+    lineHeight: lineHeight.body,
+  },
+  reconnectBody: { gap: spacing.md },
   quickConnect: { gap: spacing.sm },
   manualSetupCard: {
     borderWidth: StyleSheet.hairlineWidth,

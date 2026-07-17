@@ -1,13 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Badge, HubMetric, HubMetrics, HubScreen, QueryRetryCard, SectionCard } from '@/components/product';
+import { Badge, HubMetric, HubMetrics, QueryRetryCard, SectionCard } from '@/components/product';
 import { getTextInputProps, getTextInputStyle } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fontSize, lineHeight, palette, spacing } from '@/constants/tokens';
+import { fontSize, layout, lineHeight, palette, spacing } from '@/constants/tokens';
 import { ApiError } from '@/src/api/api-client';
 import { alertAction, confirmAction } from '@/src/lib/app-dialog';
 import { invalidateTenantScopedQueries } from '@/src/lib/tenant-query';
@@ -130,16 +130,18 @@ export default function SettingsTeamScreen() {
   };
 
   return (
-    <HubScreen
-      eyebrow={t('tabs.account')}
-      title={t('teamSettingsScreen.title')}
-      lead={t('teamSettingsScreen.description')}
-      toolbar={
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScrollView
+        testID="screen-team-settings"
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
+        <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>{t('teamSettingsScreen.description')}</Text>
+
         <HubMetrics>
           <HubMetric value={String(activeCount)} label={t('teamSettingsScreen.metricMembers')} />
           <HubMetric value={String(pendingCount)} label={t('teamSettingsScreen.metricPending')} accent />
         </HubMetrics>
-      }>
+
       <SectionCard title={t('teamSettingsScreen.membersTitle')} subtitle={t('teamSettingsScreen.membersSubtitle')}>
         {memberList.length === 0 ? (
           <Text style={[styles.lead, { color: theme.mutedForeground }]}>{t('teamSettingsScreen.membersEmpty')}</Text>
@@ -232,7 +234,8 @@ export default function SettingsTeamScreen() {
       <Text style={[styles.lead, { color: theme.mutedForeground }]}>
         {t('teamSettingsScreen.footnote')}
       </Text>
-    </HubScreen>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -261,6 +264,14 @@ function inviteErrorMessage(error: unknown, t: (key: string) => string): string 
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  scroll: {
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: layout.tabBarScrollInset,
+    gap: spacing.lg,
+  },
+  pageLead: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   lead: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
   primary: {

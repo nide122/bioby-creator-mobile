@@ -458,8 +458,6 @@ export default function MediaKitEditScreen() {
       enabled={Platform.OS === 'ios'}>
       <View style={styles.screen}>
         <HubScreen
-          eyebrow={t('tabs.assets')}
-          title={t('mediaKitEditScreen.title')}
           lead={t('mediaKitEditScreen.description')}
           scrollBottomInset={scrollBottomInset}>
         <SettingsGroup title={t('mediaKitEditScreen.profileGroupTitle')}>

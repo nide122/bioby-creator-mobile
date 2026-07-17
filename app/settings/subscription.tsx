@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Badge, HubMetric, HubMetrics, HubScreen, QueryRetryCard, SectionCard } from '@/components/product';
+import { Badge, HubMetric, HubMetrics, QueryRetryCard, SectionCard } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
@@ -70,11 +70,15 @@ export default function SettingsSubscriptionScreen() {
   const snap = sub.data;
 
   return (
-    <HubScreen
-      eyebrow={t('tabs.account')}
-      title={t('subscriptionSettingsScreen.title')}
-      lead={t('subscriptionSettingsScreen.description')}
-      toolbar={
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScrollView
+        testID="screen-subscription-settings"
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
+        <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>
+          {t('subscriptionSettingsScreen.description')}
+        </Text>
+
         <HubMetrics>
           <HubMetric value={snap.planName} label={t('subscriptionSettingsScreen.metricPlan')} />
           <HubMetric
@@ -83,7 +87,7 @@ export default function SettingsSubscriptionScreen() {
             hint={`/ ${snap.brandPitchesLimit}`}
           />
         </HubMetrics>
-      }>
+
       <SectionCard title={t('subscriptionSettingsScreen.currentPlanTitle')} subtitle={snap.billingCycleLabel} emphasis>
         <Text style={[styles.planName, { color: theme.foreground }]}>{snap.planName}</Text>
         <Text style={[styles.renewal, { color: theme.mutedForeground }]}>{snap.renewalHint}</Text>
@@ -185,11 +189,20 @@ export default function SettingsSubscriptionScreen() {
       <Text style={[styles.renewal, { color: theme.mutedForeground }]}>
         {t('subscriptionSettingsScreen.footerNote')}
       </Text>
-    </HubScreen>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  scroll: {
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: layout.tabBarScrollInset,
+    gap: spacing.lg,
+  },
+  pageLead: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   planName: { fontSize: fontSize.sectionTitle, fontWeight: '700' },
   renewal: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed, marginTop: spacing.sm },

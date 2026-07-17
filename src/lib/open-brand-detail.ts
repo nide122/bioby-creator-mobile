@@ -34,12 +34,71 @@ export function resolveReturnTarget(returnTo: string, parentReturnTo?: string | 
   return returnTo as Href;
 }
 
+function hrefPathname(target: Href | string): string {
+  if (typeof target === 'string') {
+    return target.split('?')[0] || '/';
+  }
+  if (target && typeof target === 'object' && 'pathname' in target && typeof target.pathname === 'string') {
+    return target.pathname.split('?')[0] || '/';
+  }
+  return '';
+}
+
+/**
+ * Tab roots (Today `/`, Inbox, Deals, Account) live in a sibling navigator.
+ * `dismissTo` only walks the current stack, so returning to Today from an inbox
+ * thread would no-op and leave the header back button dead.
+ */
+export function isTabRootReturnTarget(target: Href | string): boolean {
+  const path = hrefPathname(target).replace(/\/$/, '') || '/';
+  return (
+    path === '/' ||
+    path === '/inbox' ||
+    path === '/deals' ||
+    path === '/account' ||
+    path === '/(tabs)' ||
+    path === '/(tabs)/index'
+  );
+}
+
+export function isTodayHomeReturnTarget(target: Href | string): boolean {
+  const path = hrefPathname(target).replace(/\/$/, '') || '/';
+  return path === '/' || path === '/(tabs)' || path === '/(tabs)/index';
+}
+
+function isInboxSubtreePath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return pathname === '/inbox' || pathname.startsWith('/inbox/');
+}
+
+/** Clear leftover inbox detail so the Inbox tab reopens on the list. */
+function resetInboxTabStack(router: Pick<Router, 'replace'>) {
+  // Prefer replace over dismissTo: dismiss/pop can re-enter beforeRemove handlers
+  // that intercept GO_BACK/POP while returnTo is still set on the thread screen.
+  router.replace('/inbox' as Href);
+}
+
 export function navigateReturnTo(
-  router: Pick<Router, 'replace' | 'dismissTo' | 'canDismiss'>,
+  router: Pick<Router, 'replace' | 'dismissTo' | 'canDismiss' | 'navigate'>,
   returnTo: string,
   parentReturnTo?: string | null,
+  fromPathname?: string | null,
 ) {
   const target = resolveReturnTarget(returnTo, parentReturnTo);
+  // Today is a sibling tab. Leaving an inbox thread via navigate('/') keeps the
+  // thread mounted on the Inbox tab — reset that stack first, then switch tabs.
+  if (isTodayHomeReturnTarget(target)) {
+    if (isInboxSubtreePath(fromPathname)) {
+      resetInboxTabStack(router);
+    }
+    router.navigate('/' as Href);
+    return;
+  }
+  // Other tab roots: navigate so Expo Router can switch tabs.
+  if (isTabRootReturnTarget(target)) {
+    router.navigate(target);
+    return;
+  }
   if (typeof router.canDismiss === 'function' && router.canDismiss()) {
     router.dismissTo(target);
     return;

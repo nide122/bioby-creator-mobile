@@ -1,13 +1,14 @@
-import { type Href, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { HubScreen, QueryRetryCard, SectionCard } from '@/components/product';
+import { QueryRetryCard, SectionCard } from '@/components/product';
 import { ReplyTemplateSectionList } from '@/src/components/reply-templates/ReplyTemplateSectionList';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, spacing } from '@/constants/tokens';
+import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import { useReplyTemplates } from '@/src/hooks/use-reply-templates';
 import { groupReplyTemplatesForPicker } from '@/src/lib/reply-template-picker-visuals';
 import { confirmAction } from '@/src/lib/app-dialog';
@@ -20,6 +21,13 @@ export default function ReplyTemplatesSettingsScreen() {
   const theme = palette[colorScheme];
   const { templates, isLoading, error, refetch, deleteTemplate, isSaving } = useReplyTemplates();
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!shouldUseBackendApi()) return;
+      void refetch();
+    }, [refetch]),
+  );
 
   const grouped = useMemo(() => groupReplyTemplatesForPicker(templates), [templates]);
 
@@ -70,11 +78,13 @@ export default function ReplyTemplatesSettingsScreen() {
   };
 
   return (
-    <HubScreen
-      eyebrow={t('assetsScreen.sections.pitch')}
-      title={t('replyTemplatesScreen.title')}
-      lead={t('replyTemplatesScreen.lead')}
-      toolbar={
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScrollView
+        testID="screen-reply-templates"
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
+        <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>{t('replyTemplatesScreen.lead')}</Text>
+
         <Pressable
           accessibilityRole="button"
           disabled={isSaving || totalCount >= 20}
@@ -82,7 +92,7 @@ export default function ReplyTemplatesSettingsScreen() {
           style={[styles.addButton, { backgroundColor: theme.primary, opacity: totalCount >= 20 ? 0.5 : 1 }]}>
           <Text style={[styles.addLabel, { color: theme.primaryForeground }]}>{t('replyTemplatesScreen.addCta')}</Text>
         </Pressable>
-      }>
+
       <SectionCard title={t('replyTemplatesScreen.listTitle')} subtitle={t('replyTemplatesScreen.listSubtitle')}>
         {totalCount === 0 ? (
           <Text style={[styles.empty, { color: theme.mutedForeground }]}>{t('replyTemplatesScreen.empty')}</Text>
@@ -112,11 +122,20 @@ export default function ReplyTemplatesSettingsScreen() {
         )}
       </SectionCard>
       <Text style={[styles.hint, { color: theme.mutedForeground }]}>{t('replyTemplatesScreen.hint')}</Text>
-    </HubScreen>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  scroll: {
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: layout.tabBarScrollInset,
+    gap: spacing.lg,
+  },
+  pageLead: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -142,6 +161,5 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.bodyRelaxed,
-    paddingBottom: layout.tabBarScrollInset,
   },
 });

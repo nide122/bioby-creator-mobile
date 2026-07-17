@@ -126,8 +126,15 @@ h6 {
   border-color: rgba(37, 99, 235, 0.35) !important;
 }
 
-.corporate-clean-row:hover {
-  background-color: rgba(37, 99, 235, 0.04);
+.corporate-clean-row {
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .corporate-clean-row:hover {
+    background-color: rgba(37, 99, 235, 0.04);
+  }
 }
 
 .corporate-clean-screen {

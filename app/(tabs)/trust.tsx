@@ -31,7 +31,7 @@ export default function TrustScreen() {
 
   return (
     <HubScreen
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('tabs.trust')}
       title="Public proof, private issues"
       lead="Share proof that helps close. Keep remediation and dispute evidence private.">
       <SectionCard title="Public proof" subtitle="Safe to reuse in media kit and proposals." emphasis>

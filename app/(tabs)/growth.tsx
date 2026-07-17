@@ -71,7 +71,7 @@ export default function AssetsScreen() {
   return (
     <HubScreen
       testID="screen-assets"
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('tabs.account')}
       title={t('assetsScreen.title')}
       lead={t('assetsScreen.lead')}
       toolbar={toolbar}

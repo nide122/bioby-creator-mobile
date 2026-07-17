@@ -1,17 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useFocusEffect } from '@react-navigation/native';
 
 import { RateCardPackageList } from '@/components/pricing/RateCardPackageList';
-import { HubLinkGroup, HubScreen, QueryRetryCard } from '@/components/product';
+import { HubLinkGroup, QueryRetryCard } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
-import { palette } from '@/constants/tokens';
+import { fontSize, layout, lineHeight, palette, spacing } from '@/constants/tokens';
 import { useAssetsHubNavigation } from '@/src/hooks/use-assets-hub-navigation';
-import { useOpenProposal } from '@/src/hooks/use-open-proposal';
 import { useRateCardPackages, rateCardPackagesQueryKey } from '@/src/hooks/use-growth';
 
 export default function PricingScreen() {
@@ -22,7 +21,6 @@ export default function PricingScreen() {
   const theme = palette[colorScheme];
 
   const rateCard = useRateCardPackages();
-  const { openProposal } = useOpenProposal();
 
   useFocusEffect(
     useCallback(() => {
@@ -34,12 +32,6 @@ export default function PricingScreen() {
     <HubLinkGroup
       title={t('pricingScreen.nextStepsTitle')}
       links={[
-        {
-          label: t('pricingScreen.ctaCreateProposal'),
-          icon: 'document-text-outline',
-          hint: t('pricingScreen.ctaCreateProposalHint'),
-          onPress: () => void openProposal(),
-        },
         {
           label: t('pricingScreen.ctaOpenMediaKit'),
           icon: 'images-outline',
@@ -79,8 +71,6 @@ export default function PricingScreen() {
       <RateCardPackageList
         packages={rateCard.data}
         scrollRoot={{
-          eyebrow: t('tabs.assets'),
-          title: t('pricingScreen.title'),
           lead: t('pricingScreen.description'),
           footer: nextSteps,
         }}
@@ -89,13 +79,27 @@ export default function PricingScreen() {
   }
 
   return (
-    <HubScreen eyebrow={t('tabs.assets')} title={t('pricingScreen.title')} lead={t('pricingScreen.description')}>
-      <RateCardPackageList packages={rateCard.data} />
-      {nextSteps}
-    </HubScreen>
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScrollView
+        testID="screen-pricing"
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
+        <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>{t('pricingScreen.description')}</Text>
+        <RateCardPackageList packages={rateCard.data} />
+        {nextSteps}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  scroll: {
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: layout.tabBarScrollInset,
+    gap: spacing.lg,
+  },
+  pageLead: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

@@ -413,7 +413,7 @@ export interface paths {
         };
         get: operations["list_10"];
         put?: never;
-        post?: never;
+        post: operations["generate_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -433,7 +433,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["update_1"];
         trace?: never;
     };
     "/api/v1/brands/{brandId}": {
@@ -829,7 +829,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["submitFeedback"];
+        post: operations["submit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1837,7 +1837,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["restoreProposalRevision"];
+        post: operations["restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2263,6 +2263,7 @@ export interface components {
             user?: components["schemas"]["UserView"];
         };
         BattleReportView: {
+            dealId?: string;
             id?: string;
             lesson?: string;
             metrics?: string[];
@@ -2372,6 +2373,10 @@ export interface components {
         CreateAgentTrainingRuleRequest: {
             category: string;
             description: string;
+            title: string;
+        };
+        CreateBattleReportRequest: {
+            dealId: string;
             title: string;
         };
         CreateDraftRequest: {
@@ -2777,14 +2782,13 @@ export interface components {
         MailboxOAuthAnalyticsEventRequest: {
             /** Format: int32 */
             durationMs?: number;
-            eventType: components["schemas"]["MailboxOAuthAnalyticsEventType"];
+            /** @enum {string} */
+            eventType: "GMAIL_CONNECT_VIEWED" | "GMAIL_OAUTH_STARTED" | "GMAIL_OAUTH_CALLBACK_RECEIVED" | "GMAIL_OAUTH_CANCELLED" | "GMAIL_OAUTH_FAILED" | "GMAIL_CONNECT_SUCCEEDED" | "GMAIL_CONNECT_FAILED" | "GMAIL_CONNECT_SKIPPED";
             failureCode?: string;
             flowId?: string;
             platform?: string;
             source?: string;
         };
-        /** @enum {string} */
-        MailboxOAuthAnalyticsEventType: "GMAIL_CONNECT_VIEWED" | "GMAIL_OAUTH_STARTED" | "GMAIL_OAUTH_CALLBACK_RECEIVED" | "GMAIL_OAUTH_CANCELLED" | "GMAIL_OAUTH_FAILED" | "GMAIL_CONNECT_SUCCEEDED" | "GMAIL_CONNECT_FAILED" | "GMAIL_CONNECT_SKIPPED";
         MailboxOAuthConnectRequest: {
             accessToken?: string;
             analyticsFlowId?: string;
@@ -3569,10 +3573,7 @@ export interface components {
             type?: string;
         };
         TodayDecisionsResponse: {
-            /**
-             * Format: int32
-             * @description Opportunity cards tucked away by quiet focus mode (0 in work mode).
-             */
+            /** Format: int32 */
             hiddenOpportunityCount?: number;
             items?: components["schemas"]["DecisionCardView"][];
             /** Format: int32 */
@@ -3584,6 +3585,9 @@ export interface components {
             label?: string;
             trendNote?: string;
             value?: string;
+        };
+        UpdateBattleReportRequest: {
+            shareableToMediaKit?: boolean;
         };
         UpsertReplyTemplateRequest: {
             body: string;
@@ -4255,6 +4259,30 @@ export interface operations {
             };
         };
     };
+    generate_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBattleReportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BattleReportView"];
+                };
+            };
+        };
+    };
     get_7: {
         parameters: {
             query?: never;
@@ -4265,6 +4293,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BattleReportView"];
+                };
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBattleReportRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -4845,7 +4899,7 @@ export interface operations {
             };
         };
     };
-    submitFeedback: {
+    submit: {
         parameters: {
             query?: never;
             header?: never;
@@ -5292,8 +5346,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Event recorded */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6426,7 +6480,7 @@ export interface operations {
             };
         };
     };
-    restoreProposalRevision: {
+    restore: {
         parameters: {
             query?: never;
             header?: never;

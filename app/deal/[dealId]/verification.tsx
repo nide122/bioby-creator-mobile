@@ -41,6 +41,7 @@ import {
   type ChecklistConfirmations,
   type UserConfirmChecklistId,
 } from '@/src/lib/verification-submit-eligibility';
+import { VerificationChecklistRow } from '@/components/deals/VerificationChecklistRow';
 import { cooperationLeadLine } from '@/src/lib/cooperation-display-name';
 
 type VerificationStatus = 'done' | 'reviewing' | 'missing';
@@ -500,40 +501,22 @@ export default function DealVerificationScreen() {
       <SectionCard title={t('dealVerificationScreen.preflightTitle')} emphasis>
         <View style={{ gap: spacing.sm }}>
           {resolvedChecklist.map((item) => (
-            <View key={item.id} style={styles.checkRow}>
-              {item.userConfirmable && !submitted && phaseAllowsSubmit ? (
-                <Pressable
-                  testID={`deal-verification-check-${item.id}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: item.passed }}
-                  onPress={() => {
-                    if (isUserConfirmChecklistId(item.id)) {
-                      toggleChecklistItem(item.id);
-                    }
-                  }}
-                  style={[
-                    styles.checkAction,
-                    {
-                      borderColor: item.passed ? theme.primary : theme.border,
-                      backgroundColor: item.passed ? theme.accentMintSoft : theme.card,
-                    },
-                  ]}>
-                  <Text style={[styles.checkActionLabel, { color: item.passed ? theme.primary : theme.foreground }]}>
-                    {item.passed
-                      ? t('dealVerificationScreen.checkPass')
-                      : t('dealVerificationScreen.checkConfirmCta')}
-                  </Text>
-                </Pressable>
-              ) : (
-                <Badge
-                  tone={item.passed ? 'mint' : 'warning'}
-                  label={
-                    item.passed ? t('dealVerificationScreen.checkPass') : t('dealVerificationScreen.checkPending')
-                  }
-                />
-              )}
-              <Text style={[styles.checkLabel, { color: theme.foreground }]}>{checklistLabel(item.id)}</Text>
-            </View>
+            <VerificationChecklistRow
+              key={item.id}
+              testID={item.userConfirmable ? `deal-verification-check-${item.id}` : undefined}
+              label={checklistLabel(item.id)}
+              passed={item.passed}
+              userConfirmable={item.userConfirmable}
+              interactive={!submitted && phaseAllowsSubmit}
+              passLabel={t('dealVerificationScreen.checkPass')}
+              confirmLabel={t('dealVerificationScreen.checkConfirmCta')}
+              pendingLabel={t('dealVerificationScreen.checkPending')}
+              onToggle={
+                item.userConfirmable && isUserConfirmChecklistId(item.id)
+                  ? () => toggleChecklistItem(item.id)
+                  : undefined
+              }
+            />
           ))}
           {!submitted && phaseAllowsSubmit && !allUserChecksConfirmed(resolvedChecklist) ? (
             <Text style={[styles.submitHint, { color: theme.mutedForeground }]}>
@@ -687,18 +670,6 @@ const styles = StyleSheet.create({
   },
   gateTitle: { fontSize: fontSize.bodySmall, fontWeight: '800', lineHeight: lineHeight.body },
   inputLabel: { fontSize: fontSize.caption, fontWeight: '700', marginTop: spacing.xs },
-  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  checkAction: {
-    borderWidth: 1,
-    borderRadius: radii.sm,
-    minWidth: 72,
-    minHeight: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  checkActionLabel: { fontSize: fontSize.caption, fontWeight: '700' },
-  checkLabel: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   uploadProofButton: {
     borderWidth: 1,
     borderRadius: radii.md,

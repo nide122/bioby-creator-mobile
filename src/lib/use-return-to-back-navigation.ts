@@ -1,5 +1,5 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { BackHandler } from 'react-native';
 
@@ -12,13 +12,14 @@ import { navigateReturnTo } from '@/src/lib/open-brand-detail';
  */
 export function useReturnToBackNavigation(returnTo?: string | null, parentReturnTo?: string | null) {
   const router = useRouter();
+  const pathname = usePathname();
   const navigation = useNavigation();
 
   const goToReturnTo = useCallback(() => {
     if (!returnTo) return false;
-    navigateReturnTo(router, returnTo, parentReturnTo);
+    navigateReturnTo(router, returnTo, parentReturnTo, pathname);
     return true;
-  }, [parentReturnTo, returnTo, router]);
+  }, [parentReturnTo, pathname, returnTo, router]);
 
   useFocusEffect(
     useCallback(() => {

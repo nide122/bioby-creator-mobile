@@ -56,7 +56,7 @@ export default function DraftsIndexScreen() {
 
   return (
     <HubScreen
-      eyebrow={t('tabs.assets')}
+      eyebrow={t('draftsScreen.eyebrow')}
       title={t('draftsScreen.listTitle')}
       lead={t('draftsScreen.listLead')}
       toolbar={

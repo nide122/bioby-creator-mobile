@@ -2,12 +2,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
-import { Badge, HubScreen, QueryRetryCard, SectionCard } from '@/components/product';
+import { Badge, QueryRetryCard, SectionCard } from '@/components/product';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fontSize, palette, spacing } from '@/constants/tokens';
+import { fontSize, layout, lineHeight, palette, spacing } from '@/constants/tokens';
 import { shouldUseBackendApi } from '@/src/api/should-use-backend-api';
 import type { TenantMembership } from '@/src/api/tenants-api';
 import { useAcceptTenantInvite } from '@/src/hooks/use-account-settings';
@@ -98,22 +98,15 @@ export default function SettingsWorkspaceScreen() {
   };
 
   return (
-    <HubScreen
-      eyebrow={t('tabs.account')}
-      title={t('workspaceSettingsScreen.title')}
-      lead={t('workspaceSettingsScreen.description')}>
-      <SectionCard
-        title={t('workspaceSettingsScreen.createTitle')}
-        subtitle={t('workspaceSettingsScreen.createSubtitle')}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/settings/workspace-create' as Href)}
-          style={[styles.createButton, { backgroundColor: theme.primary }]}>
-          <Text style={[styles.createButtonLabel, { color: theme.primaryForeground }]}>
-            {t('workspaceSettingsScreen.createAction')}
-          </Text>
-        </Pressable>
-      </SectionCard>
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScrollView
+        testID="screen-workspace-settings"
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
+        <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>
+          {t('workspaceSettingsScreen.description')}
+        </Text>
+
       <SectionCard title={t('workspaceSettingsScreen.listTitle')} subtitle={t('workspaceSettingsScreen.listSubtitle')}>
         {list.length === 0 ? (
           <Text style={[styles.empty, { color: theme.mutedForeground }]}>{t('workspaceSettingsScreen.empty')}</Text>
@@ -157,7 +150,15 @@ export default function SettingsWorkspaceScreen() {
                   ) : tenant.active ? (
                     <Badge tone="mint" label={t('workspaceSettingsScreen.activeBadge')} />
                   ) : (
-                    <Badge tone="neutral" label={t('workspaceSettingsScreen.switchBadge')} />
+                    <View
+                      style={[
+                        styles.switchButton,
+                        { borderColor: theme.primary, backgroundColor: `${theme.primary}14` },
+                      ]}>
+                      <Text style={[styles.switchLabel, { color: theme.primary }]}>
+                        {t('workspaceSettingsScreen.switchAction')}
+                      </Text>
+                    </View>
                   )}
                 </>
               );
@@ -187,11 +188,32 @@ export default function SettingsWorkspaceScreen() {
           <ActivityIndicator style={styles.switching} color={theme.primary} />
         ) : null}
       </SectionCard>
-    </HubScreen>
+      <SectionCard
+        title={t('workspaceSettingsScreen.createTitle')}
+        subtitle={t('workspaceSettingsScreen.createSubtitle')}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/settings/workspace-create' as Href)}
+          style={[styles.createButton, { backgroundColor: theme.primary }]}>
+          <Text style={[styles.createButtonLabel, { color: theme.primaryForeground }]}>
+            {t('workspaceSettingsScreen.createAction')}
+          </Text>
+        </Pressable>
+      </SectionCard>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  scroll: {
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: layout.tabBarScrollInset,
+    gap: spacing.lg,
+  },
+  pageLead: { fontSize: fontSize.body, lineHeight: lineHeight.bodyRelaxed },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { gap: spacing.sm },
   row: {
@@ -217,6 +239,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   acceptLabel: { fontSize: fontSize.caption, fontWeight: '700' },
+  switchButton: {
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 36,
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  switchLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },
   createButton: {
     minHeight: 44,
     borderRadius: 10,

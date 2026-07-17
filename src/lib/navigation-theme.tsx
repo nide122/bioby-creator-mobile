@@ -40,7 +40,7 @@ export function StackHeaderBack(props: StackHeaderBackProps) {
     const parentReturnTo = searchParamValue(searchParams?.parentReturnTo);
     const navigateBack = (target: Href | string) => {
       if (typeof target === 'string') {
-        navigateReturnTo(router, target, parentReturnTo);
+        navigateReturnTo(router, target, parentReturnTo, pathname);
         return;
       }
       if (typeof router.canDismiss === 'function' && router.canDismiss()) {

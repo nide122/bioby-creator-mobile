@@ -46,6 +46,18 @@ export function insertInlineFieldAt(
   return { text, selection: { start: cursor, end: cursor } };
 }
 
+export function insertTextAtSelection(
+  display: string,
+  selection: TextSelection,
+  insert: string,
+): { text: string; selection: TextSelection } {
+  const start = Math.min(selection.start, selection.end);
+  const end = Math.max(selection.start, selection.end);
+  const text = `${display.slice(0, start)}${insert}${display.slice(end)}`;
+  const cursor = start + insert.length;
+  return { text, selection: { start: cursor, end: cursor } };
+}
+
 export function findInlineFieldSpanAt(
   display: string,
   index: number,
@@ -91,6 +103,33 @@ export function removeInlineFieldSpan(
 
 export function removeFieldKeyFromBody(body: string, key: ReplyTemplateFieldKey): string {
   return body.split(`⟦${key}⟧`).join('');
+}
+
+export type InlineFieldOccurrence = {
+  key: ReplyTemplateFieldKey;
+  start: number;
+  end: number;
+};
+
+/** Lists each inline placeholder in display order (one entry per occurrence). */
+export function listInlineFieldOccurrencesInDisplay(
+  display: string,
+  t: (key: string) => string,
+): InlineFieldOccurrence[] {
+  const occurrences: InlineFieldOccurrence[] = [];
+
+  for (const key of REPLY_TEMPLATE_FIELD_KEYS) {
+    const label = formatInlineFieldLabel(key, t);
+    let fromIndex = 0;
+    while (fromIndex < display.length) {
+      const start = display.indexOf(label, fromIndex);
+      if (start < 0) break;
+      occurrences.push({ key, start, end: start + label.length });
+      fromIndex = start + label.length;
+    }
+  }
+
+  return occurrences.sort((left, right) => left.start - right.start);
 }
 
 export function listInlineFieldsInBody(body: string): ReplyTemplateFieldKey[] {

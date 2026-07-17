@@ -52,12 +52,7 @@ import {
   localizeDecisionHeadline,
 } from '@/src/lib/decision-card-i18n';
 import { inboxPriorityBadgeTone } from '@/src/lib/inbox-priority-visuals';
-
-// ─── 常量 ──────────────────────────────────────────────────────────────────
-
-const SWIPE_THRESHOLD = 90;
-const SWIPE_OUT_X = 400;
-
+import { hrefWithReturnTo } from '@/src/lib/open-brand-detail';
 import { runDecisionActionEffect } from '@/src/lib/decision-action-effects';
 import {
   invalidateDealClosureArtifacts,
@@ -66,6 +61,17 @@ import {
 } from '@/src/lib/invalidate-deal-queries';
 import { getActiveTenantPublicId, tenantQueryKey } from '@/src/lib/tenant-query';
 import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web';
+
+// ─── 常量 ──────────────────────────────────────────────────────────────────
+
+const SWIPE_THRESHOLD = 90;
+const SWIPE_OUT_X = 400;
+/** Today tab home — attach as returnTo so inbox/detail back returns here, not the inbox list. */
+const TODAY_HOME = '/';
+
+function pushFromToday(router: ReturnType<typeof useRouter>, href: string) {
+  router.push(hrefWithReturnTo(href, TODAY_HOME) as Href);
+}
 
 type CategoryVisual = {
   icon: ComponentProps<typeof Ionicons>['name'];
@@ -93,7 +99,7 @@ function useDecisionCategoryLabels(): Record<DecisionCategory, CategoryVisual> {
 
 function openDecisionCard(router: ReturnType<typeof useRouter>, card: DecisionCard) {
   if (card.sourceHref) {
-    router.push(card.sourceHref as Href);
+    pushFromToday(router, card.sourceHref);
   }
 }
 
@@ -295,14 +301,10 @@ function SwipeableDecisionCard({
   const [actionPending, setActionPending] = useState(false);
 
   const translateX = useRef(new Animated.Value(0)).current;
+  // Left-swipe only (defer). Right swipe is disabled — confirm happens via buttons.
   const rotate = translateX.interpolate({
-    inputRange: [-SWIPE_OUT_X, 0, SWIPE_OUT_X],
-    outputRange: ['-8deg', '0deg', '8deg'],
-    extrapolate: 'clamp',
-  });
-  const confirmOpacity = translateX.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
-    outputRange: [0, 1],
+    inputRange: [-SWIPE_OUT_X, 0],
+    outputRange: ['-8deg', '0deg'],
     extrapolate: 'clamp',
   });
   const deferOpacity = translateX.interpolate({
@@ -358,7 +360,7 @@ function SwipeableDecisionCard({
             return;
           }
           finishResolvedAction(action);
-          if (action.href) router.push(action.href as Href);
+          if (action.href) pushFromToday(router, action.href);
         })
         .catch(() => {
           Alert.alert(
@@ -370,12 +372,7 @@ function SwipeableDecisionCard({
       return;
     }
     finishResolvedAction(action);
-    if (action.href) router.push(action.href as Href);
-  }
-
-  function handlePrimaryAction() {
-    const primary = card.actions[0];
-    flyOut('right', () => runPrimaryAction(primary));
+    if (action.href) pushFromToday(router, action.href);
   }
 
   function handleDefer() {
@@ -387,7 +384,7 @@ function SwipeableDecisionCard({
     if (action.style === 'ghost') {
       handleDefer();
     } else if (href && (action.id === 'open' || action.id === 'review')) {
-      router.push(href as Href);
+      pushFromToday(router, href);
     } else {
       flyOut('right', () => runPrimaryAction({ ...action, href }));
     }
@@ -395,12 +392,13 @@ function SwipeableDecisionCard({
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderMove: (_, g) => translateX.setValue(g.dx),
+      // Only claim horizontal pans that move left (defer). Right swipe does nothing.
+      onMoveShouldSetPanResponder: (_, g) => g.dx < -8 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => {
+        translateX.setValue(Math.min(0, g.dx));
+      },
       onPanResponderRelease: (_, g) => {
-        if (g.dx > SWIPE_THRESHOLD) {
-          handlePrimaryAction();
-        } else if (g.dx < -SWIPE_THRESHOLD) {
+        if (g.dx < -SWIPE_THRESHOLD) {
           handleDefer();
         } else {
           Animated.spring(translateX, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 300 }).start();
@@ -411,12 +409,7 @@ function SwipeableDecisionCard({
 
   return (
     <View testID={`today-decision-card-${card.id}`} style={styles.swipeContainer}>
-      {/* 右滑底层提示 */}
-      <Animated.View style={[styles.swipeBg, styles.swipeBgRight, { opacity: confirmOpacity }]}>
-        <Ionicons name="checkmark-circle" size={28} color="#34D399" />
-        <Text style={[styles.swipeBgLabel, { color: '#34D399' }]}>{t('today.confirm')}</Text>
-      </Animated.View>
-      {/* 左滑底层提示 */}
+      {/* 左滑底层提示（推迟） */}
       <Animated.View style={[styles.swipeBg, styles.swipeBgLeft, { opacity: deferOpacity }]}>
         <Text style={[styles.swipeBgLabel, { color: '#F59E0B' }]}>{t('today.defer')}</Text>
         <Ionicons name="time" size={28} color="#F59E0B" />
@@ -689,7 +682,7 @@ function DoneState({
               title={entry.title}
               subtitle={riskSubtitle}
               onPress={() => {
-                if (entry.sourceHref) router.push(entry.sourceHref as Href);
+                if (entry.sourceHref) pushFromToday(router, entry.sourceHref);
               }}
             />
           );
@@ -864,7 +857,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     flexDirection: 'row',
   },
-  swipeBgRight: { right: 0, backgroundColor: '#34D39910', paddingRight: spacing.xxl },
   swipeBgLeft: { left: 0, backgroundColor: '#F59E0B10', paddingLeft: spacing.xxl },
   swipeBgLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },
 

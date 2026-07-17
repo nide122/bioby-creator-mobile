@@ -282,7 +282,7 @@ export default function PricingEditScreen() {
       enabled={Platform.OS === 'ios'}>
       <View style={styles.screen}>
         <HubScreen
-          eyebrow={t('tabs.assets')}
+          eyebrow={t('pricingScreen.eyebrow')}
           title={screenTitle}
           lead={isNew ? t('pricingEditScreen.descriptionNew') : t('pricingEditScreen.descriptionEdit')}
           scrollBottomInset={scrollBottomInset}>

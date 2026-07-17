@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import appI18n from '@/src/i18n';
 
 import {
-  HubListRow,
   HubScreen,
   QueryRetryCard,
   SegmentedControl,
@@ -280,6 +279,21 @@ export default function AccountScreen() {
           onPress={() => router.push('/media-kit' as Href)}
         />
         <NavRow
+          testID="account-row-rate-card"
+          title={t('account.rows.rateCardTitle')}
+          detail={joinNavDetail(pitchHub.rateCardDetail, t('assetsScreen.rows.rateCard.subtitle'))}
+          onPress={() => router.push('/pricing' as Href)}
+        />
+        <NavRow
+          testID="account-row-reply-templates"
+          title={t('account.rows.replyTemplatesTitle')}
+          detail={joinNavDetail(
+            pitchHub.replyTemplatesDetail,
+            t('assetsScreen.rows.replyTemplates.subtitle'),
+          )}
+          onPress={() => router.push('/settings/reply-templates' as Href)}
+        />
+        <NavRow
           testID="account-team-row"
           title={t('account.rows.teamTitle')}
           detail={teamDetail}
@@ -290,25 +304,6 @@ export default function AccountScreen() {
           title={t('account.rows.planTitle')}
           detail={planDetail}
           onPress={() => router.push('/settings/subscription' as Href)}
-        />
-      </SettingsGroup>
-
-      <SettingsGroup title={t('assetsScreen.sections.pitch')} insetDividers={false}>
-        <HubListRow
-          testID="account-row-rate-card"
-          icon="pricetag-outline"
-          title={t('assetsScreen.rows.rateCard.title')}
-          subtitle={t('assetsScreen.rows.rateCard.subtitle')}
-          detail={pitchHub.rateCardDetail}
-          onPress={() => router.push('/pricing' as Href)}
-        />
-        <HubListRow
-          testID="account-row-reply-templates"
-          icon="chatbubble-ellipses-outline"
-          title={t('assetsScreen.rows.replyTemplates.title')}
-          subtitle={t('assetsScreen.rows.replyTemplates.subtitle')}
-          detail={pitchHub.replyTemplatesDetail}
-          onPress={() => router.push('/settings/reply-templates' as Href)}
         />
       </SettingsGroup>
 
@@ -430,6 +425,11 @@ function AccountInboxRow({
       </View>
     </Pressable>
   );
+}
+
+function joinNavDetail(summary: string | undefined, subtext: string): string {
+  if (summary) return `${summary} · ${subtext}`;
+  return subtext;
 }
 
 function NavRow({
