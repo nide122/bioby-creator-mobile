@@ -1,6 +1,7 @@
 import {
   getStackBackFallbackHref,
   shouldPreferExplicitBrandBack,
+  shouldPreferExplicitInboxMessageBack,
   shouldPreferExplicitInboxThreadBack,
   shouldPreferExplicitInboxThreadMessagesBack,
   shouldPreferExplicitOnboardingBack,
@@ -38,6 +39,25 @@ describe('shouldPreferExplicitInboxThreadMessagesBack', () => {
   it('is false for a single message and thread detail', () => {
     expect(shouldPreferExplicitInboxThreadMessagesBack('/inbox/message/81')).toBe(false);
     expect(shouldPreferExplicitInboxThreadMessagesBack('/inbox/42')).toBe(false);
+  });
+});
+
+describe('shouldPreferExplicitInboxMessageBack', () => {
+  it('is true for a message with a direct draft return target', () => {
+    expect(
+      shouldPreferExplicitInboxMessageBack('/inbox/message/81', {
+        directReturn: '1',
+        returnTo: '/drafts/draft-1?threadId=thread-1',
+      }),
+    ).toBe(true);
+  });
+
+  it('is false for ordinary message navigation', () => {
+    expect(
+      shouldPreferExplicitInboxMessageBack('/inbox/message/81', {
+        returnTo: '/drafts/draft-1?threadId=thread-1',
+      }),
+    ).toBe(false);
   });
 });
 

@@ -77,24 +77,20 @@ export function ThreadPriorityBanner({
               {nextAction}
             </Text>
           ) : null}
+          {showExplain && onExplainPress ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('inboxPriority.rankingExplain.a11y')}
+              hitSlop={6}
+              onPress={onExplainPress}
+              style={({ pressed }) => [styles.explainPressable, pressed && { opacity: 0.7 }]}>
+              <Text style={[styles.explainLink, { color: theme.primary }]}>
+                {t('inboxPriority.rankingExplain.button')}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
-      {showExplain && onExplainPress ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('inboxPriority.rankingExplain.a11y')}
-          hitSlop={6}
-          onPress={onExplainPress}
-          style={({ pressed }) => [
-            styles.explainPressable,
-            { paddingHorizontal: spacing.md },
-            pressed && { opacity: 0.7 },
-          ]}>
-          <Text style={[styles.explainLink, { color: theme.primary }]}>
-            {t('inboxPriority.rankingExplain.button')}
-          </Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -102,7 +98,8 @@ export function ThreadPriorityBanner({
 type ThreadAiSummaryCardProps = {
   title: string;
   summaryText?: string | null;
-  confidencePercent?: number | null;
+  needsReview?: boolean;
+  onReviewSource?: () => void;
   extracting?: boolean;
   analysisPending?: boolean;
   budgetDisplay?: string | null;
@@ -119,7 +116,8 @@ type ThreadAiSummaryCardProps = {
 export function ThreadAiSummaryCard({
   title,
   summaryText,
-  confidencePercent,
+  needsReview = false,
+  onReviewSource,
   extracting = false,
   analysisPending = false,
   budgetDisplay,
@@ -135,6 +133,10 @@ export function ThreadAiSummaryCard({
   const { t, i18n } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const reviewAccent = colorScheme === 'dark' ? '#FBBF24' : '#D97706';
+  const reviewTitle = colorScheme === 'dark' ? '#FBBF24' : '#B45309';
+  const reviewBorder = colorScheme === 'dark' ? 'rgba(251, 191, 36, 0.45)' : 'rgba(217, 119, 6, 0.28)';
+  const reviewBackground = colorScheme === 'dark' ? 'rgba(245, 158, 11, 0.14)' : '#FFF7E6';
   const locale = i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US';
   const showPending = extracting || analysisPending;
   const offer = resolveOfferDisplay(budgetDisplay, packages);
@@ -160,11 +162,8 @@ export function ThreadAiSummaryCard({
         <Ionicons name="document-text-outline" size={18} color={theme.primary} />
       </View>
       <View style={styles.proposalCopy}>
-        <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
-          {t('inboxThreadDetail.proposalSavedTitle')}
-        </Text>
-        <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
-          {proposal.title}
+        <Text style={[styles.proposalTitle, { color: theme.foreground }]} numberOfLines={1}>
+          {t('inboxThreadDetail.proposalSavedLabel', { title: proposal.title })}
         </Text>
       </View>
       <Text style={[styles.proposalLink, { color: theme.primary }]}>
@@ -193,9 +192,6 @@ export function ThreadAiSummaryCard({
         <Text style={[styles.proposalTitle, { color: theme.foreground }]}>
           {t('inboxThreadDetail.proposalCreateTitle')}
         </Text>
-        <Text style={[styles.proposalHint, { color: theme.mutedForeground }]} numberOfLines={1}>
-          {t('inboxThreadDetail.proposalCreateHint')}
-        </Text>
       </View>
       <Text style={[styles.proposalLink, { color: theme.primary }]}>
         {t('inboxThreadDetail.proposalCreateCta')}
@@ -220,13 +216,21 @@ export function ThreadAiSummaryCard({
               <Ionicons name="sparkles" size={14} color={theme.primary} />
             </View>
             <Text style={[styles.aiEyebrow, { color: theme.primary }]}>
-              {t('inboxThreadDetail.aiSummaryEyebrow')}
+              {t('inboxThreadDetail.emailKeyPoints')}
             </Text>
           </View>
-          {confidencePercent != null ? (
-            <View style={[styles.confidenceBadge, { borderColor: theme.accentMintStrong + '88' }]}>
-              <Text style={[styles.confidenceText, { color: theme.accentMintStrong }]}>
-                {t('inboxThreadDetail.briefConfidence', { percent: confidencePercent })}
+          {needsReview ? (
+            <View
+              style={[
+                styles.reviewBadge,
+                {
+                  borderColor: reviewBorder,
+                  backgroundColor: reviewBackground,
+                },
+              ]}>
+              <Ionicons name="warning-outline" size={14} color={reviewAccent} />
+              <Text style={[styles.reviewBadgeText, { color: reviewTitle }]}>
+                {t('inboxThreadDetail.lowConfidenceBadge')}
               </Text>
             </View>
           ) : null}
@@ -258,6 +262,34 @@ export function ThreadAiSummaryCard({
           <SummaryFact label={t('inboxThreadDetail.summaryDeliverablesLabel')} value={deliverables} />
           <SummaryFact label={t('inboxThreadDetail.summaryDeadlineLabel')} value={deadline ?? '—'} />
         </View>
+
+        {needsReview ? (
+          <Pressable
+            accessibilityRole={onReviewSource ? 'button' : undefined}
+            accessibilityLabel={t('inboxThreadDetail.lowConfidenceA11y')}
+            disabled={!onReviewSource}
+            onPress={onReviewSource}
+            style={({ pressed }) => [
+              styles.reviewCallout,
+              {
+                borderColor: reviewBorder,
+                backgroundColor: reviewBackground,
+              },
+              pressed && { opacity: 0.78 },
+            ]}>
+            <View style={styles.reviewCalloutCopy}>
+              <Text style={[styles.reviewCalloutTitle, { color: reviewTitle }]}>
+                {t('inboxThreadDetail.lowConfidenceTitle')}
+              </Text>
+              <Text style={[styles.reviewCalloutBody, { color: theme.foregroundSubtitle }]}>
+                {t('inboxThreadDetail.lowConfidenceBody')}
+              </Text>
+            </View>
+            {onReviewSource ? (
+              <Ionicons name="chevron-forward" size={18} color={reviewAccent} />
+            ) : null}
+          </Pressable>
+        ) : null}
       </View>
 
       {proposalEntry}
@@ -336,7 +368,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodySmall,
     lineHeight: lineHeight.body,
   },
-  explainPressable: { alignSelf: 'flex-start' },
+  explainPressable: {
+    alignSelf: 'center',
+    justifyContent: 'center',
+    minHeight: 32,
+    marginLeft: 'auto',
+  },
   explainLink: { fontSize: fontSize.bodySmall, fontWeight: '600' },
 
   aiSummaryStack: {
@@ -357,13 +394,16 @@ const styles = StyleSheet.create({
   aiCardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   aiIconBox: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   aiEyebrow: { fontSize: fontSize.caption, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
-  confidenceBadge: {
+  reviewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     borderWidth: 1,
     borderRadius: radii.md,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
-  confidenceText: { fontSize: fontSize.caption, fontWeight: '700' },
+  reviewBadgeText: { fontSize: fontSize.caption, fontWeight: '700' },
   cooperationTitle: { fontSize: fontSize.cardTitle, fontWeight: '800', lineHeight: lineHeight.bodyRelaxed },
   proposalRow: {
     flexDirection: 'row',
@@ -374,9 +414,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   proposalIcon: { width: 32, height: 32, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
-  proposalCopy: { flex: 1, gap: 2, minWidth: 0 },
+  proposalCopy: { flex: 1, minWidth: 0 },
   proposalTitle: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
-  proposalHint: { fontSize: fontSize.caption, lineHeight: lineHeight.caption },
   proposalLink: { fontSize: fontSize.bodySmall, fontWeight: '700' },
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pendingText: { flex: 1, fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
@@ -396,6 +435,18 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   factValue: { fontSize: fontSize.bodySmall, fontWeight: '700', lineHeight: lineHeight.body },
+  reviewCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  reviewCalloutCopy: { flex: 1, gap: 2 },
+  reviewCalloutTitle: { fontSize: fontSize.bodySmall, fontWeight: '800', lineHeight: lineHeight.body },
+  reviewCalloutBody: { fontSize: fontSize.caption, lineHeight: lineHeight.caption },
 
   riskCard: {
     borderWidth: 1,

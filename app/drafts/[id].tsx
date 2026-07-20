@@ -194,10 +194,16 @@ export default function DraftDetailScreen() {
 
   const openMessage = useCallback(
     (message: InboxMessage) => {
-      if (!effectiveThreadId) return;
-      router.push(inboxMessageHref(message.id, effectiveThreadId, null));
+      if (!draftId || !effectiveThreadId) return;
+      const returnTo = `/drafts/${encodeURIComponent(draftId)}?threadId=${encodeURIComponent(effectiveThreadId)}`;
+      router.push(
+        inboxMessageHref(message.id, effectiveThreadId, {
+          returnTo,
+          directReturn: true,
+        }),
+      );
     },
-    [router, effectiveThreadId],
+    [draftId, effectiveThreadId, router],
   );
 
   const generationSource = query.data?.generationSource;
@@ -363,6 +369,13 @@ export default function DraftDetailScreen() {
     router.push('/onboarding/email?source=draft-send' as Href);
   };
 
+  const onDemoMailboxAction = (action: 'draft' | 'send') => {
+    void alertAction(
+      t('draftDetail.demoMailboxActionTitle'),
+      t(action === 'draft' ? 'draftDetail.demoMailboxDraftBody' : 'draftDetail.demoMailboxSendBody'),
+    );
+  };
+
   const canSyncRemoteDraft =
     !isProposalDraft &&
     shouldUseBackendApi() &&
@@ -450,7 +463,8 @@ export default function DraftDetailScreen() {
               accessibilityRole="button"
               onPress={() => setShowTemplatePicker(true)}
               style={[styles.composeActionButton, styles.actionSecondary, { borderColor: theme.border, flex: 1 }]}>
-              <Text style={[styles.actionLabel, { color: theme.foreground }]}>{t('draftDetail.insertTemplateCta')}</Text>
+              <Ionicons name="document-text-outline" size={15} color={theme.mutedForeground} />
+              <Text style={[styles.actionLabel, styles.composeActionLabel, { color: theme.foreground }]}>{t('draftDetail.insertTemplateCta')}</Text>
             </Pressable>
             {effectiveThreadId ? (
               <Pressable
@@ -459,67 +473,174 @@ export default function DraftDetailScreen() {
                 style={[
                   styles.composeActionButton,
                   styles.actionSecondary,
-                  { borderColor: theme.primary, backgroundColor: theme.secondary, flex: 1 },
+                  { borderColor: theme.border, backgroundColor: theme.background, flex: 1 },
                 ]}>
-                <Ionicons name="sparkles-outline" size={16} color={theme.primary} />
-                <Text style={[styles.actionLabel, { color: theme.primary }]}>{t('replyDraftGenerator.openCta')}</Text>
+                <Ionicons name="sparkles-outline" size={15} color={theme.mutedForeground} />
+                <Text style={[styles.actionLabel, styles.composeActionLabel, { color: theme.foreground }]}>{t('replyDraftGenerator.openCta')}</Text>
               </Pressable>
             ) : null}
           </View>
 
-          {shouldUseBackendApi() && !isProposalDraft ? (
-            <View style={styles.mailboxActionRow}>
+          {!shouldUseBackendApi() && !isProposalDraft ? (
+            <View style={[styles.mailboxActionRow, { borderTopColor: theme.border }]}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('draftDetail.nativeDraftCtaA11y')}
-                disabled={!canSyncRemoteDraft}
-                onPress={onSyncRemoteDraft}
+                onPress={() => onDemoMailboxAction('draft')}
                 style={[
                   styles.mailboxActionButton,
                   styles.actionSecondary,
-                  {
-                    borderColor: theme.border,
-                    backgroundColor: canSyncRemoteDraft ? theme.background : theme.secondary,
-                    opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
-                  },
+                  { borderColor: theme.border, backgroundColor: theme.background },
                 ]}>
-                {remoteDraftLoading ? (
-                  <ActivityIndicator color={theme.primary} />
-                ) : (
-                  <Text style={[styles.actionLabel, { color: theme.foreground }]}>{nativeDraftSyncCta}</Text>
-                )}
+                <Text style={[styles.actionLabel, { color: theme.foreground }]}>
+                  {t('draftDetail.nativeDraftCreateCta')}
+                </Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('draftDetail.nativeDraftSendCtaA11y')}
-                disabled={!canSendRemoteDraft}
-                onPress={onSendRemoteDraft}
+                onPress={() => onDemoMailboxAction('send')}
                 style={[
                   styles.mailboxActionButton,
                   styles.actionPrimary,
-                  {
-                    backgroundColor: canSendRemoteDraft ? theme.primary : theme.border,
-                    opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
-                  },
+                  { backgroundColor: theme.primary },
                 ]}>
-                {remoteDraftSending ? (
-                  <ActivityIndicator color={theme.primaryForeground} />
-                ) : (
-                  <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>
-                    {t('draftDetail.nativeDraftSendCta')}
-                  </Text>
-                )}
+                <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>
+                  {t('draftDetail.nativeDraftSendCta')}
+                </Text>
               </Pressable>
             </View>
           ) : null}
 
-          {!mailboxDraftReady && shouldUseBackendApi() ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onReconnectMailbox}
-              style={[styles.actionButton, styles.actionSecondary, { borderColor: theme.border }]}>
-              <Text style={[styles.actionLabel, { color: theme.primary }]}>{t('draftDetail.nativeDraftReconnectCta')}</Text>
-            </Pressable>
+          {shouldUseBackendApi() && !isProposalDraft ? (
+            mailbox.isPending ? (
+              <View style={[styles.mailboxStatePanel, { borderTopColor: theme.border }]}>
+                <View style={styles.mailboxStateStatus}>
+                  <ActivityIndicator color={theme.primary} />
+                  <View style={styles.mailboxStateCopy}>
+                    <Text style={[styles.mailboxStateTitle, { color: theme.foreground }]}>
+                      {t('draftDetail.nativeDraftLoadingTitle')}
+                    </Text>
+                    <Text style={[styles.mailboxStateBody, { color: theme.mutedForeground }]}>
+                      {t('draftDetail.nativeDraftLoadingBody')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : mailbox.isError ? (
+              <View style={[styles.mailboxStatePanel, { borderTopColor: theme.border }]}>
+                <View style={styles.mailboxStateStatus}>
+                  <Ionicons name="alert-circle-outline" size={18} color={theme.foreground} />
+                  <View style={styles.mailboxStateCopy}>
+                    <Text style={[styles.mailboxStateTitle, { color: theme.foreground }]}>
+                      {t('draftDetail.nativeDraftLoadFailedTitle')}
+                    </Text>
+                    <Text style={[styles.mailboxStateBody, { color: theme.mutedForeground }]}>
+                      {t('draftDetail.nativeDraftLoadFailedBody')}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void mailbox.refetch()}
+                  style={[styles.actionButton, styles.actionSecondary, { borderColor: theme.border }]}>
+                  <Ionicons name="refresh-outline" size={17} color={theme.primary} />
+                  <Text style={[styles.actionLabel, { color: theme.primary }]}>
+                    {t('draftDetail.nativeDraftRetryCta')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : !mailbox.data ? (
+              <View style={[styles.mailboxStatePanel, { borderTopColor: theme.border }]}>
+                <View style={styles.mailboxStateStatus}>
+                  <Ionicons name="mail-outline" size={18} color={theme.foreground} />
+                  <View style={styles.mailboxStateCopy}>
+                    <Text style={[styles.mailboxStateTitle, { color: theme.foreground }]}>
+                      {t('draftDetail.nativeDraftConnectTitle')}
+                    </Text>
+                    <Text style={[styles.mailboxStateBody, { color: theme.mutedForeground }]}>
+                      {t('draftDetail.nativeDraftConnectBody')}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onReconnectMailbox}
+                  style={[styles.actionButton, styles.actionPrimary, { backgroundColor: theme.primary }]}>
+                  <Ionicons name="link-outline" size={17} color={theme.primaryForeground} />
+                  <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>
+                    {t('draftDetail.nativeDraftConnectCta')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : mailboxSendReady ? (
+              <View style={[styles.mailboxActionRow, { borderTopColor: theme.border }]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('draftDetail.nativeDraftCtaA11y')}
+                  disabled={!canSyncRemoteDraft}
+                  onPress={onSyncRemoteDraft}
+                  style={[
+                    styles.mailboxActionButton,
+                    styles.actionSecondary,
+                    {
+                      borderColor: theme.border,
+                      backgroundColor: canSyncRemoteDraft ? theme.background : theme.secondary,
+                      opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
+                    },
+                  ]}>
+                  {remoteDraftLoading ? (
+                    <ActivityIndicator color={theme.primary} />
+                  ) : (
+                    <Text style={[styles.actionLabel, { color: theme.foreground }]}>{nativeDraftSyncCta}</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('draftDetail.nativeDraftSendCtaA11y')}
+                  disabled={!canSendRemoteDraft}
+                  onPress={onSendRemoteDraft}
+                  style={[
+                    styles.mailboxActionButton,
+                    styles.actionPrimary,
+                    {
+                      backgroundColor: canSendRemoteDraft ? theme.primary : theme.border,
+                      opacity: remoteDraftLoading || remoteDraftSending ? 0.85 : 1,
+                    },
+                  ]}>
+                  {remoteDraftSending ? (
+                    <ActivityIndicator color={theme.primaryForeground} />
+                  ) : (
+                    <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>
+                      {t('draftDetail.nativeDraftSendCta')}
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : (
+              <View style={[styles.mailboxStatePanel, { borderTopColor: theme.border }]}>
+                <View style={styles.mailboxStateStatus}>
+                  <Ionicons name="key-outline" size={18} color={theme.foreground} />
+                  <View style={styles.mailboxStateCopy}>
+                    <Text style={[styles.mailboxStateTitle, { color: theme.foreground }]}>
+                      {t('draftDetail.nativeDraftReconnectTitle')}
+                    </Text>
+                    <Text style={[styles.mailboxStateBody, { color: theme.mutedForeground }]}>
+                      {t('draftDetail.nativeDraftReconnectBody')}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onReconnectMailbox}
+                  style={[styles.actionButton, styles.actionPrimary, { backgroundColor: theme.primary }]}>
+                  <Ionicons name="refresh-outline" size={17} color={theme.primaryForeground} />
+                  <Text style={[styles.actionLabel, { color: theme.primaryForeground }]}>
+                    {t('draftDetail.nativeDraftReconnectCta')}
+                  </Text>
+                </Pressable>
+              </View>
+            )
           ) : null}
 
           {remoteDraftError ? (
@@ -596,26 +717,54 @@ const styles = StyleSheet.create({
   mailboxActionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    borderTopWidth: 1,
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
   },
   mailboxActionButton: {
     flex: 1,
     borderRadius: radii.md,
-    minHeight: layout.touchMin,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
+  },
+  mailboxStatePanel: {
+    borderTopWidth: 1,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  mailboxStateStatus: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  mailboxStateCopy: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  mailboxStateTitle: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+  },
+  mailboxStateBody: {
+    fontSize: fontSize.bodySmall,
+    lineHeight: lineHeight.bodyRelaxed,
   },
   composeActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    borderRadius: radii.md,
+    gap: spacing.xs,
+    borderRadius: radii.sm,
     minHeight: layout.touchMin,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
+  composeActionLabel: { fontSize: fontSize.bodySmall },
   actionButton: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     borderRadius: radii.md,
     minHeight: layout.touchMin,
     alignItems: 'center',

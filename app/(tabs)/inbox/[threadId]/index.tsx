@@ -17,7 +17,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   HubScreen,
   QueryRetryCard,
-  SettingsGroup,
 } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { ContractSummaryCard } from '@/components/deals/ContractSummaryCard';
@@ -76,15 +75,15 @@ import {
 } from '@/components/inbox/InboxThreadSummaryPanels';
 import { contractWarningSeverity, resolveThreadRiskPartitions } from '@/src/lib/contract-warning';
 
+const LOW_EXTRACTION_CONFIDENCE = 0.7;
+
 // ─── AI 纠偏行（内联，无 Alert） ───────────────────────────────────────────
 
 function CorrectionRow({
   label,
-  hint,
   onCorrect,
 }: {
   label: string;
-  hint: string;
   onCorrect: () => void;
 }) {
   const { t } = useTranslation();
@@ -101,13 +100,10 @@ function CorrectionRow({
         styles.correctionRow,
         { borderColor: corrected ? '#34D39940' : theme.border, backgroundColor: corrected ? '#34D39910' : theme.card },
       ]}>
-      <View style={{ flex: 1, gap: spacing.xs }}>
+      <View style={{ flex: 1 }}>
         <Text style={[styles.correctionLabel, { color: corrected ? '#34D399' : theme.foreground }]}>
           {corrected ? t('inboxThreadDetail.correctionApplied', { label }) : label}
         </Text>
-        {!corrected && (
-          <Text style={[styles.correctionHint, { color: theme.mutedForeground }]}>{hint}</Text>
-        )}
       </View>
       {!corrected && (
         <Ionicons name="chevron-forward" size={14} color={theme.mutedForeground} />
@@ -136,9 +132,6 @@ function CategoryCorrectionPanel({
 
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
-        {correctedByUser ? t('inboxThreadDetail.adjustCategory') : t('inboxThreadDetail.categoryWrong')}
-      </Text>
       <View style={styles.categoryGrid}>
         {categories.map((category) => {
           const active = currentCategory === category;
@@ -167,10 +160,76 @@ function CategoryCorrectionPanel({
       {correctedByUser && (
         <CorrectionRow
           label={t('inboxThreadDetail.restoreAiLabel')}
-          hint={t('inboxThreadDetail.restoreAiHint')}
           onCorrect={onRestore}
         />
       )}
+    </View>
+  );
+}
+
+function ClassificationSystemSection({
+  currentCategory,
+  correctedByUser,
+  categoryLabels,
+  summaryText,
+  onSelectCategory,
+  onRestore,
+}: {
+  currentCategory: InboxEmailCategory;
+  correctedByUser: boolean;
+  categoryLabels: Record<InboxEmailCategory, string>;
+  summaryText?: string | null;
+  onSelectCategory: (category: InboxEmailCategory) => void;
+  onRestore: () => void;
+}) {
+  const { t } = useTranslation();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+  const [open, setOpen] = useState(false);
+
+  return (
+    <View style={[styles.systemSection, { borderColor: theme.border, backgroundColor: theme.card }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={({ pressed }) => [styles.systemSectionToggle, pressed && { opacity: 0.78 }]}>
+        <View style={[styles.systemSectionIcon, { backgroundColor: theme.secondary }]}>
+          <Ionicons name="options-outline" size={18} color={theme.foregroundEyebrow} />
+        </View>
+        <Text style={[styles.systemSectionTitle, { color: theme.foreground }]}>
+          {t('inboxThreadDetail.classificationSystemTitle')}
+        </Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={theme.mutedForeground} />
+      </Pressable>
+
+      {open ? (
+        <View style={[styles.systemSectionBody, { borderTopColor: theme.border }]}>
+          {summaryText ? (
+            <Text style={[styles.aiPreviewText, { color: theme.foregroundSubtitle }]}>{summaryText}</Text>
+          ) : null}
+          <View style={[styles.classificationBox, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+            <View style={styles.currentCategoryRow}>
+              <Text style={[styles.currentCategoryLabel, { color: theme.foregroundEyebrow }]}>
+                {t('inboxThreadDetail.currentCategoryLabel')}
+              </Text>
+              <Text style={[styles.currentCategoryValue, { color: theme.foreground }]}>
+                {categoryLabels[currentCategory]}
+              </Text>
+            </View>
+            <Text style={[styles.classificationText, { color: theme.foregroundSubtitle }]}>
+              {t(`inboxThreadDetail.categoryReason.${currentCategory}` as const)}
+            </Text>
+          </View>
+          <CategoryCorrectionPanel
+            currentCategory={currentCategory}
+            correctedByUser={correctedByUser}
+            categoryLabels={categoryLabels}
+            onSelectCategory={onSelectCategory}
+            onRestore={onRestore}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -208,6 +267,7 @@ export default function InboxThreadDetailScreen() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [localAckedRiskIds, setLocalAckedRiskIds] = useState<string[]>([]);
   const [showPriorityBreakdownSheet, setShowPriorityBreakdownSheet] = useState(false);
+  const [stickyFooterHeight, setStickyFooterHeight] = useState(0);
 
   const query = useInboxThreadDetail(threadId);
   const proposalQuery = useProposalForOpportunity(threadId);
@@ -389,8 +449,10 @@ export default function InboxThreadDetailScreen() {
   const threadAnalysisPending = detail.classificationPending === true;
   const showThreadAnalysisBanner = threadAnalysisPending && !aiBriefText;
   const briefExtracting = detail.extractionStatus === 'PENDING';
-  const briefConfidencePercent =
-    detail.extractionConfidence != null ? Math.round(detail.extractionConfidence * 100) : null;
+  const briefNeedsReview =
+    detail.extractionStatus === 'COMPLETE' &&
+    detail.extractionConfidence != null &&
+    detail.extractionConfidence < LOW_EXTRACTION_CONFIDENCE;
 
   const confirmedDeal = isBriefConfirmed(detail);
   const readyToConfirm = apiMode && isCommercial && canProceedToConfirmBrief(detailForConfirm);
@@ -448,6 +510,15 @@ export default function InboxThreadDetailScreen() {
     setShowPriorityBreakdownSheet(true);
   };
 
+  const openOriginalEmail = () => {
+    router.push(
+      inboxThreadMessagesHref(
+        threadId,
+        returnTo || parentReturnTo ? { returnTo, parentReturnTo } : null,
+      ),
+    );
+  };
+
   const localizedNextAction = detail.nextActionLabel
     ? translateInboxNextAction(t, detail.nextActionLabel) ??
       translateRiskLabelText(t, detail.nextActionLabel) ??
@@ -482,15 +553,12 @@ export default function InboxThreadDetailScreen() {
   const showDraftActions = isCommercial && opportunityPathStep !== 'completed' && !confirmedDeal;
 
   const stickyFooter = (
-    <View style={[styles.stickyFooter, { borderColor: theme.border, backgroundColor: theme.background }]}>
-      {!isCommercial ? (
-        <View style={[styles.footerNote, { backgroundColor: theme.secondary }]}>
-          <Ionicons name="lock-closed-outline" size={11} color={theme.foregroundEyebrow} />
-          <Text style={[styles.footerNoteText, { color: theme.foregroundEyebrow }]}>
-            {t('inboxThreadDetail.footerNonCommercial')}
-          </Text>
-        </View>
-      ) : null}
+    <View
+      onLayout={(event) => {
+        const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+        setStickyFooterHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
+      }}
+      style={[styles.stickyFooter, { borderColor: theme.border, backgroundColor: theme.background }]}>
       {isCommercial ? (
         <View style={{ gap: spacing.sm }}>
           {readyToConfirm ? (
@@ -547,7 +615,7 @@ export default function InboxThreadDetailScreen() {
               <Pressable
                 accessibilityRole="button"
                 disabled={!!draftActionLoading || confirmLoading}
-                onPress={() => router.push(inboxThreadMessagesHref(threadId, returnTo || parentReturnTo ? { returnTo, parentReturnTo } : null))}
+                onPress={openOriginalEmail}
                 android_ripple={{ color: `${theme.primary}18` }}
                 style={({ pressed }) => [
                   styles.btnSecondary,
@@ -617,18 +685,19 @@ export default function InboxThreadDetailScreen() {
     />
     <HubScreen
       testID="screen-inbox-thread-detail"
-      eyebrow={isCommercial ? t('tabs.inbox') : t('tabs.inbox')}
+      eyebrow={isCommercial ? undefined : t('tabs.inbox')}
       title={isCommercial ? undefined : screenTitle}
       lead={isCommercial ? undefined : leadParts.join(' · ')}
       toolbar={toolbar}
       fixedFooter={stickyFooter}
-      scrollBottomInset={140}>
+      scrollBottomInset={Math.max(140, stickyFooterHeight + spacing.xxl)}>
       {isCommercial ? (
         <>
           <ThreadAiSummaryCard
             title={cooperationTitle}
             summaryText={aiBriefText}
-            confidencePercent={detail.extractionStatus === 'COMPLETE' ? briefConfidencePercent : null}
+            needsReview={briefNeedsReview}
+            onReviewSource={openOriginalEmail}
             extracting={briefExtracting}
             analysisPending={showThreadAnalysisBanner}
             budgetDisplay={detail.budgetDisplay}
@@ -681,38 +750,6 @@ export default function InboxThreadDetailScreen() {
         </View>
       ) : null}
 
-      <View style={[styles.aiCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
-          <View style={styles.aiCardHeader}>
-            <View style={[styles.aiIconBox, { backgroundColor: theme.primary + '18' }]}>
-              <Ionicons name="sparkles" size={14} color={theme.primary} />
-            </View>
-            <Text style={[styles.aiCardEyebrow, { color: theme.primary }]}>{t('inboxThreadDetail.aiBriefEyebrow')}</Text>
-          </View>
-
-            <View style={[styles.classificationBox, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
-              {correctedByUser && (
-                <View style={[styles.overrideNotice, { borderColor: '#34D39940', backgroundColor: '#34D39910' }]}>
-                  <Ionicons name="person-outline" size={13} color="#34D399" />
-                  <Text style={[styles.overrideNoticeText, { color: '#34D399' }]}>
-                    {t('inboxThreadDetail.overrideNotice')}
-                  </Text>
-                </View>
-              )}
-              {aiBriefText ? (
-                <Text style={[styles.aiPreviewText, { color: theme.foregroundSubtitle, marginBottom: spacing.sm }]}>
-                  {aiBriefText}
-                </Text>
-              ) : null}
-              <Text style={[styles.classificationLabel, { color: theme.foregroundEyebrow }]}>
-                {t('inboxThreadDetail.classificationWhy')}
-              </Text>
-              <Text style={[styles.classificationText, { color: theme.foregroundSubtitle }]}>
-                {t(`inboxThreadDetail.categoryReason.${detail.category}` as const)}
-              </Text>
-            </View>
-
-        </View>
-
         {(contractEditor.parsing ||
           contractEditor.draft ||
           contractEditor.unsaved ||
@@ -740,63 +777,59 @@ export default function InboxThreadDetailScreen() {
             />
           </View>
         ) : null}
-
-        <CollapsibleThread
-          messages={detail.messages}
-          messageStats={detail.messageStats}
-          initiallyOpen
-          dateLocale={dateLocale}
-          counterpartyLabel={brandLabel ?? undefined}
-          onOpenMessage={openMessage}
-        />
-
-        <SettingsGroup title={t('inboxThreadDetail.categorySectionTitle')}>
-          <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
-            <CategoryCorrectionPanel
-              currentCategory={detail.category}
-              correctedByUser={correctedByUser}
-              categoryLabels={inboxCategoryLabel}
-              onSelectCategory={(category) => {
-                setCategory(detail, category);
-                if (apiMode) {
-                  const leadStage =
-                    category === 'commercial' && detail.leadStage === 'new' ? 'needs_reply' : detail.leadStage;
-                  void updateOpportunityClassification(detail.id, {
-                    emailCategory: category,
-                    leadStage,
-                  }).then((updatedDetail) => {
-                    queryClient.setQueryData(detailQueryKey, updatedDetail);
-                    clearCorrection(detail.id);
-                    void Promise.all([
-                      invalidateTenantScopedQueries(queryClient),
-                      queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
-                      invalidateDecisionQueueQueries(queryClient),
-                      queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
-                    ]);
-                  });
-                }
-              }}
-              onRestore={() => {
-                if (apiMode) {
-                  void restoreOpportunityClassification(detail.id).then((updatedDetail) => {
-                    queryClient.setQueryData(detailQueryKey, updatedDetail);
-                    clearCorrection(detail.id);
-                    void Promise.all([
-                      invalidateTenantScopedQueries(queryClient),
-                      queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
-                      invalidateDecisionQueueQueries(queryClient),
-                      queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
-                    ]);
-                  });
-                  return;
-                }
-                clearCorrection(detail.id);
-              }}
-            />
-          </View>
-        </SettingsGroup>
         </>
       )}
+
+      <CollapsibleThread
+        messages={detail.messages}
+        messageStats={detail.messageStats}
+        dateLocale={dateLocale}
+        counterpartyLabel={brandLabel ?? undefined}
+        onOpenMessage={openMessage}
+      />
+
+      <ClassificationSystemSection
+        currentCategory={detail.category}
+        correctedByUser={correctedByUser}
+        categoryLabels={inboxCategoryLabel}
+        summaryText={isCommercial ? null : aiBriefText}
+        onSelectCategory={(category) => {
+          setCategory(detail, category);
+          if (apiMode) {
+            const leadStage =
+              category === 'commercial' && detail.leadStage === 'new' ? 'needs_reply' : detail.leadStage;
+            void updateOpportunityClassification(detail.id, {
+              emailCategory: category,
+              leadStage,
+            }).then((updatedDetail) => {
+              queryClient.setQueryData(detailQueryKey, updatedDetail);
+              clearCorrection(detail.id);
+              void Promise.all([
+                invalidateTenantScopedQueries(queryClient),
+                queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
+                invalidateDecisionQueueQueries(queryClient),
+                queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
+              ]);
+            });
+          }
+        }}
+        onRestore={() => {
+          if (apiMode) {
+            void restoreOpportunityClassification(detail.id).then((updatedDetail) => {
+              queryClient.setQueryData(detailQueryKey, updatedDetail);
+              clearCorrection(detail.id);
+              void Promise.all([
+                invalidateTenantScopedQueries(queryClient),
+                queryClient.invalidateQueries({ queryKey: ['home', 'inbox-summary'] }),
+                invalidateDecisionQueueQueries(queryClient),
+                queryClient.invalidateQueries({ queryKey: ['home', 'action-log'] }),
+              ]);
+            });
+            return;
+          }
+          clearCorrection(detail.id);
+        }}
+      />
     </HubScreen>
     {detail.priorityBreakdown || detail.priorityAssessment ? (
       <PriorityBreakdownSheet
@@ -901,15 +934,33 @@ const styles = StyleSheet.create({
   sectionHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   briefIntro: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   classificationText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.bodyRelaxed },
-  overrideNotice: {
+  systemSection: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.md,
-    padding: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
   },
-  overrideNoticeText: { flex: 1, fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  systemSectionToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  systemSectionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  systemSectionTitle: { flex: 1, fontSize: fontSize.bodySmall, fontWeight: '800' },
+  systemSectionBody: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  currentCategoryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  currentCategoryLabel: { flex: 1, fontSize: fontSize.caption, lineHeight: lineHeight.caption },
+  currentCategoryValue: { fontSize: fontSize.bodySmall, fontWeight: '800', lineHeight: lineHeight.body },
 
   confirmBlocker: {
     flexDirection: 'row',
@@ -925,10 +976,8 @@ const styles = StyleSheet.create({
   signalRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' },
 
   // 纠偏行
-  sectionLabel: { fontSize: fontSize.eyebrow, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
   correctionRow: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   correctionLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },
-  correctionHint: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   categoryCorrectionChip: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -950,8 +999,6 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     gap: spacing.sm,
   },
-  footerNote: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: radii.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, alignSelf: 'center' },
-  footerNoteText: { fontSize: fontSize.caption },
   footerButtons: { flexDirection: 'row', gap: spacing.sm },
   btnIcon: {
     alignItems: 'center',

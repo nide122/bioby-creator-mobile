@@ -36,7 +36,6 @@ export type BriefExtractionPanelProps = {
   riskNoteItems?: AttentionListItem[];
   attentionItems: AttentionListItem[];
   missingFields: string[];
-  correctedByUser?: boolean;
 };
 
 export function BriefExtractionPanel({
@@ -54,7 +53,6 @@ export function BriefExtractionPanel({
   riskNoteItems = [],
   attentionItems,
   missingFields,
-  correctedByUser,
 }: BriefExtractionPanelProps) {
   const { t, i18n } = useTranslation();
   const colorScheme = useColorScheme() ?? 'light';
@@ -84,10 +82,6 @@ export function BriefExtractionPanel({
 
   return (
     <View style={styles.root}>
-      {correctedByUser ? (
-        <Text style={[styles.metaLine, { color: '#34D399' }]}>{t('inboxThreadDetail.overrideNotice')}</Text>
-      ) : null}
-
       {showPending ? (
         <View style={styles.pendingRow}>
           <ActivityIndicator size="small" color={theme.primary} />
@@ -210,11 +204,6 @@ export function BriefExtractionPanel({
 const styles = StyleSheet.create({
   root: {
     gap: spacing.md,
-  },
-  metaLine: {
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.body,
-    fontWeight: '600',
   },
   pendingRow: {
     flexDirection: 'row',

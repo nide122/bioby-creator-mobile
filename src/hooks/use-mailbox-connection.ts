@@ -10,13 +10,7 @@ export function useMailboxConnection() {
   const enabled = useTenantApiQueryEnabled();
   return useQuery({
     queryKey,
-    queryFn: async (): Promise<MailboxConnectionResponse | null> => {
-      try {
-        return await fetchMailboxConnection();
-      } catch {
-        return null;
-      }
-    },
+    queryFn: async (): Promise<MailboxConnectionResponse | null> => fetchMailboxConnection(),
     enabled,
   });
 }

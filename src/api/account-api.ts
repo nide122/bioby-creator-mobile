@@ -1,4 +1,4 @@
-import { apiDownloadBlob, apiRequest } from '@/src/api/api-client';
+import { ApiError, apiDownloadBlob, apiRequest } from '@/src/api/api-client';
 import {
   mapAccountOverview,
   mapCreatorProfileResponse,
@@ -176,8 +176,11 @@ export async function fetchMailboxConnection(): Promise<MailboxConnectionRespons
   if (!shouldUseBackendApi()) return null;
   try {
     return await apiRequest<MailboxConnectionView>('/api/v1/mailbox/connection');
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.code === 'MAILBOX_NOT_CONNECTED')) {
+      return null;
+    }
+    throw error;
   }
 }
 

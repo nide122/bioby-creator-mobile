@@ -780,12 +780,9 @@ export default function DecisionQueueScreen() {
     (c) => c.category === 'payout' || !!c.urgencyNote
   ).length;
 
-  const moneyPhrase =
-    highPriorityCount > 0 ? t('today.pendingMoneySuffix', { count: highPriorityCount }) : '';
-
   const pendingSummary =
     !displayDone && displayPending.length > 0
-      ? t('today.pendingSummary', { count: displayPending.length, money: moneyPhrase })
+      ? t('today.pendingSummary', { count: displayPending.length })
       : null;
 
   const screenTitle = displayDone
@@ -794,6 +791,14 @@ export default function DecisionQueueScreen() {
 
   const toolbar = (
     <>
+      {!displayDone && highPriorityCount > 0 ? (
+        <View style={styles.riskSummaryRow}>
+          <Ionicons name="alert-circle-outline" size={20} color="#F59E0B" />
+          <Text style={[styles.riskSummaryText, { color: theme.mutedForeground }]}>
+            {t('today.riskSummary', { count: highPriorityCount })}
+          </Text>
+        </View>
+      ) : null}
       {!displayDone && queue.pendingEstimatedMinutes > 0 ? (
         <Text style={[styles.totalMinutesSummary, { color: theme.mutedForeground }]}>
           {t('today.totalEstimatedMinutes', { minutes: queue.pendingEstimatedMinutes })}
@@ -925,6 +930,8 @@ const styles = StyleSheet.create({
   categoryIcon: { width: 26, height: 26, borderRadius: radii.sm, alignItems: 'center', justifyContent: 'center' },
   amountLabel: { fontSize: fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'], marginLeft: 'auto' },
   totalMinutesSummary: { fontSize: fontSize.bodySmall, fontWeight: '600' },
+  riskSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  riskSummaryText: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   focusHiddenSummary: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   identityBlock: { gap: spacing.xs },
   cardTitle: { fontSize: fontSize.sectionTitle, fontWeight: '800', letterSpacing: -0.35, lineHeight: lineHeight.lead },

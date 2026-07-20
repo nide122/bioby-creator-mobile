@@ -55,6 +55,10 @@ export function StackHeaderBack(props: StackHeaderBackProps) {
       navigateBack(fallbackHref);
       return;
     }
+    if (fallbackHref && shouldPreferExplicitInboxMessageBack(pathname, searchParams)) {
+      navigateBack(fallbackHref);
+      return;
+    }
     if (fallbackHref && shouldPreferExplicitInboxThreadMessagesBack(pathname)) {
       router.replace(fallbackHref as Href);
       return;
@@ -126,6 +130,25 @@ export function shouldPreferExplicitInboxThreadMessagesBack(pathname: string): b
 export function shouldPreferExplicitInboxThreadBack(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean);
   return parts[0] === 'inbox' && parts.length === 2;
+}
+
+/**
+ * A message opened as a cross-navigator preview (for example from a draft)
+ * must use its explicit return target. Starting with router.back() switches
+ * the parent Tabs navigator to Today on web before the return interceptor runs.
+ */
+export function shouldPreferExplicitInboxMessageBack(
+  pathname: string,
+  searchParams?: StackBackSearchParams,
+): boolean {
+  const parts = pathname.split('/').filter(Boolean);
+  return (
+    parts[0] === 'inbox' &&
+    parts[1] === 'message' &&
+    parts.length === 3 &&
+    searchParamValue(searchParams?.directReturn) === '1' &&
+    !!searchParamValue(searchParams?.returnTo)
+  );
 }
 
 export function shouldPreferExplicitBrandBack(pathname: string, searchParams?: StackBackSearchParams): boolean {

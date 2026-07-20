@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { EmailAttachmentBadge } from '@/components/mail/EmailAttachmentsList';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, lineHeight, palette, radii, spacing } from '@/constants/tokens';
-import { formatThreadToggleLabel } from '@/src/lib/inbox-message-stats';
 import { stripQuotedPlainText } from '@/src/lib/email-body';
 import { isSenderLikeLabel } from '@/src/lib/cooperation-display-name';
 import type { InboxMessage, InboxMessageStats } from '@/src/types/domain';
@@ -34,6 +34,31 @@ function messageFromLabel(
     }
   }
   return message.fromLabel;
+}
+
+function latestMessageTime(messages: InboxMessage[], dateLocale: string, t: TFunction) {
+  const latestTimestamp = messages.reduce((latest, message) => {
+    const timestamp = new Date(message.sentAtISO).getTime();
+    return Number.isFinite(timestamp) ? Math.max(latest, timestamp) : latest;
+  }, 0);
+  if (!latestTimestamp) return null;
+
+  const latest = new Date(latestTimestamp);
+  const today = new Date();
+  const time = latest.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
+  if (
+    latest.getFullYear() === today.getFullYear() &&
+    latest.getMonth() === today.getMonth() &&
+    latest.getDate() === today.getDate()
+  ) {
+    return t('inboxThreadDetail.threadRecentToday', { time });
+  }
+  return latest.toLocaleString(dateLocale, {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 type CollapsibleThreadProps = {
@@ -64,6 +89,8 @@ export function CollapsibleThread({
   const [internalOpen, setInternalOpen] = useState(initiallyOpen);
   const open = isControlled ? controlledOpen : internalOpen;
   const heightAnim = useRef(new Animated.Value(initiallyOpen ? 1 : 0)).current;
+  const messageCount = messageStats?.total ?? messages.length;
+  const recentTime = latestMessageTime(messages, dateLocale, t);
 
   useEffect(() => {
     if (!isControlled) return;
@@ -89,13 +116,21 @@ export function CollapsibleThread({
   }
 
   return (
-    <View style={[styles.threadBox, { borderColor: theme.border, backgroundColor: theme.secondary }]}>
+    <View style={[styles.threadBox, { borderColor: theme.border, backgroundColor: theme.card }]}>
       <Pressable accessibilityRole="button" onPress={toggle} style={styles.threadToggleRow}>
-        <Ionicons name="mail-outline" size={14} color={theme.foregroundEyebrow} />
-        <Text style={[styles.threadToggleLabel, { color: theme.foregroundEyebrow }]}>
-          {formatThreadToggleLabel(messageStats, messages.length, t)}
+        <View style={[styles.threadIconBox, { backgroundColor: theme.secondary }]}>
+          <Ionicons name="layers-outline" size={18} color={theme.foregroundEyebrow} />
+        </View>
+        <Text style={[styles.threadTitle, { color: theme.foreground }]}>
+          {t('inboxThreadDetail.threadSectionTitle')}
         </Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={theme.mutedForeground} />
+        <Text style={[styles.threadMeta, { color: theme.mutedForeground }]} numberOfLines={1}>
+          {t('inboxThreadDetail.threadSectionMeta', {
+            count: messageCount,
+            recent: recentTime ?? t('inboxThreadDetail.threadRecentUnknown'),
+          })}
+        </Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={theme.mutedForeground} />
       </Pressable>
 
       {open ? (
@@ -174,7 +209,15 @@ export function CollapsibleThread({
 const styles = StyleSheet.create({
   threadBox: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing.md },
   threadToggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  threadToggleLabel: { flex: 1, fontSize: fontSize.caption, fontWeight: '600' },
+  threadIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  threadTitle: { fontSize: fontSize.bodySmall, fontWeight: '800' },
+  threadMeta: { flex: 1, textAlign: 'right', fontSize: fontSize.caption, lineHeight: lineHeight.caption },
   msgRow: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
