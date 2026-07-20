@@ -31,21 +31,19 @@ export function resolveInboxCollaborationPresentation(
   t: TFunction,
   inboxCategoryLabel: Record<InboxThread['category'], string>,
 ) {
-  const name = thread.brandName?.trim() || thread.subject?.trim() || t('inboxScreen.collaboratorFallback');
+  const name =
+    thread.brandName?.trim() ||
+    thread.claimedBrandName?.trim() ||
+    thread.subject?.trim() ||
+    t('inboxScreen.collaboratorFallback');
   const requestLabel =
     thread.category === 'commercial'
       ? t('inboxScreen.collabRequest')
       : inboxCategoryLabel[thread.category];
-  const sourceLabel = t('inboxScreen.sourceEmail');
-  const infoLine = `${requestLabel} · ${sourceLabel}`;
-  const brandName = thread.claimedBrandName?.trim();
-  const brandLine =
-    brandName && brandName !== name ? t('inboxScreen.brandLabel', { brand: brandName }) : null;
 
   return {
     name,
     initials: resolveCollaboratorInitials(name),
-    infoLine,
-    brandLine,
+    infoLine: requestLabel,
   };
 }

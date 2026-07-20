@@ -40,8 +40,10 @@ export default function InboxManualOpportunityScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const tenantPublicId = useSessionStore((s) => s.tenantPublicId);
+  const publicDemo = useSessionStore((s) => s.demoWorkspaceKind === 'public');
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
+  const apiMode = shouldUseBackendApi();
 
   const platformOptions = useMemo(
     () =>
@@ -61,9 +63,13 @@ export default function InboxManualOpportunityScreen() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = brandName.trim().length > 0 && !submitting && shouldUseBackendApi();
+  const canSubmit = publicDemo || (brandName.trim().length > 0 && !submitting && apiMode);
 
   const onSubmit = async () => {
+    if (publicDemo) {
+      await alertAction(t('publicDemo.actionTitle'), t('publicDemo.opportunityActionBody'));
+      return;
+    }
     if (!canSubmit) return;
     setSubmitting(true);
     try {
@@ -90,7 +96,7 @@ export default function InboxManualOpportunityScreen() {
     }
   };
 
-  if (!shouldUseBackendApi()) {
+  if (!apiMode && !publicDemo) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <Text style={{ color: theme.mutedForeground }}>{t('opportunityManualScreen.backendRequired')}</Text>

@@ -103,6 +103,7 @@ import {
 import { useSessionStore } from '@/src/stores/session-store';
 import { isCreatorAiInboxEnabled, type CreatorVerificationStatus } from '@/src/lib/creator-verification';
 import { useInboxCorrectionStore } from '@/src/stores/inbox-correction-store';
+import { simulatePublicDemoMailboxSync } from '@/src/demo/public-demo-session';
 import {
   useInboxViewStore,
   type InboxCategoryFilter,
@@ -142,7 +143,7 @@ function InboxConnectionBanner() {
       title={t('inboxScreen.connectionBannerTitle')}
       body={t('inboxScreen.connectionBannerBody')}
       primaryLabel={t('inboxScreen.connectCta')}
-      onPrimary={() => router.push('/onboarding/email?source=account' as Href)}
+      onPrimary={() => router.push('/onboarding/email?source=inbox' as Href)}
       secondaryLabel={t('inboxScreen.later')}
       onSecondary={() => setDismissed(true)}
     />
@@ -1387,6 +1388,7 @@ export default function InboxScreen() {
   const queryClient = useQueryClient();
   const authReady = useAuthSessionReady();
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isPublicDemo = useSessionStore((s) => s.demoWorkspaceKind === 'public');
   const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
   const accountEmail = useSessionStore((s) => s.accountEmail);
   const sessionMailboxEmail = useSessionStore((s) => s.mailboxConnection?.email);
@@ -1575,7 +1577,9 @@ export default function InboxScreen() {
   );
 
   const runMailboxSync = useCallback(async (lookback: MailboxSyncLookback) => {
-    if (shouldUseBackendApi()) {
+    if (isPublicDemo) {
+      await simulatePublicDemoMailboxSync();
+    } else if (shouldUseBackendApi()) {
       if (!authReady || !isAuthenticated) return;
       try {
         const result = await syncMailbox({ lookback });
@@ -1597,7 +1601,7 @@ export default function InboxScreen() {
       queryClient.invalidateQueries({ queryKey: ['mailbox', 'messages'] }),
       queryClient.invalidateQueries({ queryKey: ['account', 'overview'] }),
     ]);
-  }, [authReady, isAuthenticated, queryClient]);
+  }, [authReady, isAuthenticated, isPublicDemo, queryClient]);
   const refreshInbox = useCallback(() => runMailboxSync(syncLookback), [runMailboxSync, syncLookback]);
   const { refreshing, onRefresh } = useTabRefresh(refreshInbox);
 
@@ -1799,10 +1803,7 @@ export default function InboxScreen() {
       <InboxConnectionBanner />
       {aiInboxEnabled ? <InboxReclassificationBanner /> : null}
       {aiInboxEnabled && processingActive ? (
-        <HubCallout
-          title={t('inboxScreen.syncResultTitleProcessing')}
-          body={t('inboxScreen.syncResultBodyProcessing')}
-        />
+        <HubCallout title={t('inboxScreen.syncResultTitleProcessing')} />
       ) : null}
     </>
   );
@@ -1812,7 +1813,7 @@ export default function InboxScreen() {
       <InboxEmailStatusCard
         email={mailboxEmail}
         verificationStatus={creatorVerificationStatus}
-        onPress={() => router.push('/onboarding/email?source=account' as Href)}
+        onPress={() => router.push('/onboarding/email?source=inbox' as Href)}
         onSync={onRefresh}
         syncing={refreshing || inbox.isRefetching}
       />
@@ -1832,7 +1833,6 @@ export default function InboxScreen() {
     <View style={[styles.screenFrame, { backgroundColor: theme.background }]}>
       <HubScreen
         testID="screen-inbox"
-        eyebrow={t('tabs.inbox')}
         title={aiInboxEnabled ? t('inboxScreen.titlePriority') : t('basicMailbox.screenTitle')}
         toolbar={toolbar}
         refreshing={refreshing || inbox.isRefetching}
@@ -1872,7 +1872,7 @@ export default function InboxScreen() {
                       processingActive
                         ? t('inboxScreen.emptyProcessingDesc')
                         : priorityFilter === 'archived'
-                          ? t('inboxScreen.emptyArchivedDesc')
+                          ? undefined
                           : t('inboxScreen.emptyPriorityDesc')
                     }
                     primaryAction={{
@@ -1919,7 +1919,6 @@ export default function InboxScreen() {
                 ) : (
                   <EmptyStateCard
                     title={t('inboxScreen.emptySearchTitle')}
-                    description={t('inboxScreen.emptySearchDesc')}
                     primaryAction={{
                       label: t('inboxScreen.emptyClearSearch'),
                       onPress: () => setSearchQuery(''),
@@ -1974,7 +1973,7 @@ const styles = StyleSheet.create({
   aiSummaryCopy: { flex: 1, minWidth: 0, gap: spacing.sm },
   aiSummaryBadgeRow: { alignSelf: 'flex-start' },
   classifiedControlStack: { gap: spacing.xs },
-  classifiedControlLabel: { fontSize: fontSize.caption, fontWeight: '700' },
+  classifiedControlLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },
   threadTrailingTop: {
     alignItems: 'flex-end',
     gap: spacing.xs,
@@ -2024,7 +2023,7 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.body,
     fontWeight: '800',
   },
-  classifiedControlsSummary: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
+  classifiedControlsSummary: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   sortToggleRow: { flexDirection: 'row', gap: spacing.sm },
   sortToggleButton: {
     flex: 1,
@@ -2039,7 +2038,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sortToggleButtonPressed: { opacity: 0.72 },
-  sortToggleText: { fontSize: fontSize.caption, fontWeight: '800' },
+  sortToggleText: { fontSize: fontSize.bodySmall, fontWeight: '800' },
   inlineLoading: {
     minHeight: 96,
     borderRadius: radii.md,

@@ -196,7 +196,7 @@ export function HubLinkGroup({ title, links }: { title?: string; links: HubLinkI
   );
 }
 
-export function HubCallout({ title, body }: { title?: string; body: string }) {
+export function HubCallout({ title, body }: { title?: string; body?: string }) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
@@ -205,7 +205,7 @@ export function HubCallout({ title, body }: { title?: string; body: string }) {
       <Ionicons name="information-circle-outline" size={18} color={theme.foregroundEyebrow} />
       <View style={hubStyles.calloutText}>
         {title ? <Text style={[hubStyles.calloutTitle, { color: theme.foreground }]}>{title}</Text> : null}
-        <Text style={[hubStyles.calloutBody, { color: theme.mutedForeground }]}>{body}</Text>
+        {body ? <Text style={[hubStyles.calloutBody, { color: theme.mutedForeground }]}>{body}</Text> : null}
       </View>
     </View>
   );

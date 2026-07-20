@@ -138,6 +138,27 @@
       "todaySnooze": "Snooze"
     }
   },
+  "publicDemo": {
+    "start": "Try without signing in",
+    "startA11y": "Start with sample data, no sign-in required",
+    "privacyNote": "Uses fictional sample data. We will not connect to, read, or save your mailbox content.",
+    "signInInstead": "Already have an account? Sign in",
+    "entering": "Preparing the demo workspace…",
+    "banner": "Demo mode | All brands, messages, amounts, and contacts are fictional sample data",
+    "badge": "Demo · Sample data",
+    "exit": "Exit demo",
+    "exitCompact": "Exit",
+    "simulateSync": "Simulate sync",
+    "simulatingSync": "Simulating…",
+    "simulateSyncA11y": "Simulate syncing the sample mailbox",
+    "actionTitle": "Demo mode",
+    "mailboxActionBody": "This feature requires a real mailbox connection and is unavailable in demo mode.",
+    "opportunityActionBody": "This feature creates a real partnership record and is unavailable in demo mode.",
+    "readOnlyTitle": "Demo page",
+    "teamReadOnly": "You can review the collaborator experience. Inviting, removing, and revoking people is disabled in the public demo.",
+    "samplePlanTitle": "Sample subscription",
+    "subscriptionReadOnly": "Plan, usage, and billing information is fictional. No purchase or charge can occur."
+  },
   "auth": {
     "creatorFallback": "Creator",
     "passwordLabel": "Password",
@@ -337,6 +358,7 @@
     },
     "swipe": {
       "deferLeft": "← Snooze",
+      "deferHint": "Swipe left to snooze",
       "confirmRight": "Confirm →"
     },
     "confirm": "Confirm",
@@ -1394,7 +1416,7 @@
     "emptyCommercialTitle": "Nothing needs action",
     "emptyCommercialDesc": "All mail stays classified; this view shows the P0–P2 priority queue, including active escrow delivery.",
     "emptyPriorityTitle": "No P0–P2 emails",
-    "emptyPriorityDesc": "Urgent, high-value, and review-later emails appear here. Everything else is under All mail.",
+    "emptyPriorityDesc": "Other messages are available under All mail.",
     "emptyProcessingTitle": "Classifying earlier mail",
     "emptyProcessingDesc": "Messages synced before verification are processing in the background. Wait a moment or tap Sync inbox again.",
     "emptyConnectMailbox": "Connect inbox",

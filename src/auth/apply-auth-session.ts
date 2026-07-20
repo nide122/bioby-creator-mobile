@@ -7,6 +7,7 @@ export function mapAuthSessionToStore(session: AuthSession) {
   return {
     isAuthenticated: true,
     isLocalDemoWorkspace: false,
+    demoWorkspaceKind: null,
     accountEmail: session.user.email,
     pendingDisplayName: session.user.displayName?.trim() || null,
     agentSendMode,

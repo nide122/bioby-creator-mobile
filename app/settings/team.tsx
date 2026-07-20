@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Badge, HubMetric, HubMetrics, QueryRetryCard, SectionCard } from '@/components/product';
+import { Badge, HubCallout, HubMetric, HubMetrics, QueryRetryCard, SectionCard } from '@/components/product';
 import { getTextInputProps, getTextInputStyle } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -33,7 +33,8 @@ export default function SettingsTeamScreen() {
   const revokeMutation = useRevokeTeamInvite();
   const membershipRole = useSessionStore((s) => s.membershipRole);
   const isLocalDemoWorkspace = useSessionStore((s) => s.isLocalDemoWorkspace);
-  const canManageMembers = membershipRole === 'OWNER' || isLocalDemoWorkspace;
+  const isPublicDemo = useSessionStore((s) => s.demoWorkspaceKind === 'public');
+  const canManageMembers = !isPublicDemo && (membershipRole === 'OWNER' || isLocalDemoWorkspace);
 
   const memberList = members.data ?? [];
   const activeCount = useMemo(
@@ -136,6 +137,13 @@ export default function SettingsTeamScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}>
         <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>{t('teamSettingsScreen.description')}</Text>
+
+        {isPublicDemo ? (
+          <HubCallout
+            title={t('publicDemo.readOnlyTitle')}
+            body={t('publicDemo.teamReadOnly')}
+          />
+        ) : null}
 
         <HubMetrics>
           <HubMetric value={String(activeCount)} label={t('teamSettingsScreen.metricMembers')} />

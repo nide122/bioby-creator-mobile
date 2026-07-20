@@ -4,6 +4,9 @@ import { mockDelay } from '@/src/lib/mock-delay';
 import { isTodayIso } from '@/src/lib/is-today-iso';
 import { isOpportunityNeedsAction } from '@/src/lib/opportunity-needs-action';
 import { partitionRiskFlags } from '@/src/lib/contract-warning';
+import { createPublicDemoSyncedThread } from '@/src/demo/public-demo-data';
+import { usePublicDemoStore } from '@/src/demo/public-demo-store';
+import { useSessionStore } from '@/src/stores/session-store';
 
 const now = new Date().toISOString();
 
@@ -227,6 +230,17 @@ export const MOCK_INBOX_THREAD_DETAILS: Record<string, InboxThreadDetail> = {
   ...MOCK_DEAL_OPPORTUNITY_THREADS,
 };
 
+function currentMockInboxThreadDetails(): Record<string, InboxThreadDetail> {
+  if (
+    useSessionStore.getState().demoWorkspaceKind === 'public' &&
+    usePublicDemoStore.getState().simulatedMailboxSyncComplete
+  ) {
+    const synced = createPublicDemoSyncedThread();
+    return { ...MOCK_INBOX_THREAD_DETAILS, [synced.id]: synced };
+  }
+  return MOCK_INBOX_THREAD_DETAILS;
+}
+
 function threadSummaryFromDetail(detail: InboxThreadDetail): InboxThread {
   const { messages: _m, riskFlags, recommendedActions: _a, suggestedDraftIds: _s, ...rest } = detail;
   const { contractRisks } = partitionRiskFlags(riskFlags, {
@@ -250,12 +264,12 @@ function threadSummaryFromDetail(detail: InboxThreadDetail): InboxThread {
 export async function fetchMockInboxThreads(options?: { empty?: boolean }): Promise<InboxThread[]> {
   await mockDelay(250);
   if (options?.empty) return [];
-  return Object.values(MOCK_INBOX_THREAD_DETAILS).map(threadSummaryFromDetail);
+  return Object.values(currentMockInboxThreadDetails()).map(threadSummaryFromDetail);
 }
 
 export async function fetchMockInboxThreadDetail(threadId: string): Promise<InboxThreadDetail> {
   await mockDelay(200);
-  const detail = MOCK_INBOX_THREAD_DETAILS[threadId];
+  const detail = currentMockInboxThreadDetails()[threadId];
   if (!detail) {
     throw new Error(`inbox_thread_not_found:${threadId}`);
   }
@@ -263,11 +277,11 @@ export async function fetchMockInboxThreadDetail(threadId: string): Promise<Inbo
 }
 
 export function getMockInboxThreadBrandHint(threadId: string): string | undefined {
-  return MOCK_INBOX_THREAD_DETAILS[threadId]?.brandName;
+  return currentMockInboxThreadDetails()[threadId]?.brandName;
 }
 
 export function getMockInboxThreadReplyContext(threadId: string) {
-  const detail = MOCK_INBOX_THREAD_DETAILS[threadId];
+  const detail = currentMockInboxThreadDetails()[threadId];
   if (!detail) return undefined;
   return {
     brandName: detail.brandName,
@@ -286,7 +300,7 @@ export async function fetchMockAiDailySummary(): Promise<{
   archivedCount: number;
 }> {
   await mockDelay(100);
-  const threads = Object.values(MOCK_INBOX_THREAD_DETAILS).filter((thread) =>
+  const threads = Object.values(currentMockInboxThreadDetails()).filter((thread) =>
     isTodayIso(thread.updatedAtISO),
   );
   const processedCount = threads.reduce(

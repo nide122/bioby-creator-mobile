@@ -19,6 +19,11 @@ export function useAuthBootstrap(): boolean {
   const authBootstrapReady = useSessionStore((s) => s.authBootstrapReady);
 
   useEffect(() => {
+    if (useSessionStore.getState().demoWorkspaceKind === 'public') {
+      setAuthBootstrapReady(true);
+      return;
+    }
+
     if (!isApiConfigured()) {
       setAuthBootstrapReady(true);
       return;
@@ -28,6 +33,7 @@ export function useAuthBootstrap(): boolean {
     (async () => {
       try {
         await hydrateAuthTokensFromStorage();
+        if (useSessionStore.getState().demoWorkspaceKind === 'public') return;
         if (!(await hasStoredSession())) {
           const state = useSessionStore.getState();
           if (state.isAuthenticated && !state.isLocalDemoWorkspace) {
@@ -37,6 +43,8 @@ export function useAuthBootstrap(): boolean {
         }
         const session = await restoreSession();
         if (cancelled) return;
+
+        if (useSessionStore.getState().demoWorkspaceKind === 'public') return;
 
         if (session) {
           applyAuthSession(session);

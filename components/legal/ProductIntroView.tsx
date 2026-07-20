@@ -15,6 +15,7 @@ import { DEFAULT_APP_HOME_ROUTE } from '@/src/auth/post-auth-navigation';
 import { clearDevSession } from '@/src/auth/clear-dev-session';
 import { enterDemoWorkspace } from '@/src/auth/enter-demo-workspace';
 import type { MarketingHomeContent } from '@/src/legal/types';
+import { isPublicDemoEnabled } from '@/src/demo/public-demo-config';
 
 type Props = {
   content: MarketingHomeContent;
@@ -92,6 +93,7 @@ export function ProductIntroView({ content }: Props) {
   const theme = palette[colorScheme];
   const insets = useSafeAreaInsets();
   const [devOpen, setDevOpen] = useState(false);
+  const publicDemoEnabled = isPublicDemoEnabled();
 
   const devMenuBottom = Math.max(insets.bottom, spacing.md) + spacing.md;
 
@@ -119,18 +121,43 @@ export function ProductIntroView({ content }: Props) {
 
         <ProductIntroSections content={content} theme={theme} footerVariant="full" />
 
-        <Pressable
-          testID="welcome-intro-continue"
-          accessibilityRole="button"
-          accessibilityLabel={t('welcome.introContinueA11y')}
-          onPress={() => router.push('/home' as Href)}
-          className={webClassName(corporateCleanClass.btnPrimary, corporateCleanClass.gradient)}
-          style={[styles.primaryBtn, { backgroundColor: theme.primary }]}>
-          <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
-            {t('welcome.introContinue')}
-          </Text>
-          <Ionicons name="arrow-forward" size={18} color={theme.primaryForeground} />
-        </Pressable>
+        {publicDemoEnabled ? (
+          <View style={styles.demoActions}>
+            <Pressable
+              testID="public-demo-intro-cta"
+              accessibilityRole="button"
+              accessibilityLabel={t('publicDemo.startA11y')}
+              onPress={() => router.push('/demo' as Href)}
+              className={webClassName(corporateCleanClass.btnPrimary, corporateCleanClass.gradient)}
+              style={[styles.primaryBtn, { backgroundColor: theme.primary }]}>
+              <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
+                {t('publicDemo.start')}
+              </Text>
+              <Ionicons name="arrow-forward" size={18} color={theme.primaryForeground} />
+            </Pressable>
+            <Text style={[styles.demoPrivacy, { color: theme.mutedForeground }]}>
+              {t('publicDemo.privacyNote')}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/home' as Href)}>
+              <Text style={[styles.loginLink, { color: theme.mutedForeground }]}>
+                {t('publicDemo.signInInstead')}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            testID="welcome-intro-continue"
+            accessibilityRole="button"
+            accessibilityLabel={t('welcome.introContinueA11y')}
+            onPress={() => router.push('/home' as Href)}
+            className={webClassName(corporateCleanClass.btnPrimary, corporateCleanClass.gradient)}
+            style={[styles.primaryBtn, { backgroundColor: theme.primary }]}>
+            <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
+              {t('welcome.introContinue')}
+            </Text>
+            <Ionicons name="arrow-forward" size={18} color={theme.primaryForeground} />
+          </Pressable>
+        )}
       </ScrollView>
 
       {__DEV__ ? (
@@ -197,6 +224,20 @@ const styles = StyleSheet.create({
   primaryLabel: {
     fontSize: fontSize.body,
     fontWeight: '800',
+  },
+  demoActions: {
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  demoPrivacy: {
+    fontSize: fontSize.caption,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  loginLink: {
+    fontSize: fontSize.caption,
+    fontWeight: '700',
+    padding: spacing.xs,
   },
   devChrome: {
     position: 'absolute',

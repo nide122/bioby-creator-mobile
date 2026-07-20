@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Badge, HubMetric, HubMetrics, QueryRetryCard, SectionCard } from '@/components/product';
+import { Badge, HubCallout, HubMetric, HubMetrics, QueryRetryCard, SectionCard } from '@/components/product';
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fontSize, layout, lineHeight, palette, radii, spacing } from '@/constants/tokens';
 import { useSubscriptionUsage } from '@/src/hooks/use-account-settings';
+import { useSessionStore } from '@/src/stores/session-store';
 
 function UsageMeter(props: {
   label: string;
@@ -40,6 +41,7 @@ export default function SettingsSubscriptionScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
   const [nextBillingAction, setNextBillingAction] = useState<'upgrade' | 'billing' | null>(null);
+  const isPublicDemo = useSessionStore((state) => state.demoWorkspaceKind === 'public');
 
   const sub = useSubscriptionUsage();
 
@@ -78,6 +80,13 @@ export default function SettingsSubscriptionScreen() {
         <Text style={[styles.pageLead, { color: theme.mutedForeground }]}>
           {t('subscriptionSettingsScreen.description')}
         </Text>
+
+        {isPublicDemo ? (
+          <HubCallout
+            title={t('publicDemo.samplePlanTitle')}
+            body={t('publicDemo.subscriptionReadOnly')}
+          />
+        ) : null}
 
         <HubMetrics>
           <HubMetric value={snap.planName} label={t('subscriptionSettingsScreen.metricPlan')} />

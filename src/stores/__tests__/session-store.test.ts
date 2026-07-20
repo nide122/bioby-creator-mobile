@@ -29,6 +29,18 @@ describe('session-store', () => {
     expect(s.onboardingComplete).toBe(true);
     expect(s.profileBasics?.displayName).toBeTruthy();
     expect(s.mailboxConnection?.email).toBeTruthy();
+    expect(s.demoWorkspaceKind).toBe('developer');
+  });
+
+  it('enterPublicDemo uses fictional customer-safe identity data', () => {
+    useSessionStore.getState().enterPublicDemo();
+    const s = useSessionStore.getState();
+    expect(s.isAuthenticated).toBe(true);
+    expect(s.isLocalDemoWorkspace).toBe(true);
+    expect(s.demoWorkspaceKind).toBe('public');
+    expect(s.accountEmail).toBe('creator.demo@example.com');
+    expect(s.mailboxConnection?.email).toBe('collabs@example.com');
+    expect(s.onboardingComplete).toBe(true);
   });
 
   it('finalizeOnboarding requires profile, compliance, email, and rate card steps', () => {

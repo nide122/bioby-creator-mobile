@@ -66,6 +66,7 @@ import { corporateCleanClass, webClassName } from '@/src/lib/corporate-clean-web
 
 const SWIPE_THRESHOLD = 90;
 const SWIPE_OUT_X = 400;
+const SWIPE_HINT_X = -112;
 /** Today tab home — attach as returnTo so inbox/detail back returns here, not the inbox list. */
 const TODAY_HOME = '/';
 
@@ -326,6 +327,30 @@ function SwipeableDecisionCard({
     ]).start();
   }, [card.id, entryY, entryOpacity, translateX]);
 
+  // 每次进入 Today 时，在首张卡片上露出左滑操作层并自动回弹。
+  useEffect(() => {
+    const hintAnimation = Animated.sequence([
+      Animated.delay(650),
+      Animated.timing(translateX, {
+        toValue: SWIPE_HINT_X,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.delay(950),
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 18,
+        stiffness: 220,
+      }),
+    ]);
+    hintAnimation.start();
+
+    return () => {
+      hintAnimation.stop();
+    };
+  }, [translateX]);
+
   function flyOut(direction: 'left' | 'right', cb: () => void) {
     Animated.parallel([
       Animated.timing(translateX, {
@@ -411,8 +436,8 @@ function SwipeableDecisionCard({
     <View testID={`today-decision-card-${card.id}`} style={styles.swipeContainer}>
       {/* 左滑底层提示（推迟） */}
       <Animated.View style={[styles.swipeBg, styles.swipeBgLeft, { opacity: deferOpacity }]}>
-        <Text style={[styles.swipeBgLabel, { color: '#F59E0B' }]}>{t('today.defer')}</Text>
-        <Ionicons name="time" size={28} color="#F59E0B" />
+        <Ionicons name="time-outline" size={24} color="#F59E0B" />
+        <Text style={[styles.swipeBgLabel, { color: '#F59E0B' }]}>{t('today.swipe.deferHint')}</Text>
       </Animated.View>
 
       {/* 卡片本体 */}
@@ -857,8 +882,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     flexDirection: 'row',
   },
-  swipeBgLeft: { left: 0, backgroundColor: '#F59E0B10', paddingLeft: spacing.xxl },
-  swipeBgLabel: { fontSize: fontSize.bodySmall, fontWeight: '700' },
+  swipeBgLeft: { right: 0, backgroundColor: '#F59E0B10', paddingHorizontal: spacing.md },
+  swipeBgLabel: { fontSize: fontSize.caption, fontWeight: '700', flexShrink: 1 },
 
   // 决策卡
   cardSection: { gap: spacing.md },

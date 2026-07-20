@@ -4,6 +4,7 @@ import type { ApiErrorBody } from '@/src/api/auth-types';
 import { notifySessionExpired } from '@/src/auth/auth-session-events';
 import { clearAuthTokens, getAccessToken, getRefreshToken, setAuthTokens } from '@/src/auth/token-storage';
 import type { AuthSession } from '@/src/api/auth-types';
+import { useSessionStore } from '@/src/stores/session-store';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -50,12 +51,12 @@ export function isSessionExpiryApiError(error: unknown): error is ApiError {
 
 function shouldAttemptTokenRefresh(error: ApiError): boolean {
   if (NON_SESSION_401_CODES.has(error.code)) return false;
-  return isSessionExpiryApiError(error) || error.code === 'UNAUTHORIZED';
+  return AUTH_ERROR_CODES.has(error.code) || error.code === 'UNAUTHORIZED';
 }
 
 function shouldExpireSession(error: ApiError, hadCredentials: boolean): boolean {
   if (!hadCredentials || !shouldAttemptTokenRefresh(error)) return false;
-  return isSessionExpiryApiError(error) || error.code === 'UNAUTHORIZED';
+  return AUTH_ERROR_CODES.has(error.code) || error.code === 'UNAUTHORIZED';
 }
 
 type RequestOptions = {
@@ -177,6 +178,9 @@ async function resolveAccessToken(): Promise<AccessTokenResolution> {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  if (useSessionStore.getState().demoWorkspaceKind === 'public') {
+    throw new ApiError(0, 'PUBLIC_DEMO_BACKEND_DISABLED', 'Backend requests are disabled in public demo mode');
+  }
   const base = getApiBaseUrl();
   if (!base) {
     throw new ApiError(0, 'API_NOT_CONFIGURED', 'EXPO_PUBLIC_API_BASE_URL is not set');
@@ -294,6 +298,9 @@ export async function apiMultipartRequest<T>(
   formData: FormData,
   options: MultipartRequestOptions = {},
 ): Promise<T> {
+  if (useSessionStore.getState().demoWorkspaceKind === 'public') {
+    throw new ApiError(0, 'PUBLIC_DEMO_BACKEND_DISABLED', 'Backend requests are disabled in public demo mode');
+  }
   const base = getApiBaseUrl();
   if (!base) {
     throw new ApiError(0, 'API_NOT_CONFIGURED', 'EXPO_PUBLIC_API_BASE_URL is not set');
@@ -395,6 +402,9 @@ export async function apiMultipartRequest<T>(
 }
 
 export async function apiDownloadBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  if (useSessionStore.getState().demoWorkspaceKind === 'public') {
+    throw new ApiError(0, 'PUBLIC_DEMO_BACKEND_DISABLED', 'Backend requests are disabled in public demo mode');
+  }
   const base = getApiBaseUrl();
   if (!base) {
     throw new ApiError(0, 'API_NOT_CONFIGURED', 'EXPO_PUBLIC_API_BASE_URL is not set');

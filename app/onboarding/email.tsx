@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -9,7 +9,9 @@ import type { TFunction } from 'i18next';
 import appI18n from '@/src/i18n';
 
 import { GoogleOAuthButton, type GoogleOAuthLifecycleEvent } from '@/components/oauth/GoogleOAuthButton';
+import { GoogleIcon } from '@/components/oauth/GoogleIcon';
 import { MicrosoftOAuthButton } from '@/components/oauth/MicrosoftOAuthButton';
+import { MicrosoftIcon } from '@/components/oauth/MicrosoftIcon';
 import { OAuthUnconfiguredButton } from '@/components/oauth/OAuthUnconfiguredButton';
 import { CreatorVerificationBadge } from '@/components/inbox/CreatorVerificationBadge';
 import { Badge, getTextInputProps, getTextInputStyle, SectionCard } from '@/components/product';
@@ -76,13 +78,38 @@ function mailboxPresetLabel(key: MailboxPresetKey, t: TFunction) {
   }
 }
 
+function DemoOAuthButton({
+  provider,
+  label,
+  onPress,
+}: {
+  provider: 'google' | 'microsoft';
+  label: string;
+  onPress: () => void;
+}) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = palette[colorScheme];
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[styles.demoOAuthButton, { borderColor: theme.border, backgroundColor: theme.card }]}>
+      {provider === 'google' ? <GoogleIcon size={20} /> : <MicrosoftIcon size={20} />}
+      <Text style={[styles.demoOAuthButtonLabel, { color: theme.foreground }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export default function EmailOnboardingScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { source } = useLocalSearchParams<{ source?: string }>();
   const fromAccount = source === 'account';
+  const fromInbox = source === 'inbox';
   const fromRepair = source === 'inbox-repair' || source === 'draft-send';
-  const skipOnboardingPrerequisites = fromAccount || fromRepair;
+  const fromMailboxSettings = fromAccount || fromInbox;
+  const skipOnboardingPrerequisites = fromMailboxSettings || fromRepair;
   const authReady = useOnboardingRouteGuard('email', { skipPrerequisites: skipOnboardingPrerequisites });
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
@@ -98,15 +125,16 @@ export default function EmailOnboardingScreen() {
   const emailWizardFinished = useSessionStore((s) => s.emailWizardFinished);
   const emailSkipped = useSessionStore((s) => s.emailSkipped);
   const creatorVerificationStatus = useSessionStore((s) => s.creatorVerificationStatus);
-  const overview = useAccountOverview();
+  const publicDemo = useSessionStore((s) => s.demoWorkspaceKind === 'public');
+  const overview = useAccountOverview({ enabled: !publicDemo });
   const overviewMailbox = overview.data?.mailbox;
   const connectedMailbox =
     overviewMailbox?.connected ||
     (emailWizardFinished && !emailSkipped && Boolean(mailboxConnection));
   const connectedInboxEmail =
     overviewMailbox?.emailAddress ?? mailboxConnection?.email ?? accountEmail ?? '';
-  const showConnectedState = fromAccount && connectedMailbox;
-  const showOnboardingChrome = !fromAccount;
+  const showConnectedState = fromMailboxSettings && connectedMailbox;
+  const showOnboardingChrome = !fromMailboxSettings;
   const [preset, setPreset] = useState<MailboxPresetKey>('gmail');
   const [mailbox, setMailbox] = useState(accountEmail ?? mailboxConnection?.email ?? '');
   const [imapHost, setImapHost] = useState<string>(MAILBOX_PRESETS.gmail.imapHost);
@@ -121,7 +149,7 @@ export default function EmailOnboardingScreen() {
   const [reconnectExpanded, setReconnectExpanded] = useState(false);
   const gmailFlowIdRef = useRef<string | null>(null);
   const gmailFlowStartedAtRef = useRef<number | null>(null);
-  const gmailAnalyticsSource = fromAccount
+  const gmailAnalyticsSource = fromMailboxSettings
     ? 'account'
     : source === 'inbox-repair'
       ? 'inbox_repair'
@@ -129,16 +157,19 @@ export default function EmailOnboardingScreen() {
         ? 'draft_send'
         : 'onboarding';
   const apiMode = shouldUseBackendApi();
+  const showDemoMode = () => {
+    void alertAction(t('publicDemo.actionTitle'), t('publicDemo.mailboxActionBody'));
+  };
 
   useEffect(() => {
-    if (!authReady || !apiMode) return;
+    if (!authReady || !apiMode || publicDemo) return;
     const flowId = createMailboxOAuthFlowId();
     void trackGmailOAuthEvent({
       eventType: 'GMAIL_CONNECT_VIEWED',
       flowId,
       source: gmailAnalyticsSource,
     }).catch(() => undefined);
-  }, [apiMode, authReady, gmailAnalyticsSource]);
+  }, [apiMode, authReady, gmailAnalyticsSource, publicDemo]);
 
   useEffect(() => {
     if (mailboxConnection?.email) {
@@ -190,6 +221,10 @@ export default function EmailOnboardingScreen() {
       router.back();
       return;
     }
+    if (fromInbox) {
+      router.replace('/inbox' as Href);
+      return;
+    }
     if (fromAccount) {
       router.replace('/account' as Href);
       return;
@@ -209,7 +244,7 @@ export default function EmailOnboardingScreen() {
   const googleMailboxOAuthStatus = useQuery({
     queryKey: ['mailbox-oauth', 'google', 'status'],
     queryFn: fetchGoogleMailboxOAuthStatus,
-    enabled: apiMode,
+    enabled: apiMode && !publicDemo,
     staleTime: 60_000,
   });
   const gmailOAuthConfigured =
@@ -227,6 +262,10 @@ export default function EmailOnboardingScreen() {
       : t('onboardingEmailScreen.appPasswordPlaceholder');
 
   const onOAuthConnected = (mailboxAddress: string) => {
+    if (publicDemo) {
+      showDemoMode();
+      return;
+    }
     completeEmailWizard(mailboxAddress.trim());
     goNext();
   };
@@ -243,6 +282,10 @@ export default function EmailOnboardingScreen() {
     refreshToken?: string | null;
     clientId?: string;
   }): Promise<boolean> => {
+    if (publicDemo) {
+      showDemoMode();
+      return false;
+    }
     setSyncState('syncing');
     setSyncMessage(null);
     const result = await syncMailboxOAuthToBackend({
@@ -263,6 +306,10 @@ export default function EmailOnboardingScreen() {
     codeVerifier: string;
     clientId?: string;
   }) => {
+    if (publicDemo) {
+      showDemoMode();
+      return;
+    }
     setSyncState('syncing');
     setSyncMessage(null);
     const result = await syncMailboxGoogleOAuthCodeToBackend({
@@ -307,6 +354,10 @@ export default function EmailOnboardingScreen() {
   };
 
   const onMicrosoftMailboxTokens = async (accessToken: string, refreshToken?: string | null) => {
+    if (publicDemo) {
+      showDemoMode();
+      return;
+    }
     setSyncState('syncing');
     setSyncMessage(null);
     const result = await syncMailboxOAuthToBackend({ provider: 'microsoft', accessToken, refreshToken });
@@ -317,6 +368,10 @@ export default function EmailOnboardingScreen() {
   };
 
   const onConnected = async () => {
+    if (publicDemo) {
+      showDemoMode();
+      return;
+    }
     if (!isAuthenticated) {
       router.replace('/home' as Href);
       return;
@@ -351,6 +406,10 @@ export default function EmailOnboardingScreen() {
   };
 
   const onSkip = () => {
+    if (publicDemo) {
+      showDemoMode();
+      return;
+    }
     if (!isAuthenticated) {
       router.replace('/home' as Href);
       return;
@@ -412,7 +471,9 @@ export default function EmailOnboardingScreen() {
 
   const quickConnect = (
     <View style={styles.quickConnect}>
-      {gmailOAuthConfigured ? (
+      {publicDemo ? (
+        <DemoOAuthButton provider="google" label={gmailConnectLabel} onPress={showDemoMode} />
+      ) : gmailOAuthConfigured ? (
         <GoogleOAuthButton
           label={gmailConnectLabel}
           variant="gmail"
@@ -425,13 +486,17 @@ export default function EmailOnboardingScreen() {
       ) : (
         <OAuthUnconfiguredButton provider="google" label={gmailConnectLabel} />
       )}
-      <MicrosoftOAuthButton
-        label={outlookConnectLabel}
-        variant="mailbox"
-        onMicrosoftAccessToken={apiMode ? onMicrosoftMailboxTokens : undefined}
-        onSuccess={onOAuthConnected}
-        onError={(msg) => void alertAction(t('onboardingEmailScreen.outlookConnectFailTitle'), msg)}
-      />
+      {publicDemo ? (
+        <DemoOAuthButton provider="microsoft" label={outlookConnectLabel} onPress={showDemoMode} />
+      ) : (
+        <MicrosoftOAuthButton
+          label={outlookConnectLabel}
+          variant="mailbox"
+          onMicrosoftAccessToken={apiMode ? onMicrosoftMailboxTokens : undefined}
+          onSuccess={onOAuthConnected}
+          onError={(msg) => void alertAction(t('onboardingEmailScreen.outlookConnectFailTitle'), msg)}
+        />
+      )}
     </View>
   );
 
@@ -495,6 +560,8 @@ export default function EmailOnboardingScreen() {
           <TextInput
             value={mailbox}
             onChangeText={setMailbox}
+            editable={!publicDemo}
+            onPressIn={publicDemo ? showDemoMode : undefined}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -511,6 +578,8 @@ export default function EmailOnboardingScreen() {
               <TextInput
                 value={imapHost}
                 onChangeText={setImapHost}
+                editable={!publicDemo}
+                onPressIn={publicDemo ? showDemoMode : undefined}
                 autoCapitalize="none"
                 autoCorrect={false}
                 placeholder="imap.example.com"
@@ -523,6 +592,8 @@ export default function EmailOnboardingScreen() {
               <TextInput
                 value={imapPort}
                 onChangeText={setImapPort}
+                editable={!publicDemo}
+                onPressIn={publicDemo ? showDemoMode : undefined}
                 keyboardType="number-pad"
                 placeholder="993"
                 {...getTextInputProps(theme)}
@@ -534,6 +605,8 @@ export default function EmailOnboardingScreen() {
               <TextInput
                 value={smtpHost}
                 onChangeText={setSmtpHost}
+                editable={!publicDemo}
+                onPressIn={publicDemo ? showDemoMode : undefined}
                 autoCapitalize="none"
                 autoCorrect={false}
                 placeholder="smtp.example.com"
@@ -546,6 +619,8 @@ export default function EmailOnboardingScreen() {
               <TextInput
                 value={smtpPort}
                 onChangeText={setSmtpPort}
+                editable={!publicDemo}
+                onPressIn={publicDemo ? showDemoMode : undefined}
                 keyboardType="number-pad"
                 placeholder="587"
                 {...getTextInputProps(theme)}
@@ -562,6 +637,8 @@ export default function EmailOnboardingScreen() {
               <TextInput
                 value={senderName}
                 onChangeText={setSenderName}
+                editable={!publicDemo}
+                onPressIn={publicDemo ? showDemoMode : undefined}
                 placeholder="Your public name"
                 {...getTextInputProps(theme)}
                 style={getTextInputStyle(theme)}
@@ -575,6 +652,8 @@ export default function EmailOnboardingScreen() {
           <TextInput
             value={appPassword}
             onChangeText={setAppPassword}
+            editable={!publicDemo}
+            onPressIn={publicDemo ? showDemoMode : undefined}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
@@ -590,12 +669,12 @@ export default function EmailOnboardingScreen() {
 
           <Pressable
             accessibilityRole="button"
-            disabled={!canConnect || syncState === 'syncing'}
+            disabled={(!publicDemo && !canConnect) || syncState === 'syncing'}
             onPress={onConnected}
             style={[
               styles.primary,
               {
-                backgroundColor: canConnect && syncState !== 'syncing' ? theme.primary : theme.secondary,
+                backgroundColor: (publicDemo || canConnect) && syncState !== 'syncing' ? theme.primary : theme.secondary,
                 opacity: syncState === 'syncing' ? 0.75 : 1,
                 marginTop: spacing.sm,
               },
@@ -603,7 +682,12 @@ export default function EmailOnboardingScreen() {
             <Text
               style={[
                 styles.primaryLabel,
-                { color: canConnect && syncState !== 'syncing' ? theme.primaryForeground : theme.foregroundEyebrow },
+                {
+                  color:
+                    (publicDemo || canConnect) && syncState !== 'syncing'
+                      ? theme.primaryForeground
+                      : theme.foregroundEyebrow,
+                },
               ]}>
               {syncState === 'syncing'
                 ? t('onboardingEmailScreen.ctaConnectingInbox')
@@ -616,10 +700,27 @@ export default function EmailOnboardingScreen() {
   );
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.scroll}
-      keyboardShouldPersistTaps="handled">
+    <>
+      {fromInbox ? (
+        <Stack.Screen
+          options={{
+            headerLeft: () => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('navigation.back')}
+                hitSlop={8}
+                onPress={() => router.replace('/inbox' as Href)}
+                style={styles.headerBackButton}>
+                <Ionicons name="arrow-back" size={24} color={theme.foreground} />
+              </Pressable>
+            ),
+          }}
+        />
+      ) : null}
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled">
       {!authReady ? (
         <ActivityIndicator color={theme.primary} accessibilityLabel="Loading setup step" />
       ) : (
@@ -743,7 +844,8 @@ export default function EmailOnboardingScreen() {
           )}
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
 
@@ -792,6 +894,23 @@ const styles = StyleSheet.create({
   },
   reconnectBody: { gap: spacing.md },
   quickConnect: { gap: spacing.sm },
+  demoOAuthButton: {
+    flexDirection: 'row',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    minHeight: layout.touchMin,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  headerBackButton: {
+    minWidth: layout.touchMin,
+    minHeight: layout.touchMin,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  demoOAuthButtonLabel: { fontSize: fontSize.body, fontWeight: '600' },
   manualSetupCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.lg,

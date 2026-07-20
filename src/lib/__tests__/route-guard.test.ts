@@ -274,6 +274,69 @@ describe('getRouteGuardRedirect', () => {
       ).toBe('/');
     });
   });
+
+  describe('public demo', () => {
+    it('allows the demo entry and product routes', () => {
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/demo',
+          isAuthenticated: false,
+          onboardingComplete: false,
+        }),
+      ).toBeNull();
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/inbox',
+          isAuthenticated: true,
+          onboardingComplete: true,
+          publicDemo: true,
+        }),
+      ).toBeNull();
+      expect(
+        getRouteGuardRedirect({
+          pathname: '/onboarding/email',
+          isAuthenticated: true,
+          onboardingComplete: true,
+          publicDemo: true,
+        }),
+      ).toBeNull();
+    });
+
+    it('blocks account, integration, and internal operations routes', () => {
+      for (const pathname of [
+        '/login',
+        '/onboarding/profile',
+        '/oauth/callback',
+        '/team/accept',
+        '/settings/workspace',
+        '/settings/data-export',
+        '/ops/mailbox',
+        '/internal/beta-kols',
+      ]) {
+        expect(
+          getRouteGuardRedirect({
+            pathname,
+            isAuthenticated: true,
+            onboardingComplete: true,
+            publicDemo: true,
+          }),
+        ).toBe('/');
+      }
+    });
+
+    it('allows read-only collaborator and subscription experiences', () => {
+      for (const pathname of ['/settings/team', '/settings/subscription']) {
+        expect(
+          getRouteGuardRedirect({
+            pathname,
+            isAuthenticated: true,
+            onboardingComplete: true,
+            publicDemo: true,
+          }),
+        ).toBeNull();
+      }
+    });
+  });
 });
 
 describe('hasWebOAuthCallbackInUrl', () => {

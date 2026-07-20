@@ -11,7 +11,7 @@ export type EmptyStateAction = {
 
 type Props = PropsWithChildren<{
   title: string;
-  description: string;
+  description?: string;
   primaryAction?: EmptyStateAction;
   secondaryAction?: EmptyStateAction;
 }>;
@@ -37,7 +37,7 @@ export function EmptyStateCard({
         },
       ]}>
       <Text style={[styles.title, { color: theme.foreground }]}>{title}</Text>
-      <Text style={[styles.desc, { color: theme.mutedForeground }]}>{description}</Text>
+      {description ? <Text style={[styles.desc, { color: theme.mutedForeground }]}>{description}</Text> : null}
       {children ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
       {primaryAction || secondaryAction ? (
         <View style={styles.actions}>

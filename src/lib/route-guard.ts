@@ -5,6 +5,8 @@ export type RouteGuardInput = {
   pathname: string;
   isAuthenticated: boolean;
   onboardingComplete: boolean;
+  /** Public sample-data sandbox; sensitive account/integration routes stay unavailable. */
+  publicDemo?: boolean;
   /** True when the browser URL still carries OAuth callback params (web popup). */
   webOAuthCallbackInProgress?: boolean;
 };
@@ -47,6 +49,14 @@ function isPublicLegalPath(pathname: string): boolean {
   return pathname === '/intro' || pathname === '/home' || pathname === '/privacy' || pathname === '/terms';
 }
 
+function isPublicDemoEntryPath(pathname: string): boolean {
+  return pathname === '/demo';
+}
+
+function isPublicDemoMailboxPreviewPath(pathname: string): boolean {
+  return pathname === '/onboarding/email';
+}
+
 function isTeamInviteAcceptPath(pathname: string): boolean {
   return pathname.startsWith('/team/accept');
 }
@@ -57,6 +67,19 @@ function isPasswordResetPath(pathname: string): boolean {
 
 function isEmailVerificationPendingPath(pathname: string): boolean {
   return pathname.startsWith('/verify-email-pending');
+}
+
+function isPublicDemoRestrictedPath(pathname: string): boolean {
+  return (
+    isAuthFormPath(pathname) ||
+    isOnboardingPath(pathname) ||
+    isOAuthCallbackPath(pathname) ||
+    isTeamInviteAcceptPath(pathname) ||
+    pathname.startsWith('/ops') ||
+    pathname.startsWith('/internal') ||
+    pathname.startsWith('/settings/workspace') ||
+    pathname.startsWith('/settings/data-export')
+  );
 }
 
 /** Web OAuth popup lands with tokens/code in the URL before the opener receives the result. */
@@ -72,6 +95,7 @@ export function getRouteGuardRedirect({
   pathname,
   isAuthenticated,
   onboardingComplete,
+  publicDemo = false,
   webOAuthCallbackInProgress = false,
 }: RouteGuardInput): RouteGuardRedirect {
   if (!pathname) return null;
@@ -82,6 +106,18 @@ export function getRouteGuardRedirect({
 
   if (isPublicMediaKitPath(pathname) || isPublicProposalPath(pathname)) {
     return null;
+  }
+
+  if (isPublicDemoEntryPath(pathname)) {
+    return null;
+  }
+
+  if (publicDemo && isPublicDemoMailboxPreviewPath(pathname)) {
+    return null;
+  }
+
+  if (publicDemo && isPublicDemoRestrictedPath(pathname)) {
+    return '/';
   }
 
   if (isPublicLegalPath(pathname)) {

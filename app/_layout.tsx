@@ -19,6 +19,7 @@ import { AuthSessionSync } from '@/components/AuthSessionSync';
 import { DevTestSeed } from '@/components/DevTestSeed';
 import { LanguagePreferenceSync } from '@/components/LanguagePreferenceSync';
 import { NavigationBootstrap } from '@/components/NavigationBootstrap';
+import { PublicDemoBanner } from '@/components/PublicDemoBanner';
 import { PushNotificationHandler } from '@/src/push/push-notification-handler';
 import { PushRegistrationSync } from '@/src/push/push-registration-sync';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -100,6 +101,7 @@ function RootLayoutNav() {
           <Stack.Screen name="team" options={{ headerShown: false }} />
           <Stack.Screen name="intro" options={{ headerShown: false }} />
           <Stack.Screen name="home" options={{ headerShown: false }} />
+          <Stack.Screen name="demo" options={{ headerShown: false }} />
           <Stack.Screen name="privacy" options={{ title: t('stacks.privacy') }} />
           <Stack.Screen name="terms" options={{ title: t('stacks.terms') }} />
           <Stack.Screen name="opportunity-manual" options={{ title: t('stacks.opportunityManual') }} />
@@ -110,6 +112,7 @@ function RootLayoutNav() {
         <PushNotificationHandler />
         <DevTestSeed />
         <NavigationBootstrap />
+        <PublicDemoBanner />
           </AppDialogHost>
         </ThemeProvider>
       </QueryClientProvider>

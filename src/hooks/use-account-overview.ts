@@ -186,7 +186,7 @@ export async function hydrateSessionFromBackend(): Promise<void> {
   if (overview) applyOverviewToSession(overview);
 }
 
-export function useAccountOverview() {
+export function useAccountOverview(options?: { enabled?: boolean }) {
   const queryClient = useQueryClient();
   const apiMode = shouldUseBackendApi();
   const queryKey = useTenantQueryKey('account', 'overview', { api: apiMode });
@@ -206,7 +206,7 @@ export function useAccountOverview() {
       return overview;
     },
     retry: false,
-    enabled: tenantQueryEnabled,
+    enabled: tenantQueryEnabled && (options?.enabled ?? true),
   });
 
   useEffect(() => {

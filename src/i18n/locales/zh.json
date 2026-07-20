@@ -138,6 +138,27 @@
       "todaySnooze": "稍后提醒"
     }
   },
+  "publicDemo": {
+    "start": "无需登录，开始体验",
+    "startA11y": "无需登录，使用示例数据开始体验",
+    "privacyNote": "使用虚构示例数据，不会连接、读取或保存您的邮箱内容。",
+    "signInInstead": "已有账号？登录",
+    "entering": "正在准备演示工作区…",
+    "banner": "演示模式｜所有品牌、邮件、金额和联系人均为虚构示例数据",
+    "badge": "演示模式 · 示例数据",
+    "exit": "退出体验",
+    "exitCompact": "退出",
+    "simulateSync": "模拟同步",
+    "simulatingSync": "模拟同步中…",
+    "simulateSyncA11y": "模拟同步示例邮箱",
+    "actionTitle": "Demo 模式",
+    "mailboxActionBody": "此功能需要连接真实邮箱，在 Demo 模式中不可用。",
+    "opportunityActionBody": "此功能会创建真实合作记录，在 Demo 模式中不可用。",
+    "readOnlyTitle": "演示页面",
+    "teamReadOnly": "可查看协作者界面；邀请、移除和撤销操作在公开体验中已关闭。",
+    "samplePlanTitle": "示例订阅",
+    "subscriptionReadOnly": "套餐、额度和账单信息均为示例，不会产生购买或扣费。"
+  },
   "auth": {
     "creatorFallback": "创作者",
     "passwordLabel": "密码",
@@ -337,6 +358,7 @@
     },
     "swipe": {
       "deferLeft": "← 推迟",
+      "deferHint": "左滑可稍后处理",
       "confirmRight": "确认 →"
     },
     "confirm": "确认",
@@ -1394,7 +1416,7 @@
     "emptyCommercialTitle": "暂无需要处理的邮件",
     "emptyCommercialDesc": "全部邮件仍会保留分类；这里只显示 P0–P2 优先级队列（含托管交付）。",
     "emptyPriorityTitle": "暂无 P0–P2 邮件",
-    "emptyPriorityDesc": "紧急、高价值与稍后看的线索会出现在这里；其余邮件可在「全部邮件」查看。",
+    "emptyPriorityDesc": "其他邮件可在「全部邮件」查看。",
     "emptyProcessingTitle": "正在分类历史邮件",
     "emptyProcessingDesc": "认证前同步的邮件正在后台处理。请稍等片刻，或再点一次「同步邮箱」。",
     "emptyConnectMailbox": "连接邮箱",

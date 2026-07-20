@@ -18,6 +18,7 @@ import { resolveDisplayInboxPriority, type InboxPriorityInput } from '@/src/lib/
 import type { CreatorVerificationStatus } from '@/src/lib/creator-verification';
 import type { InboxThread } from '@/src/types/domain';
 import type { InboxViewMode } from '@/src/stores/inbox-view-store';
+import { useSessionStore } from '@/src/stores/session-store';
 
 export function InboxEmailStatusCard({
   email,
@@ -33,6 +34,7 @@ export function InboxEmailStatusCard({
   syncing?: boolean;
 }) {
   const { t } = useTranslation();
+  const isPublicDemo = useSessionStore((state) => state.demoWorkspaceKind === 'public');
   const colorScheme = useColorScheme() ?? 'light';
   const theme = palette[colorScheme];
 
@@ -54,7 +56,9 @@ export function InboxEmailStatusCard({
           <Ionicons name="mail-outline" size={18} color={theme.primary} />
         </View>
         <View style={styles.emailCopy}>
-          {verificationStatus ? <CreatorVerificationBadge status={verificationStatus} compact /> : null}
+          {verificationStatus && verificationStatus !== 'verified' ? (
+            <CreatorVerificationBadge status={verificationStatus} compact />
+          ) : null}
           <Text style={[styles.emailAddress, { color: theme.foreground }]} numberOfLines={1}>
             {email}
           </Text>
@@ -65,7 +69,7 @@ export function InboxEmailStatusCard({
         <Pressable
           testID="inbox-sync-button"
           accessibilityRole="button"
-          accessibilityLabel={t('inboxScreen.syncNowA11y')}
+          accessibilityLabel={t(isPublicDemo ? 'publicDemo.simulateSyncA11y' : 'inboxScreen.syncNowA11y')}
           disabled={syncing}
           onPress={onSync}
           hitSlop={8}
@@ -81,7 +85,9 @@ export function InboxEmailStatusCard({
             <Ionicons name="refresh-outline" size={16} color={theme.primary} />
           )}
           <Text style={[styles.syncButtonLabel, { color: theme.primary }]} numberOfLines={1}>
-            {syncing ? t('inboxScreen.syncMailboxCtaBusy') : t('inboxScreen.syncMailboxCta')}
+            {syncing
+              ? t(isPublicDemo ? 'publicDemo.simulatingSync' : 'inboxScreen.syncMailboxCtaBusy')
+              : t(isPublicDemo ? 'publicDemo.simulateSync' : 'inboxScreen.syncMailboxCta')}
           </Text>
         </Pressable>
       ) : null}
@@ -96,26 +102,21 @@ export function InboxAddDealCard() {
   const theme = palette[colorScheme];
 
   return (
-    <View style={[styles.addDealCard, { borderColor: '#F59E0B55', backgroundColor: theme.card }]}>
-      <View style={styles.addDealCopy}>
-        <Text style={[styles.addDealTitle, { color: theme.foreground }]}>{t('inboxScreen.addDealTitle')}</Text>
-        <Text style={[styles.addDealBody, { color: theme.mutedForeground }]}>{t('inboxScreen.addDealBody')}</Text>
+    <Pressable
+      testID="inbox-manual-entry-cta"
+      accessibilityRole="button"
+      onPress={() => router.push('/inbox/manual' as Href)}
+      style={({ pressed }) => [
+        styles.addDealCard,
+        { borderColor: '#F59E0B55', backgroundColor: theme.card },
+        pressed && styles.cardPressed,
+      ]}>
+      <View style={[styles.addDealIcon, { backgroundColor: '#F59E0B18' }]}>
+        <Ionicons name="add" size={18} color={theme.primary} />
       </View>
-      <Pressable
-        testID="inbox-manual-entry-cta"
-        accessibilityRole="button"
-        onPress={() => router.push('/inbox/manual' as Href)}
-        style={({ pressed }) => [
-          styles.addDealButton,
-          { backgroundColor: theme.primary },
-          pressed && styles.cardPressed,
-        ]}>
-        <Ionicons name="add" size={16} color={theme.primaryForeground} />
-        <Text style={[styles.addDealButtonLabel, { color: theme.primaryForeground }]}>
-          {t('inboxScreen.addDealCta')}
-        </Text>
-      </Pressable>
-    </View>
+      <Text style={[styles.addDealTitle, { color: theme.foreground }]}>{t('inboxScreen.addDealTitle')}</Text>
+      <Ionicons name="chevron-forward" size={18} color={theme.foregroundEyebrow} />
+    </Pressable>
   );
 }
 
@@ -179,6 +180,7 @@ export function InboxCollaborationCard({
     thread.updatedAtISO,
     i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US',
   );
+  const metaLine = `${presentation.infoLine} · ${relativeTime}`;
 
   return (
     <Pressable
@@ -198,14 +200,8 @@ export function InboxCollaborationCard({
           {presentation.name}
         </Text>
         <Text style={[styles.collabInfo, { color: theme.mutedForeground }]} numberOfLines={1}>
-          {presentation.infoLine}
+          {metaLine}
         </Text>
-        {presentation.brandLine ? (
-          <Text style={[styles.collabBrand, { color: theme.mutedForeground }]} numberOfLines={1}>
-            {presentation.brandLine}
-          </Text>
-        ) : null}
-        <Text style={[styles.collabTime, { color: theme.foregroundEyebrow }]}>{relativeTime}</Text>
       </View>
       <View style={styles.collabTrailing}>
         {displayPriority ? (
@@ -254,7 +250,7 @@ const styles = StyleSheet.create({
     maxWidth: 132,
   },
   syncButtonLabel: {
-    fontSize: fontSize.caption,
+    fontSize: fontSize.bodySmall,
     fontWeight: '700',
     flexShrink: 1,
   },
@@ -276,20 +272,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    minHeight: layout.touchMin,
   },
-  addDealCopy: { flex: 1, gap: spacing.xs, minWidth: 0 },
-  addDealTitle: { fontSize: fontSize.body, fontWeight: '800', lineHeight: lineHeight.body },
-  addDealBody: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
-  addDealButton: {
+  addDealIcon: {
+    width: 36,
+    height: 36,
     borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 36,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'center',
   },
-  addDealButtonLabel: { fontSize: fontSize.caption, fontWeight: '800' },
+  addDealTitle: { flex: 1, fontSize: fontSize.body, fontWeight: '800', lineHeight: lineHeight.body },
   collabCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.lg,
@@ -309,9 +301,7 @@ const styles = StyleSheet.create({
   collabAvatarLabel: { fontSize: fontSize.bodySmall, fontWeight: '800' },
   collabCopy: { flex: 1, gap: 2, minWidth: 0 },
   collabName: { fontSize: fontSize.body, fontWeight: '800', lineHeight: lineHeight.body },
-  collabInfo: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
-  collabBrand: { fontSize: fontSize.caption, lineHeight: lineHeight.body },
-  collabTime: { fontSize: fontSize.caption, marginTop: spacing.xs },
+  collabInfo: { fontSize: fontSize.bodySmall, lineHeight: lineHeight.body },
   collabTrailing: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',

@@ -9,6 +9,10 @@ import type { SocialPlatformKey } from '@/src/api/mock-creator-profile';
 import type { CreatorPlatformProfile, PresetPlatformKey } from '@/src/types/creator-profile';
 import type { CreatorVerificationStatus } from '@/src/lib/creator-verification';
 import { useDraftApprovalStore } from '@/src/stores/draft-approval-store';
+import {
+  PUBLIC_DEMO_ACCOUNT_EMAIL,
+  PUBLIC_DEMO_MAILBOX_EMAIL,
+} from '@/src/demo/public-demo-data';
 
 /** Onboarding creator profile basics. */
 export type CreatorProfileBasics = {
@@ -40,6 +44,7 @@ export type MailboxConnection = {
 export type AgentSendMode = 'agent_assist' | 'review_only';
 export type CreatorFocusMode = 'quiet' | 'work';
 export type ClassificationStrictness = 'relaxed' | 'standard' | 'strict';
+export type DemoWorkspaceKind = 'developer' | 'public' | null;
 
 type SessionState = {
   /** Demo auth state before real access tokens. */
@@ -95,6 +100,8 @@ type SessionState = {
   membershipRole: string | null;
   /** Dev skip / test workspace: use local mock data even when API URL is set. */
   isLocalDemoWorkspace: boolean;
+  /** Distinguishes internal test shortcuts from the customer-facing public sandbox. */
+  demoWorkspaceKind: DemoWorkspaceKind;
 
   /** Apply backend AuthResponse / Me after register, login, or bootstrap. */
   applyAuthSession: (session: AuthSession) => void;
@@ -104,6 +111,8 @@ type SessionState = {
   clearLocalSession: () => void;
   /** Developer shortcut to demo workspace. */
   jumpToWorkspaceDemo: () => void;
+  /** Customer-facing browser sandbox; never clears or creates auth tokens. */
+  enterPublicDemo: () => void;
 
   setProfileBasics: (value: CreatorProfileBasics) => void;
   acceptCompliance: (agentSendMode?: AgentSendMode) => void;
@@ -144,6 +153,7 @@ const initialSession = {
   creatorVerificationStatus: 'verified' as CreatorVerificationStatus,
   membershipRole: null as string | null,
   isLocalDemoWorkspace: false,
+  demoWorkspaceKind: null as DemoWorkspaceKind,
   profileBasics: null as CreatorProfileBasics | null,
   complianceAcceptedAt: null as string | null,
   agentSendMode: null as AgentSendMode | null,
@@ -162,6 +172,75 @@ const initialSession = {
   productTourDismissed: false,
   authBootstrapReady: !isApiConfigured(),
 };
+
+function createDemoWorkspaceState(kind: Exclude<DemoWorkspaceKind, null>): Partial<SessionState> {
+  const publicDemo = kind === 'public';
+  return {
+    isAuthenticated: true,
+    isLocalDemoWorkspace: true,
+    demoWorkspaceKind: kind,
+    accountEmail: publicDemo ? PUBLIC_DEMO_ACCOUNT_EMAIL : 'demo@bioby.ai',
+    pendingDisplayName: null,
+    tenantPublicId: null,
+    tenantDisplayName: null,
+    membershipRole: null,
+    profileBasics: {
+      displayName: 'Mia Skin Notes',
+      niche: 'Skincare reviews / Sensitive skin',
+      platforms: ['YouTube', 'TikTok', 'Instagram'],
+      profileUrl: 'https://www.tiktok.com/@skin.notes',
+      platform: 'tiktok',
+      platformLabel: 'TikTok',
+      handle: 'skin.notes',
+      bio: 'Skincare creator focused on sensitive-skin trials and clear ingredient stories.',
+      nicheTags: ['Skincare reviews', 'Sensitive skin'],
+      followerCountLabel: '128k followers',
+      confidence: 'high',
+      platformProfiles: {
+        youtube: {
+          platform: 'youtube',
+          status: 'linked',
+          profileUrl: 'https://www.youtube.com/@MiaSkinNotes',
+          handle: 'MiaSkinNotes',
+          followerCountLabel: '72k subscribers',
+          confidence: 'high',
+        },
+        tiktok: {
+          platform: 'tiktok',
+          status: 'linked',
+          profileUrl: 'https://www.tiktok.com/@skin.notes',
+          handle: 'skin.notes',
+          followerCountLabel: '128k followers',
+          confidence: 'high',
+        },
+        instagram: {
+          platform: 'instagram',
+          status: 'linked',
+          profileUrl: 'https://www.instagram.com/miaskinnotes',
+          handle: 'miaskinnotes',
+          followerCountLabel: '145k followers',
+          confidence: 'high',
+        },
+      },
+    },
+    complianceAcceptedAt: new Date().toISOString(),
+    agentSendMode: 'agent_assist',
+    creatorFocusMode: 'quiet',
+    classificationStrictness: 'standard',
+    inboxFilterStepFinished: true,
+    emailWizardFinished: true,
+    emailSkipped: false,
+    rateCardStepFinished: true,
+    rateCardSkipped: false,
+    mailboxConnection: {
+      email: publicDemo ? PUBLIC_DEMO_MAILBOX_EMAIL : 'brand@demo.bioby.ai',
+      method: 'smtp',
+      connectedAt: new Date().toISOString(),
+    },
+    planAcknowledged: true,
+    onboardingComplete: true,
+  };
+}
 
 const sessionStateCreator: (
   set: (partial: Partial<SessionState> | ((state: SessionState) => Partial<SessionState>)) => void,
@@ -187,71 +266,9 @@ const sessionStateCreator: (
     set((state) => ({ ...initialSession, authBootstrapReady: state.authBootstrapReady }));
   },
 
-  jumpToWorkspaceDemo: () =>
-    set({
-      isAuthenticated: true,
-      isLocalDemoWorkspace: true,
-      accountEmail: 'demo@bioby.ai',
-      pendingDisplayName: null,
-      tenantPublicId: null,
-      tenantDisplayName: null,
-      membershipRole: null,
-      profileBasics: {
-        displayName: 'Mia Skin Notes',
-        niche: 'Skincare reviews / Sensitive skin',
-        platforms: ['YouTube', 'TikTok', 'Instagram'],
-        profileUrl: 'https://www.tiktok.com/@skin.notes',
-        platform: 'tiktok',
-        platformLabel: 'TikTok',
-        handle: 'skin.notes',
-        bio: 'Skincare creator focused on sensitive-skin trials and clear ingredient stories.',
-        nicheTags: ['Skincare reviews', 'Sensitive skin'],
-        followerCountLabel: '128k followers',
-        confidence: 'high',
-        platformProfiles: {
-          youtube: {
-            platform: 'youtube',
-            status: 'linked',
-            profileUrl: 'https://www.youtube.com/@MiaSkinNotes',
-            handle: 'MiaSkinNotes',
-            followerCountLabel: '72k subscribers',
-            confidence: 'high',
-          },
-          tiktok: {
-            platform: 'tiktok',
-            status: 'linked',
-            profileUrl: 'https://www.tiktok.com/@skin.notes',
-            handle: 'skin.notes',
-            followerCountLabel: '128k followers',
-            confidence: 'high',
-          },
-          instagram: {
-            platform: 'instagram',
-            status: 'linked',
-            profileUrl: 'https://www.instagram.com/miaskinnotes',
-            handle: 'miaskinnotes',
-            followerCountLabel: '145k followers',
-            confidence: 'high',
-          },
-        },
-      },
-      complianceAcceptedAt: new Date().toISOString(),
-      agentSendMode: 'agent_assist',
-      creatorFocusMode: 'quiet',
-      classificationStrictness: 'standard',
-      inboxFilterStepFinished: true,
-      emailWizardFinished: true,
-      emailSkipped: false,
-      rateCardStepFinished: true,
-      rateCardSkipped: false,
-      mailboxConnection: {
-        email: 'brand@demo.bioby.ai',
-        method: 'smtp',
-        connectedAt: new Date().toISOString(),
-      },
-      planAcknowledged: true,
-      onboardingComplete: true,
-    }),
+  jumpToWorkspaceDemo: () => set(createDemoWorkspaceState('developer')),
+
+  enterPublicDemo: () => set(createDemoWorkspaceState('public')),
 
   setProfileBasics: (value) => set({ profileBasics: value, pendingDisplayName: null }),
 
@@ -354,6 +371,7 @@ export const useSessionStore = persistSessionOnWeb
           tenantDisplayName: s.tenantDisplayName,
           membershipRole: s.membershipRole,
           isLocalDemoWorkspace: s.isLocalDemoWorkspace,
+          demoWorkspaceKind: s.demoWorkspaceKind,
           profileBasics: s.profileBasics,
           complianceAcceptedAt: s.complianceAcceptedAt,
           agentSendMode: s.agentSendMode,

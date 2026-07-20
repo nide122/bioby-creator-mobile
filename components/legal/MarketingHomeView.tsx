@@ -29,6 +29,7 @@ import { enterDemoWorkspace } from '@/src/auth/enter-demo-workspace';
 import { useAuthActions } from '@/src/auth/use-auth-actions';
 import type { MarketingHomeContent } from '@/src/legal/types';
 import { useSessionStore } from '@/src/stores/session-store';
+import { isPublicDemoEnabled } from '@/src/demo/public-demo-config';
 
 type Props = {
   content: MarketingHomeContent;
@@ -163,6 +164,7 @@ export function MarketingHomeView({ content }: Props) {
   const insets = useSafeAreaInsets();
   const [infoOpen, setInfoOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
+  const publicDemoEnabled = isPublicDemoEnabled();
 
   const devMenuBottom = 40 + Math.max(insets.bottom, spacing.xs) + spacing.xs;
 
@@ -258,23 +260,45 @@ export function MarketingHomeView({ content }: Props) {
             </>
           ) : (
             <>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push('/register' as Href)}
-                className={webClassName(
-                  corporateCleanClass.btnPrimary,
-                  corporateCleanClass.gradient,
-                  'landing-connect-gmail',
-                )}
-                style={[styles.primaryBtn, { backgroundColor: theme.primary }]}>
-                <GoogleIcon size={20} />
-                <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>{content.ctaPrimary}</Text>
-              </Pressable>
+              {publicDemoEnabled ? (
+                <>
+                  <Pressable
+                    testID="public-demo-home-cta"
+                    accessibilityRole="button"
+                    accessibilityLabel={t('publicDemo.startA11y')}
+                    onPress={() => router.push('/demo' as Href)}
+                    className={webClassName(corporateCleanClass.btnPrimary, corporateCleanClass.gradient)}
+                    style={[styles.primaryBtn, { backgroundColor: theme.primary }]}>
+                    <Ionicons name="play-outline" size={20} color={theme.primaryForeground} />
+                    <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>
+                      {t('publicDemo.start')}
+                    </Text>
+                  </Pressable>
+                  <Text style={[styles.demoPrivacy, { color: theme.mutedForeground }]}>
+                    {t('publicDemo.privacyNote')}
+                  </Text>
+                </>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/register' as Href)}
+                  className={webClassName(
+                    corporateCleanClass.btnPrimary,
+                    corporateCleanClass.gradient,
+                    'landing-connect-gmail',
+                  )}
+                  style={[styles.primaryBtn, { backgroundColor: theme.primary }]}>
+                  <GoogleIcon size={20} />
+                  <Text style={[styles.primaryLabel, { color: theme.primaryForeground }]}>{content.ctaPrimary}</Text>
+                </Pressable>
+              )}
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push('/login' as Href)}
                 style={styles.signInLink}>
-                <Text style={[styles.signInLinkLabel, { color: theme.mutedForeground }]}>{content.ctaSecondary}</Text>
+                <Text style={[styles.signInLinkLabel, { color: theme.mutedForeground }]}>
+                  {publicDemoEnabled ? t('publicDemo.signInInstead') : content.ctaSecondary}
+                </Text>
               </Pressable>
             </>
           )}
@@ -427,6 +451,12 @@ const styles = StyleSheet.create({
   primaryLabel: {
     fontSize: fontSize.body,
     fontWeight: '800',
+  },
+  demoPrivacy: {
+    fontSize: fontSize.caption,
+    lineHeight: 18,
+    textAlign: 'center',
+    maxWidth: 520,
   },
   signInLink: {
     minHeight: 28,

@@ -21,6 +21,7 @@ export function NavigationBootstrap() {
 
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
   const onboardingComplete = useSessionStore((s) => s.onboardingComplete);
+  const publicDemo = useSessionStore((s) => s.demoWorkspaceKind === 'public');
 
   useEffect(() => {
     hasMountedRef.current = true;
@@ -40,6 +41,7 @@ export function NavigationBootstrap() {
       pathname: pathname ?? '',
       isAuthenticated,
       onboardingComplete,
+      publicDemo,
       webOAuthCallbackInProgress,
     });
     if (!redirect) return;
@@ -48,7 +50,7 @@ export function NavigationBootstrap() {
       if (!hasMountedRef.current) return;
       router.replace(redirect as Href);
     });
-  }, [isAuthenticated, onboardingComplete, pathname, router, sessionHydrated, authBootstrapReady]);
+  }, [isAuthenticated, onboardingComplete, pathname, publicDemo, router, sessionHydrated, authBootstrapReady]);
 
   return null;
 }
